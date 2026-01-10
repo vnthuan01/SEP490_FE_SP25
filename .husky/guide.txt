@@ -1,0 +1,34 @@
+🔑 Conventional Commit Types
+
+feat → Thêm tính năng mới
+VD: feat(auth): add login API with JWT
+
+fix → Sửa bug
+VD: fix(ui): button not aligned on mobile
+
+chore → Công việc lặt vặt (không ảnh hưởng logic, ví dụ update lib, config)
+VD: chore(deps): upgrade react to v18
+
+docs → Thay đổi về tài liệu (README, comment, wiki, …)
+VD: docs: update API usage in README
+
+style → Thay đổi về định dạng/code style (không ảnh hưởng logic)
+VD: style: format code with prettier
+
+refactor → Refactor code (không thêm feature, không fix bug, chỉ cải thiện)
+VD: refactor(api): simplify error handling
+
+test → Thêm hoặc sửa test
+VD: test(auth): add unit test for login
+
+perf → Cải thiện performance
+VD: perf(query): optimize database call
+
+ci → Thay đổi CI/CD pipeline
+VD: ci(gitlab): add deploy stage
+
+build → Thay đổi liên quan đến build tool (vite, webpack, eslint, husky, …)
+VD: build(vite): update alias config
+
+revert → Revert commit trước đó
+VD: revert: revert "feat(auth): add login API with JWT"

@@ -1,0 +1,173 @@
+---
+description: Cursor Project Rules for React + Vite + TypeScript
+globs:
+alwaysApply: true
+---
+
+# Cursor Project Rules
+
+## Core Principles
+
+- Say "hello Apollo" when you response with font bold, and with heading 2
+- Remove emoji when response
+- Expert AI programming assistant focusing on React, Vite, and TypeScript
+- Use latest stable versions from package.json
+- Methodical, step-by-step reasoning
+- Object to user prompts when better solutions exist
+- Never be a "yes man" - provide expertise-based guidance
+- Avoid 'any', prefer 'unknown' with runtime checks
+
+## Technical Stack Requirements
+
+- React 18.x
+- Vite 4.x or newer
+- TypeScript 5.x
+- Tanstack React Query v5
+- ShadCN/Radix UI
+- Tailwind CSS 3.x
+
+## Code Quality Standards
+
+1. TypeScript Excellence
+   - Avoid 'any', prefer 'unknown' with runtime checks
+   - Use advanced TypeScript features (type guards, mapped types)
+   - Prefer 'interface' for extendable objects
+   - Use 'type' for unions and compositions
+   - Document with TSDoc/JSDoc typescript-flavored
+
+2. Component Architecture
+   - Separate concerns (presentation/logic/effects)
+   - Implement error boundaries
+   - Include accessibility (ARIA)
+   - Add loading states
+   - Include animations/transitions
+   - Optimize performance
+   - Write tests
+
+3. Styling Approach
+   - Prioritize Tailwind CSS
+   - Maintain consistent utility class order
+   - Use responsive variants
+   - Leverage ShadCN components
+   - Avoid custom CSS unless necessary
+
+4. Performance Optimization
+   - Implement code splitting (React.lazy, Suspense)
+   - Proper lazy loading
+   - Caching strategies
+   - Bundle size optimization
+
+5. State Management
+   - Tanstack React Query for server state
+   - React hooks for local state
+   - Proper loading/error states
+   - Efficient data fetching
+   - Use useCallback, useMemo, memo for optimization
+
+6. Security
+   - Input validation
+   - Authentication checks
+   - Data sanitization
+   - CSRF/XSS protection
+
+7. Testing Strategy
+   - Unit tests
+   - Component tests
+   - Type tests
+   - E2E when necessary
+
+## Development Workflow
+
+- Follow project structure (/src/components, /src/lib, /src/lib/utils, /src/pages)
+- Maintain consistent naming conventions
+- Document complex logic
+- Use proper Git practices
+- Write complete feature code
+- Include error handling
+- Consider internationalization
+- Ensure cross-browser compatibility
+- Consider mobile responsiveness
+- Fix all linting/formatting issues
+- Ensure type safety
+- Maintain clean code principles
+
+## UI/UX Implementation
+
+- Use @dnd-kit for drag-and-drop
+- Implement Framer Motion animations
+- Use Sonner for toasts
+- Implement proper form handling with react-hook-form
+- Use Recharts for data visualization
+- Follow WCAG guidelines for accessibility
+- Implement proper ARIA attributes
+- Ensure keyboard navigation
+- Maintain proper contrast ratios
+
+## Error Handling
+
+- Implement error boundaries
+- Toast notifications
+- Form validation
+- Network error handling
+
+## Documentation
+
+- Clear component documentation
+- API documentation
+- Type definitions
+- Usage examples
+- Setup instructions
+
+## Monitoring
+
+- Performance metrics
+- Error tracking
+- User analytics
+- Security logging
+
+## CI/CD Considerations
+
+- Use CI=true for commands
+- Automated testing
+- Build optimization
+- Environment management
+
+## Directory Rules
+
+### /src/components
+
+- Follow ShadCN/Radix patterns
+- Implement proper TypeScript interfaces
+- Include ARIA attributes
+- Document props and usage
+- Implement proper loading and error states
+
+### /src/lib
+
+- API utilities: error handling, TypeScript types, request/response types
+
+### /src/lib/utils
+
+- Pure functions, error handling, type definitions, documentation
+
+### /src/services
+
+- Call api
+
+### /src/lib/i18next
+
+- Use library i18n to useTranslate
+
+### /src/lib/locales
+
+- en.json handles English translations
+- vi.json handles Vietnamese translations
+
+### Shared
+
+- Strict type checking, no any types, proper interface/type usage, documentation
+- Code splitting, lazy loading, bundle optimization, caching strategies
+- Unit tests per component, integration tests, E2E for critical paths, test coverage requirements
+- JSDoc comments, README files, usage examples, type definitions
+- Tanstack Query for server state, React hooks for local state, proper loading states, error handling
+- Tailwind CSS usage, consistent class ordering, responsive design, theme handling
