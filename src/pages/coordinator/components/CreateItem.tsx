@@ -129,13 +129,13 @@ export function CreateInventoryItemDialog({ open, onOpenChange, onSubmit }: Item
                   <TooltipTrigger asChild>
                     <span
                       className="
-          material-symbols-outlined
-          text-[18px]
-          text-muted-foreground
-          cursor-help
-          hover:text-foreground
-          transition-colors
-        "
+                      material-symbols-outlined
+                      text-[18px]
+                      text-muted-foreground
+                      cursor-help
+                      hover:text-foreground
+                      transition-colors
+                    "
                     >
                       help
                     </span>
