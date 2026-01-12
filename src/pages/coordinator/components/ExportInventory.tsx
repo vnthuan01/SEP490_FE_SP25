@@ -8,8 +8,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import type { ExportInventoryDialogProps, ExportItem } from '@/types/exportInventory';
 import { Textarea } from '@/components/ui/textarea';
 
-/* ================= COMPONENT ================= */
-
 export function ExportInventoryDialog({
   open,
   onOpenChange,
@@ -42,7 +40,6 @@ export function ExportInventoryDialog({
   }, [open]);
 
   /* ================= STOCK BADGE ================= */
-
   const getStockBadgeClass = (current: number, capacity: number) => {
     const percent = (current / capacity) * 100;
 
@@ -59,7 +56,6 @@ export function ExportInventoryDialog({
   };
 
   /* ================= ACTIONS ================= */
-
   const addToExport = (item: ExportItem) => {
     setSelectedItems((prev) => {
       if (prev.some((i) => i.id === item.id)) return prev;
@@ -98,8 +94,6 @@ export function ExportInventoryDialog({
   };
 
   const totalLines = selectedItems.length;
-
-  /* ================= RENDER ================= */
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
