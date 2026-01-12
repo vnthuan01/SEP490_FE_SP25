@@ -188,14 +188,14 @@ function LoginPage() {
           {/* Bottom strip */}
           <div
             className="
-    h-1.5
-    bg-gradient-to-r
-    from-blue-600 from-0%
-    via-primary via-15%
-    to-blue-400 to-100%
-    bg-[length:200%_200%]
-    animate-[gradientShift_5s_ease-in-out_infinite]
-  "
+            h-1.5
+            bg-gradient-to-r
+            from-blue-600 from-0%
+            via-primary via-15%
+            to-blue-400 to-100%
+            bg-[length:200%_200%]
+            animate-[gradientShift_5s_ease-in-out_infinite]
+          "
           />
         </div>
       </div>
