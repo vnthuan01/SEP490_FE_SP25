@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 // import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 
-/* ================= TYPES ================= */
 type RequestStatus = 'urgent' | 'high' | 'normal';
 type ProcessStatus = 'submitted' | 'approved' | 'in_progress' | 'completed' | 'rejected';
 type SupportType = 'food' | 'medicine' | 'evacuation' | 'rescue' | 'other';
@@ -30,7 +29,6 @@ interface Request {
   media?: RequestMedia[];
 }
 
-/* ================= CONFIG ================= */
 const statusConfig: Record<RequestStatus, { label: string; className: string }> = {
   urgent: {
     label: 'NGUY CẤP',
