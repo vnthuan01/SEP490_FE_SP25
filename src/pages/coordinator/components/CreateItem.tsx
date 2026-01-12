@@ -145,18 +145,18 @@ export function CreateInventoryItemDialog({ open, onOpenChange, onSubmit }: Item
                     side="top"
                     align="start"
                     className="
-        max-w-[260px] 
-        text-xs 
-        leading-relaxed 
-        rounded 
-        bg-background 
-        text-foreground 
-        shadow-md 
-        border border-border
-        dark:bg-slate-800 
-        dark:text-slate-100 
-        dark:border-slate-700
-      "
+                    max-w-[260px] 
+                    text-xs 
+                    leading-relaxed 
+                    rounded 
+                    bg-background 
+                    text-foreground 
+                    shadow-md 
+                    border border-border
+                    dark:bg-slate-800 
+                    dark:text-slate-100 
+                    dark:border-slate-700
+                    "
                   >
                     <p className="font-medium mb-1">Cách nhập Icon</p>
 
