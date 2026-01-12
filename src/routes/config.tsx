@@ -4,12 +4,11 @@ import LoginPage from '@/pages/auth/LoginPage';
 // import AdminDashboardPage from '@/pages/admin/DashboardPage';
 // import AdminUserManagementPage from '@/pages/admin/UserManagementPage';
 // import CoordinationPage from '@/pages/coordinator/CoordinationPage';
-// import CoordinatorDashboardPage from '@/pages/coordinator/DashboardPage';
-// import CoordinatorUserManagementPage from '@/pages/coordinator/UserManagementPage';
-// import CoordinatorRequestManagementPage from '@/pages/coordinator/RequestManagementPage';
+import CoordinatorDashboardPage from '@/pages/coordinator/DashboardPage';
+import CoordinatorRequestManagementPage from '@/pages/coordinator/RequestManagementPage';
 // import CoordinatorMapsPage from '@/pages/coordinator/MemberAllocationPage';
 // import CoordinatorTeamsPage from '@/pages/coordinator/TeamsPage';
-// import CoordinatorInventoryPage from '@/pages/coordinator/InventoryPage';
+import CoordinatorInventoryPage from '@/pages/coordinator/InventoryPage';
 import type { AppRoute } from '@/types/routes';
 import RoleBasedRoute from './protectedRoute';
 import { Navigate } from 'react-router-dom';
@@ -41,19 +40,14 @@ export const routes: AppRoute[] = [
   //   isProtected: false,
   // },
 
-  // //Coordinator routes
-  // {
-  //   path: '/portal/coordinator/dashboard',
-  //   element: <CoordinatorDashboardPage />,
-  //   // roles: [UserRole.Coordinator],
-  //   isProtected: false,
-  // },
-  // {
-  //   path: '/portal/coordinator/coordination',
-  //   element: <CoordinationPage />,
-  //   // roles: [UserRole.Coordinator],
-  //   isProtected: false,
-  // },
+  //Coordinator routes
+  {
+    path: '/portal/coordinator/dashboard',
+    element: <CoordinatorDashboardPage />,
+    // roles: [UserRole.Coordinator],
+    isProtected: false,
+  },
+
   // {
   //   path: '/portal/coordinator/maps',
   //   element: <CoordinatorMapsPage />,
@@ -66,22 +60,16 @@ export const routes: AppRoute[] = [
   //   // roles: [UserRole.Coordinator],
   //   isProtected: false,
   // },
-  // {
-  //   path: '/portal/coordinator/inventory',
-  //   element: <CoordinatorInventoryPage />,
-  //   // roles: [UserRole.Coordinator],
-  //   isProtected: false,
-  // },
-  // {
-  //   path: '/portal/coordinator/users',
-  //   element: <CoordinatorUserManagementPage />,
-  //   // roles: [UserRole.Coordinator],
-  //   isProtected: false,
-  // },
-  // {
-  //   path: '/portal/coordinator/requests',
-  //   element: <CoordinatorRequestManagementPage />,
-  //   // roles: [UserRole.Coordinator],
-  //   isProtected: false,
-  // },
+  {
+    path: '/portal/coordinator/inventory',
+    element: <CoordinatorInventoryPage />,
+    // roles: [UserRole.Coordinator],
+    isProtected: false,
+  },
+  {
+    path: '/portal/coordinator/requests',
+    element: <CoordinatorRequestManagementPage />,
+    // roles: [UserRole.Coordinator],
+    isProtected: false,
+  },
 ];
