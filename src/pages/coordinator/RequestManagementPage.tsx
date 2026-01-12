@@ -87,7 +87,6 @@ const actionConfig: Record<ProcessStatus, { primary?: string; secondary?: string
   rejected: {},
 };
 
-/* ================= MOCK DATA ================= */
 const mockRequests: Request[] = [
   {
     id: '8291',
