@@ -219,10 +219,10 @@ export function CreateInventoryItemDialog({ open, onOpenChange, onSubmit }: Item
                   update('unit', e.target.value)
                 }
                 className="
-      w-full h-10 rounded-md border border-border
-      bg-background px-3 text-sm text-foreground
-      focus:outline-none focus:ring-2 focus:ring-primary
-    "
+                  w-full h-10 rounded-md border border-border
+                  bg-background px-3 text-sm text-foreground
+                  focus:outline-none focus:ring-2 focus:ring-primary
+                "
               >
                 <option value="">-- Chọn đơn vị --</option>
 
