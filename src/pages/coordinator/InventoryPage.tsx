@@ -7,8 +7,6 @@ import { mockTeams } from '@/types/mock';
 import type { ExportItem } from '@/types/exportInventory';
 import { CreateInventoryItemDialog } from './components/CreateItem';
 
-/* ================= TYPES ================= */
-
 type InventoryStat = {
   id: string;
   label: string;
@@ -32,8 +30,6 @@ type InventoryItem = {
   unit: string;
   status: InventoryStatus;
 };
-
-/* ================= STATUS MAP ================= */
 
 const statusMap: Record<
   InventoryStatus,
@@ -70,13 +66,9 @@ const statusMap: Record<
   },
 };
 
-/* ================= COMPONENT ================= */
-
 export default function CoordinatorInventoryPage() {
   const [filter, setFilter] = useState<'all' | InventoryStatus>('all');
   const [openCreate, setOpenCreate] = useState(false);
-
-  /* ================= MOCK DATA ================= */
 
   const inventoryStats: InventoryStat[] = [
     {
