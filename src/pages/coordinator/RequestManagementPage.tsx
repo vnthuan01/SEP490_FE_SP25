@@ -218,7 +218,6 @@ const statusCount = {
   normal: mockRequests.filter((r) => r.status === 'normal').length,
 };
 
-/* ================= PAGE ================= */
 export default function CoordinatorRequestManagementPage() {
   const [selectedRequest, setSelectedRequest] = useState<Request>(mockRequests[0]);
   const [filterStatus, setFilterStatus] = useState<RequestStatus | 'all'>('all');
