@@ -86,16 +86,16 @@ function LoginPage() {
         {/* Background decor */}
         <div
           className="
-    absolute inset-0 pointer-events-none
-    bg-[url('https://lh3.googleusercontent.com/aida-public/AB6AXuAO6tUYI2zyzqOE7gRminOx08U9q-7yhhwDDv4fdx0EfgD5-dKTnC-LRh0w422OQkWNL-aGaFRUip1f8O5IMnpHb4kQuywlKTG53rEiSwvVc2-PmdpbxVC6Ab1wWwVG7vB0VpWKAYPaMtOYLt_ve02NZ40vRM3_CmoeUnCRgqtUbBjhTlCDLGJjRCZ3O_ho30Crr0sEft-i2EkKkv5vqZUTiP7PVKP3b0Yn2Qy6sEaAsA12CnT7S-K8x27_XEjHWWHbSKXcr3bHdog')]
-    bg-cover bg-center
+          absolute inset-0 pointer-events-none
+          bg-[url('https://lh3.googleusercontent.com/aida-public/AB6AXuAO6tUYI2zyzqOE7gRminOx08U9q-7yhhwDDv4fdx0EfgD5-dKTnC-LRh0w422OQkWNL-aGaFRUip1f8O5IMnpHb4kQuywlKTG53rEiSwvVc2-PmdpbxVC6Ab1wWwVG7vB0VpWKAYPaMtOYLt_ve02NZ40vRM3_CmoeUnCRgqtUbBjhTlCDLGJjRCZ3O_ho30Crr0sEft-i2EkKkv5vqZUTiP7PVKP3b0Yn2Qy6sEaAsA12CnT7S-K8x27_XEjHWWHbSKXcr3bHdog')]
+          bg-cover bg-center
 
-    /* Default / Light theme */
-    brightness-100 contrast-100 opacity-10
+          /* Default / Light theme */
+          brightness-100 contrast-100 opacity-10
 
-    /* Dark theme */
-    dark:brightness-75 dark:contrast-90 dark:opacity-06
-  "
+          /* Dark theme */
+          dark:brightness-75 dark:contrast-90 dark:opacity-06
+        "
         />
         {/* ===== LOGIN CARD ===== */}
         <div className="relative z-10 w-full max-w-[460px] bg-surface rounded-2xl shadow-xl border overflow-hidden">
@@ -188,14 +188,14 @@ function LoginPage() {
           {/* Bottom strip */}
           <div
             className="
-    h-1.5
-    bg-gradient-to-r
-    from-blue-600 from-0%
-    via-primary via-15%
-    to-blue-400 to-100%
-    bg-[length:200%_200%]
-    animate-[gradientShift_5s_ease-in-out_infinite]
-  "
+            h-1.5
+            bg-gradient-to-r
+            from-blue-600 from-0%
+            via-primary via-15%
+            to-blue-400 to-100%
+            bg-[length:200%_200%]
+            animate-[gradientShift_5s_ease-in-out_infinite]
+          "
           />
         </div>
       </div>
