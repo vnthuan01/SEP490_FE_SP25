@@ -227,17 +227,17 @@ export default function CoordinatorMemberAllocationPage() {
                 <button
                   onClick={() => setShowSidebar(!showSidebar)}
                   className="
-          absolute top-4 right-4 z-20
-          bg-white text-slate-700
-          p-2
-          flex items-center justify-center
-          rounded-lg
-          border border-slate-200
-          shadow-md
-          hover:bg-slate-50
-          hover:shadow-lg
-          transition-all
-        "
+                    absolute top-4 right-4 z-20
+                    bg-white text-slate-700
+                    p-2
+                    flex items-center justify-center
+                    rounded-lg
+                    border border-slate-200
+                    shadow-md
+                    hover:bg-slate-50
+                    hover:shadow-lg
+                    transition-all
+                  "
                   aria-label={showSidebar ? 'Ẩn danh sách' : 'Hiện danh sách'}
                 >
                   <span className="material-symbols-outlined text-[20px]">
