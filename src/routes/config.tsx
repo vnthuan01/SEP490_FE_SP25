@@ -6,7 +6,7 @@ import LoginPage from '@/pages/auth/LoginPage';
 // import CoordinationPage from '@/pages/coordinator/CoordinationPage';
 import CoordinatorDashboardPage from '@/pages/coordinator/DashboardPage';
 import CoordinatorRequestManagementPage from '@/pages/coordinator/RequestManagementPage';
-// import CoordinatorMapsPage from '@/pages/coordinator/MemberAllocationPage';
+import CoordinatorMapsPage from '@/pages/coordinator/MemberAllocationPage';
 // import CoordinatorTeamsPage from '@/pages/coordinator/TeamsPage';
 import CoordinatorInventoryPage from '@/pages/coordinator/InventoryPage';
 import type { AppRoute } from '@/types/routes';
@@ -48,12 +48,12 @@ export const routes: AppRoute[] = [
     isProtected: false,
   },
 
-  // {
-  //   path: '/portal/coordinator/maps',
-  //   element: <CoordinatorMapsPage />,
-  //   // roles: [UserRole.Coordinator],
-  //   isProtected: false,
-  // },
+  {
+    path: '/portal/coordinator/maps',
+    element: <CoordinatorMapsPage />,
+    // roles: [UserRole.Coordinator],
+    isProtected: false,
+  },
   // {
   //   path: '/portal/coordinator/teams',
   //   element: <CoordinatorTeamsPage />,
