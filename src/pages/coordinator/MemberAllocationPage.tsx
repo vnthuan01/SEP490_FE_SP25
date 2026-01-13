@@ -14,6 +14,7 @@ import { FilterBar } from './components/FilterBar';
 import { LocationList } from './components/LocationList';
 import { ReliefMap } from './components/ReliefMap';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { LocationDetailSheet } from './components/LocationDetailSheet';
 
 const GOONG_API_KEY = import.meta.env.VITE_GOONG_MAP_KEY || '';
 
@@ -220,6 +221,14 @@ export default function CoordinatorMemberAllocationPage() {
             apiKey={GOONG_API_KEY}
           />
 
+          <LocationDetailSheet
+            location={reliefLocations.find((l) => l.id === selectedLocationId) || null}
+            isOpen={!!selectedLocationId}
+            onClose={() => setSelectedLocationId(undefined)}
+            availableTeams={availableTeams}
+            onAssignTeam={handleAssignTeam}
+          />
+
           {/* Toggle sidebar button */}
           <TooltipProvider>
             <Tooltip>
@@ -227,17 +236,17 @@ export default function CoordinatorMemberAllocationPage() {
                 <button
                   onClick={() => setShowSidebar(!showSidebar)}
                   className="
-          absolute top-4 right-4 z-20
-          bg-white text-slate-700
-          p-2
-          flex items-center justify-center
-          rounded-lg
-          border border-slate-200
-          shadow-md
-          hover:bg-slate-50
-          hover:shadow-lg
-          transition-all
-        "
+                    absolute top-4 right-4 z-20
+                    bg-white text-slate-700
+                    p-2
+                    flex items-center justify-center
+                    rounded-lg
+                    border border-slate-200
+                    shadow-md
+                    hover:bg-slate-50
+                    hover:shadow-lg
+                    transition-all
+                  "
                   aria-label={showSidebar ? 'Ẩn danh sách' : 'Hiện danh sách'}
                 >
                   <span className="material-symbols-outlined text-[20px]">
@@ -249,14 +258,14 @@ export default function CoordinatorMemberAllocationPage() {
               <TooltipContent
                 side="left"
                 className={`
-    text-xs
-    px-3 py-1.5
-    rounded-md
-    shadow-lg
-    text-white
-    flex items-center gap-1
-    ${showSidebar ? 'bg-rose-600' : 'bg-emerald-600'}
-  `}
+                  text-xs
+                  px-3 py-1.5
+                  rounded-md
+                  shadow-lg
+                  text-white
+                  flex items-center gap-1
+                  ${showSidebar ? 'bg-rose-600' : 'bg-emerald-600'}
+              `}
               >
                 <span className="material-symbols-outlined text-[14px] text-blue-500">
                   {showSidebar ? 'visibility_off' : 'visibility'}
@@ -362,6 +371,13 @@ export default function CoordinatorMemberAllocationPage() {
           </aside>
         </div>
       </div>
+      <LocationDetailSheet
+        location={reliefLocations.find((l) => l.id === selectedLocationId) || null}
+        isOpen={!!selectedLocationId}
+        onClose={() => setSelectedLocationId(undefined)}
+        availableTeams={availableTeams}
+        onAssignTeam={handleAssignTeam}
+      />
     </DashboardLayout>
   );
 }
