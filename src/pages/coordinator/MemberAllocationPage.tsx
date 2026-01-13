@@ -249,14 +249,14 @@ export default function CoordinatorMemberAllocationPage() {
               <TooltipContent
                 side="left"
                 className={`
-    text-xs
-    px-3 py-1.5
-    rounded-md
-    shadow-lg
-    text-white
-    flex items-center gap-1
-    ${showSidebar ? 'bg-rose-600' : 'bg-emerald-600'}
-  `}
+                  text-xs
+                  px-3 py-1.5
+                  rounded-md
+                  shadow-lg
+                  text-white
+                  flex items-center gap-1
+                  ${showSidebar ? 'bg-rose-600' : 'bg-emerald-600'}
+              `}
               >
                 <span className="material-symbols-outlined text-[14px] text-blue-500">
                   {showSidebar ? 'visibility_off' : 'visibility'}
