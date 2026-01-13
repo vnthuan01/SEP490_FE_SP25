@@ -174,18 +174,18 @@ export function ReliefMap({
                     ${
                       location.urgency === 'high'
                         ? `<span style="display:flex;align-items:center;gap:6px">
-         <span class="material-symbols-outlined" style="font-size:20px">error</span>
-         <strong>KHẨN CẤP CAO</strong>
-       </span>`
+            <span class="material-symbols-outlined" style="font-size:20px">error</span>
+            <strong>KHẨN CẤP CAO</strong>
+            </span>`
                         : location.urgency === 'medium'
                           ? `<span style="display:flex;align-items:center;gap:6px">
-         <span class="material-symbols-outlined" style="font-size:20px">warning</span>
-         <strong>TRUNG BÌNH</strong>
-       </span>`
+            <span class="material-symbols-outlined" style="font-size:20px">warning</span>
+            <strong>TRUNG BÌNH</strong>
+            </span>`
                           : `<span style="display:flex;align-items:center;gap:6px">
-         <span class="material-symbols-outlined" style="font-size:20px">check_circle</span>
-         <strong>THẤP</strong>
-       </span>`
+             <span class="material-symbols-outlined" style="font-size:20px">check_circle</span>
+             <strong>THẤP</strong>
+                </span>`
                     }
 
             </div>
