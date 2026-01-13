@@ -8,6 +8,8 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { BadgeIcon } from '@/components/ui/badgeIcon';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface FilterBarProps {
   search: string;
@@ -55,55 +57,239 @@ export function FilterBar({
           </p>
         </div>
         <div className="flex gap-2">
-          <Input
-            placeholder="Tìm địa điểm..."
-            value={search}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="w-64"
-          />
-          <Select value={urgencyFilter} onValueChange={onUrgencyFilterChange}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Mức độ" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả mức độ</SelectItem>
-              <SelectItem value="high">🔴 Cao</SelectItem>
-              <SelectItem value="medium">🟡 Trung bình</SelectItem>
-              <SelectItem value="low">🟢 Thấp</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={statusFilter} onValueChange={onStatusFilterChange}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Trạng thái" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả trạng thái</SelectItem>
-              <SelectItem value="unassigned">Chưa xử lý</SelectItem>
-              <SelectItem value="assigned">Đã gán đội</SelectItem>
-              <SelectItem value="on-the-way">Đang đi</SelectItem>
-              <SelectItem value="completed">Hoàn thành</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={needsFilter} onValueChange={onNeedsFilterChange}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Nhu cầu" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả nhu cầu</SelectItem>
-              <SelectItem value="food">🍚 Lương thực</SelectItem>
-              <SelectItem value="water">💧 Nước</SelectItem>
-              <SelectItem value="medicine">💊 Thuốc</SelectItem>
-              <SelectItem value="emergencyRescue">🚑 Cứu hộ</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button variant="outline" onClick={onFitBounds} title="Xem tất cả">
-            <span className="material-symbols-outlined text-sm">zoom_out_map</span>
-          </Button>
-          <Button variant="outline" onClick={onToggleFullscreen} title="Toàn màn hình">
-            <span className="material-symbols-outlined text-sm">
-              {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
-            </span>
-          </Button>
+          <div className="flex flex-col gap-1">
+            {/* Label */}
+            <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+              <span className="material-symbols-outlined text-sm text-slate-500">search</span>
+              Tìm kiếm
+            </label>
+
+            {/* Input */}
+            <div className="relative w-64">
+              <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">
+                search
+              </span>
+
+              <Input
+                placeholder="Tìm địa điểm..."
+                value={search}
+                onChange={(e) => onSearchChange(e.target.value)}
+                className="pl-8 pr-8"
+              />
+
+              {/* Clear button */}
+
+              {search && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={() => onSearchChange('')}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        aria-label="Xóa tìm kiếm"
+                      >
+                        <span className="cursor-pointer material-symbols-outlined text-sm align-center text-red-400">
+                          close
+                        </span>
+                      </button>
+                    </TooltipTrigger>
+
+                    <TooltipContent side="top">
+                      <p className="text-red-500">Xóa tìm kiếm</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </div>
+          </div>
+
+          {/* Filter mức độ khẩn cấp */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+              <span className="material-symbols-outlined text-sm text-red-500">error</span>
+              Mức độ
+            </label>
+            <Select value={urgencyFilter} onValueChange={onUrgencyFilterChange}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="Mức độ" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">
+                  <div className="flex items-center gap-2">
+                    <BadgeIcon icon="layers" bg="#6b7280" />
+                    Tất cả mức độ
+                  </div>
+                </SelectItem>
+                <SelectItem value="high">
+                  <div className="flex items-center gap-2">
+                    <BadgeIcon icon="error" bg="#dc2626" />
+                    Cao
+                  </div>
+                </SelectItem>
+
+                <SelectItem value="medium">
+                  <div className="flex items-center gap-2">
+                    <BadgeIcon icon="warning" bg="#f59e0b" />
+                    Trung bình
+                  </div>
+                </SelectItem>
+
+                <SelectItem value="low">
+                  <div className="flex items-center gap-2">
+                    <BadgeIcon icon="check_circle" bg="#16a34a" />
+                    Thấp
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {/* Filter trạng thái */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+              <span className="material-symbols-outlined text-sm text-blue-500">sync</span>
+              Trạng thái
+            </label>
+            <Select value={statusFilter} onValueChange={onStatusFilterChange}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="Trạng thái" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[16px]">sync_alt</span>
+                    Tất cả trạng thái
+                  </div>
+                </SelectItem>
+
+                <SelectItem value="unassigned">
+                  <div className="flex items-center gap-2">
+                    <BadgeIcon icon="radio_button_unchecked" bg="#6b7280" />
+                    Chưa xử lý
+                  </div>
+                </SelectItem>
+
+                <SelectItem value="assigned">
+                  <div className="flex items-center gap-2">
+                    <BadgeIcon icon="group_add" bg="#2563eb" />
+                    Đã gán đội
+                  </div>
+                </SelectItem>
+
+                <SelectItem value="on-the-way">
+                  <div className="flex items-center gap-2">
+                    <BadgeIcon icon="directions_run" bg="#0ea5e9" />
+                    Đang đi
+                  </div>
+                </SelectItem>
+
+                <SelectItem value="completed">
+                  <div className="flex items-center gap-2">
+                    <BadgeIcon icon="check_circle" bg="#16a34a" />
+                    Hoàn thành
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {/* Filter theo nhu cầu cần thiết */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+              <span className="material-symbols-outlined text-sm text-indigo-500">inventory_2</span>
+              Nhu cầu
+            </label>
+
+            <Select value={needsFilter} onValueChange={onNeedsFilterChange}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="Chọn nhu cầu" />
+              </SelectTrigger>
+
+              <SelectContent>
+                <SelectItem value="all">
+                  <div className="flex items-center gap-2">
+                    <BadgeIcon icon="layers" bg="#6b7280" />
+                    Tất cả nhu cầu
+                  </div>
+                </SelectItem>
+
+                <SelectItem value="food">
+                  <div className="flex items-center gap-2">
+                    <BadgeIcon icon="restaurant" bg="#ea580c" />
+                    Lương thực
+                  </div>
+                </SelectItem>
+
+                <SelectItem value="water">
+                  <div className="flex items-center gap-2">
+                    <BadgeIcon icon="water_drop" bg="#0284c7" />
+                    Nước
+                  </div>
+                </SelectItem>
+
+                <SelectItem value="medicine">
+                  <div className="flex items-center gap-2">
+                    <BadgeIcon icon="medication" bg="#9333ea" />
+                    Thuốc
+                  </div>
+                </SelectItem>
+
+                <SelectItem value="emergencyRescue">
+                  <div className="flex items-center gap-2">
+                    <BadgeIcon icon="emergency" bg="#dc2626" />
+                    Cứu hộ
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex flex-col gap-1">
+            {/* Group title */}
+            <div className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+              <span className="material-symbols-outlined text-sm text-green-500">map</span>
+              Bản đồ
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex items-center gap-2">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={onFitBounds}
+                      aria-label="Xem tất cả khu vực"
+                    >
+                      <span className="material-symbols-outlined text-sm">zoom_out_map</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    Xem tất cả khu vực
+                  </TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={onToggleFullscreen}
+                      aria-label="Toàn màn hình"
+                    >
+                      <span className="material-symbols-outlined text-sm">
+                        {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
+                      </span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    {isFullscreen ? 'Thoát toàn màn hình' : 'Toàn màn hình'}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          </div>
         </div>
       </div>
 

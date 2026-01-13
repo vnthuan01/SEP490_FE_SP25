@@ -308,6 +308,7 @@ export function ReliefMap({
           offset: 25,
           maxWidth: '420px',
           closeButton: true,
+          className: 'p-2',
         }).setHTML(popupContent);
 
         popup.on('open', () => {

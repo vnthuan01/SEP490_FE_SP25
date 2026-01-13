@@ -1,10 +1,9 @@
 import type { ReliefLocation, Team, Headquarters } from './types';
 
-// Trụ sở chính tại Đà Nẵng (trung tâm miền Trung)
 export const HEADQUARTERS: Headquarters = {
-  name: 'Trung Tâm Điều Phối Cứu Trợ Miền Trung',
-  coordinates: { lat: 16.0544, lng: 108.2022 }, // Đà Nẵng
-  address: 'Đà Nẵng, Việt Nam',
+  name: 'Nhà Văn hóa Sinh viên – Thủ Đức',
+  coordinates: { lat: 10.87, lng: 106.805 }, // approx trung tâm Nhà Văn hóa Sinh viên, Thủ Đức
+  address: 'Khu đô thị Đại học Quốc gia TP. HCM, Thành phố Thủ Đức, TP. Hồ Chí Minh, Việt Nam',
 };
 
 // Mock data từ các tỉnh miền Trung hay bị bão lũ
