@@ -14,6 +14,7 @@ import { FilterBar } from './components/FilterBar';
 import { LocationList } from './components/LocationList';
 import { ReliefMap } from './components/ReliefMap';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { LocationDetailSheet } from './components/LocationDetailSheet';
 
 const GOONG_API_KEY = import.meta.env.VITE_GOONG_MAP_KEY || '';
 
@@ -220,6 +221,14 @@ export default function CoordinatorMemberAllocationPage() {
             apiKey={GOONG_API_KEY}
           />
 
+          <LocationDetailSheet
+            location={reliefLocations.find((l) => l.id === selectedLocationId) || null}
+            isOpen={!!selectedLocationId}
+            onClose={() => setSelectedLocationId(undefined)}
+            availableTeams={availableTeams}
+            onAssignTeam={handleAssignTeam}
+          />
+
           {/* Toggle sidebar button */}
           <TooltipProvider>
             <Tooltip>
@@ -362,6 +371,13 @@ export default function CoordinatorMemberAllocationPage() {
           </aside>
         </div>
       </div>
+      <LocationDetailSheet
+        location={reliefLocations.find((l) => l.id === selectedLocationId) || null}
+        isOpen={!!selectedLocationId}
+        onClose={() => setSelectedLocationId(undefined)}
+        availableTeams={availableTeams}
+        onAssignTeam={handleAssignTeam}
+      />
     </DashboardLayout>
   );
 }
