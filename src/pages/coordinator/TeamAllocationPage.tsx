@@ -18,7 +18,7 @@ import { LocationDetailSheet } from './components/LocationDetailSheet';
 
 const GOONG_API_KEY = import.meta.env.VITE_GOONG_MAP_KEY || '';
 
-export default function CoordinatorMemberAllocationPage() {
+export default function CoordinatorTeamAllocationPage() {
   const [teams, setTeams] = useState<Team[]>(teamsData);
   const [search, setSearch] = useState('');
   const [urgencyFilter, setUrgencyFilter] = useState<string>('all');
@@ -147,12 +147,12 @@ export default function CoordinatorMemberAllocationPage() {
     return (
       <DashboardLayout
         projects={[
-          { label: 'Tổng quan', path: '/portal/coordinator/coordination', icon: 'dashboard' },
+          { label: 'Tổng quan', path: '/portal/coordinator/data-management', icon: 'dashboard' },
           { label: 'Điều phối & Bản đồ', path: '/portal/coordinator/maps', icon: 'map' },
           { label: 'Đội tình nguyện', path: '/portal/coordinator/teams', icon: 'groups' },
           {
             label: 'Yêu cầu tình nguyện',
-            path: '/portal/coordinator/volunteers',
+            path: '/portal/coordinator/volunteer-requests',
             icon: 'how_to_reg',
           },
           {

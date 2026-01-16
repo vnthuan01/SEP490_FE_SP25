@@ -150,9 +150,14 @@ export default function CoordinatorInventoryPage() {
   return (
     <DashboardLayout
       projects={[
-        { label: 'Tổng quan', path: '/portal/coordinator/coordination', icon: 'dashboard' },
+        { label: 'Tổng quan', path: '/portal/coordinator/data-management', icon: 'dashboard' },
         { label: 'Điều phối & Bản đồ', path: '/portal/coordinator/maps', icon: 'map' },
         { label: 'Đội tình nguyện', path: '/portal/coordinator/teams', icon: 'groups' },
+        {
+          label: 'Yêu cầu tình nguyện',
+          path: '/portal/coordinator/volunteer-requests',
+          icon: 'how_to_reg',
+        },
         {
           label: 'Yêu cầu cứu trợ',
           path: '/portal/coordinator/requests',

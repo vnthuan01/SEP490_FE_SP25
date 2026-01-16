@@ -11,7 +11,7 @@ const buttonVariants = cva(
       variant: {
         success: 'bg-green-500 text-white hover:bg-green-600',
         primary:
-          'bg-primary/70 text-primary-foreground hover:bg-primary data-[state=open]:bg-primary/60',
+          'bg-primary/70 text-primary-foreground hover:bg-primary data-[state=open]:bg-primary/60 dark:text-white',
         warning:
           'bg-yellow-500 text-white hover:bg-yellow-600/90 data-[state=open]:bg-yellow-600/90',
         mono: 'bg-zinc-950 text-white dark:bg-zinc-300 dark:text-black hover:bg-zinc-950/90 dark:hover:bg-zinc-300/90 data-[state=open]:bg-zinc-950/90 dark:data-[state=open]:bg-zinc-300/90',

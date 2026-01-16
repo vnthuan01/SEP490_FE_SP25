@@ -33,6 +33,13 @@ export interface ReliefLocation {
   };
 }
 
+export interface TeamMember {
+  id: string;
+  name: string;
+  role: string; // e.g., 'Leader', 'Nurse', 'Driver', 'Logistics'
+  avatar: string;
+}
+
 export interface Team {
   id: string;
   name: string;
@@ -40,15 +47,41 @@ export interface Team {
   vehicle: 'truck' | 'boat' | 'motorcycle' | 'helicopter';
   capacity: { people: number; cargo: number };
   hasMedical: boolean;
-  members: number;
+  members: number; // Keep for backward compatibility or easy count
+  memberDetails?: TeamMember[]; // New field for detailed member list
   leader: string;
   contactPhone: string;
   status: 'available' | 'moving' | 'rescuing' | 'lost-contact';
   currentAssignment?: string;
+  area?: string; // e.g., 'Lệ Thủy, Quảng Bình'
 }
 
 export interface Headquarters {
   name: string;
   coordinates: { lat: number; lng: number };
   address: string;
+}
+
+export interface VolunteerRequest {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  avatar: string;
+  age: number;
+  gender: 'Nam' | 'Nữ' | 'Khác';
+  address: string;
+  location: string; // e.g. "Hà Nội"
+  status: 'new' | 'viewed' | 'approved' | 'rejected';
+  skills: string[];
+  experience: string;
+  submittedAt: string; // ISO string
+  images: { url: string; caption?: string }[];
+  readiness: {
+    health: boolean;
+    vehicle: boolean;
+    travel: boolean;
+    commitment: boolean; // true if agrees to min duration
+  };
+  notes?: string;
 }
