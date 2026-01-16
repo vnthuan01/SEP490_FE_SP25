@@ -141,8 +141,10 @@ export default function CoordinatorTeamManagementPage() {
           </CardContent>
         </Card>
         <Card className="bg-card-dark dark:bg-card border-border hover:border-primary/50 transition-colors group relative overflow-hidden">
-          <div className="absolute right-0 top-0 p-4 opacity-10">
-            <span className="material-symbols-outlined text-6xl text-green-500">check_circle</span>
+          <div className="absolute right-10 top-6 p-4 opacity-10 ">
+            <span className="material-symbols-outlined text-6xl text-green-300 group-hover:text-green-500 transition-all">
+              check_circle
+            </span>
           </div>
           <CardContent className="p-6 flex flex-col gap-3">
             <div className="flex items-center justify-between">
@@ -153,7 +155,7 @@ export default function CoordinatorTeamManagementPage() {
                 <span className="material-symbols-outlined text-lg">bolt</span>
               </div>
             </div>
-            <p className="text-text-main-dark dark:text-text-main-light text-4xl font-black">
+            <p className="text-text-main-dark dark:text-text-main-light text-4xl font-black ">
               {stats.active}
             </p>
           </CardContent>
@@ -201,7 +203,7 @@ export default function CoordinatorTeamManagementPage() {
                 <span className="material-symbols-outlined">search</span>
               </div>
               <input
-                className="block w-full pl-10 pr-3 py-3 border border-slate-200 dark:border-border-dark rounded-lg bg-white dark:bg-card-dark text-slate-900 dark:text-text-main-dark placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary sm:text-sm"
+                className="block w-full pl-10 pr-3 py-3 border border-slate-200 dark:border-border-dark rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-text-main-dark placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary sm:text-sm"
                 placeholder="Tìm nhóm theo tên, khu vực, trưởng nhóm..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -216,7 +218,7 @@ export default function CoordinatorTeamManagementPage() {
           {/* Table */}
           <div className="flex-1 overflow-auto rounded-xl border border-border bg-card-dark dark:bg-card custom-scrollbar">
             <table className="w-full text-left border-collapse">
-              <thead className="sticky top-0 bg-slate-50 dark:bg-background-dark z-10">
+              <thead className="sticky top-0 bg-slate-50 dark:bg-slate-900 z-10">
                 <tr className="border-b border-slate-200 dark:border-border-dark">
                   <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     Tên nhóm

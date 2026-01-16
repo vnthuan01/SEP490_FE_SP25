@@ -169,19 +169,19 @@ export default function VolunteerAllocationPage() {
       <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-24rem)] min-h-[600px]">
         {/* LEFT COLUMN: VOLUNTEER LIST */}
         <div className="flex-1 flex flex-col bg-card-dark dark:bg-card rounded-xl border border-border overflow-hidden shadow-sm">
-          <div className="p-4 border-b border-slate-200 dark:border-border-dark bg-slate-50 dark:bg-background-dark">
+          <div className="p-4 border-b border-slate-200 dark:border-border-dark bg-slate-50 dark:bg-card">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <h3 className="text-slate-900 dark:text-text-main-dark text-lg font-bold">
+                <h3 className="text-text-main-dark dark:text-text-main-light text-lg font-bold">
                   Danh sách chờ
                 </h3>
-                <span className="bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                <span className="bg-slate-200 text-slate-900 dark:text-white dark:bg-[#0284c7] text-xs font-bold px-2 py-0.5 rounded-full">
                   {filteredVolunteers.length}
                 </span>
               </div>
-              <button className="text-primary text-sm font-medium hover:underline flex items-center gap-1">
-                <span className="material-symbols-outlined text-[16px]">filter_list</span> Lọc
-              </button>
+              <Button className="text-white text-sm font-medium hover:underline flex items-center gap-1">
+                <span className="material-symbols-outlined text-[16px]">filter_list</span>
+              </Button>
             </div>
 
             <div className="relative w-full mb-3">
@@ -189,7 +189,7 @@ export default function VolunteerAllocationPage() {
                 <span className="material-symbols-outlined text-[20px]">search</span>
               </div>
               <input
-                className="w-full bg-white dark:bg-background-dark border border-slate-200 dark:border-border-dark text-slate-900 dark:text-text-main-dark text-sm rounded-lg focus:ring-primary focus:border-primary block pl-10 p-2.5 placeholder-muted-foreground"
+                className="w-full bg-white dark:bg-card border border-slate-200 dark:border-border-dark text-slate-900 dark:text-text-main-dark text-sm rounded-lg focus:ring-primary focus:border-primary block pl-10 p-2.5 placeholder-muted-foreground"
                 placeholder="Tìm theo tên, kỹ năng..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -197,50 +197,42 @@ export default function VolunteerAllocationPage() {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <button
+              <Button
                 onClick={() => setFilter('all')}
                 className={cn(
                   'px-3 py-1 rounded-full text-xs font-medium transition-colors border',
-                  filter === 'all'
-                    ? 'bg-primary/20 text-primary border-primary/30'
-                    : 'bg-slate-100 dark:bg-background-dark text-muted-foreground border-transparent hover:text-slate-900 dark:hover:text-text-main-dark',
+                  filter === 'all' && 'bg-primary/20 text-primary border-primary/30',
                 )}
               >
                 Tất cả
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => setFilter('health')}
                 className={cn(
                   'px-3 py-1 rounded-full text-xs font-medium transition-colors border',
-                  filter === 'health'
-                    ? 'bg-primary/20 text-primary border-primary/30'
-                    : 'bg-slate-100 dark:bg-background-dark text-muted-foreground border-transparent hover:text-slate-900 dark:hover:text-text-main-dark',
+                  filter === 'health' && 'bg-primary/20 text-primary border-primary/30',
                 )}
               >
                 Y tế
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => setFilter('rescue')}
                 className={cn(
                   'px-3 py-1 rounded-full text-xs font-medium transition-colors border',
-                  filter === 'rescue'
-                    ? 'bg-primary/20 text-primary border-primary/30'
-                    : 'bg-slate-100 dark:bg-background-dark text-muted-foreground border-transparent hover:text-slate-900 dark:hover:text-text-main-dark',
+                  filter === 'rescue' && 'bg-primary/20 text-primary border-primary/30',
                 )}
               >
                 Cứu hộ
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => setFilter('logistics')}
                 className={cn(
                   'px-3 py-1 rounded-full text-xs font-medium transition-colors border',
-                  filter === 'logistics'
-                    ? 'bg-primary/20 text-primary border-primary/30'
-                    : 'bg-slate-100 dark:bg-background-dark text-muted-foreground border-transparent hover:text-slate-900 dark:hover:text-text-main-dark',
+                  filter === 'logistics' && 'bg-primary/20 text-primary border-primary/30',
                 )}
               >
                 Hậu cần
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -279,7 +271,7 @@ export default function VolunteerAllocationPage() {
                   ></span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-slate-900 dark:text-text-main-dark text-sm font-bold truncate">
+                  <p className="text-text-main-dark dark:text-text-main-light text-sm font-bold truncate">
                     {vol.name}
                   </p>
                   <p className="text-muted-foreground text-xs truncate flex items-center gap-1">
@@ -308,11 +300,11 @@ export default function VolunteerAllocationPage() {
         {/* RIGHT COLUMN: TEAM GRID */}
         <div className="flex-[2] flex flex-col gap-4">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-slate-900 dark:text-text-main-dark text-xl font-bold">
+            <h3 className="text-text-main-dark dark:text-text-main-light text-xl font-bold">
               Các nhóm cứu trợ
             </h3>
             <div className="flex gap-2">
-              <select className="bg-white dark:bg-card-dark text-slate-900 dark:text-text-main-dark text-sm rounded-lg border-slate-200 dark:border-border-dark focus:ring-0 px-3 py-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-surface-dark-highlight">
+              <select className="border dark:bg-card text-text-main-dark dark:text-text-main-light text-sm rounded-lg border-slate-200 dark:border-border-dark focus:ring-0 px-3 py-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-surface-dark-highlight">
                 <option>Tất cả khu vực</option>
                 <option>Lào Cai</option>
                 <option>Yên Bái</option>
@@ -360,7 +352,7 @@ export default function VolunteerAllocationPage() {
                 </div>
 
                 <div className="mb-4">
-                  <h4 className="text-slate-900 dark:text-text-main-dark text-lg font-bold">
+                  <h4 className="text-text-main-dark dark:text-text-main-light text-lg font-bold">
                     {team.name}
                   </h4>
                   <p className="text-muted-foreground text-sm flex items-center gap-1 mt-1">
