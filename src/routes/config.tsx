@@ -1,7 +1,7 @@
 // import { UserRole } from '@/enums/UserRole';
 import LoginPage from '@/pages/auth/LoginPage';
 // import DataManagementPage from '@/pages/admin/DataManagementPage';
-// import AdminDashboardPage from '@/pages/admin/DashboardPage';
+import AdminDashboardPage from '@/pages/admin/DashboardPage';
 // import AdminUserManagementPage from '@/pages/admin/UserManagementPage';
 // import CoordinationPage from '@/pages/coordinator/CoordinationPage';
 import CoordinatorDashboardPage from '@/pages/coordinator/DashboardPage';
@@ -21,12 +21,12 @@ export const routes: AppRoute[] = [
   },
   { path: '/login', element: <LoginPage />, isProtected: false },
   //Admin routes
-  // {
-  //   path: '/portal/admin/dashboard',
-  //   element: <AdminDashboardPage />,
-  //   // roles: [UserRole.Admin],
-  //   isProtected: false,
-  // },
+  {
+    path: '/portal/admin/dashboard',
+    element: <AdminDashboardPage />,
+    // roles: [UserRole.Admin],
+    isProtected: false,
+  },
   // {
   //   path: '/portal/admin/data-management',
   //   element: <DataManagementPage />,
