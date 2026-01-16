@@ -2,7 +2,7 @@
 import LoginPage from '@/pages/auth/LoginPage';
 // import DataManagementPage from '@/pages/admin/DataManagementPage';
 import AdminDashboardPage from '@/pages/admin/DashboardPage';
-// import AdminUserManagementPage from '@/pages/admin/UserManagementPage';
+import AdminUserManagementPage from '@/pages/admin/UserManagementPage';
 // import CoordinationPage from '@/pages/coordinator/CoordinationPage';
 import CoordinatorDashboardPage from '@/pages/coordinator/DashboardPage';
 import CoordinatorRequestManagementPage from '@/pages/coordinator/RequestManagementPage';
@@ -33,12 +33,12 @@ export const routes: AppRoute[] = [
   //   // roles: [UserRole.Admin],
   //   isProtected: false,
   // },
-  // {
-  //   path: '/portal/admin/users',
-  //   element: <AdminUserManagementPage />,
-  //   // roles: [UserRole.Admin],
-  //   isProtected: false,
-  // },
+  {
+    path: '/portal/admin/users',
+    element: <AdminUserManagementPage />,
+    // roles: [UserRole.Admin],
+    isProtected: false,
+  },
 
   //Coordinator routes
   {
