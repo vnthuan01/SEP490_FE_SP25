@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="vi">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Hệ thống Điều phối Cứu trợ - Duyệt đơn tình nguyện viên</title>
+    <!-- Material Symbols -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,100..900;1,100..900&amp;family=Noto+Sans:ital,wght@0,100..900;1,100..900&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <!-- Theme Configuration -->
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#137fec",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101922",
+                        "surface-dark": "#1c2630",
+                        "surface-hover": "#25303b",
+                        "text-primary": "#ffffff",
+                        "text-secondary": "#9dabb9",
+                        "success": "#22c55e",
+                        "warning": "#f59e0b",
+                        "danger": "#ef4444",
+                    },
+                    fontFamily: {
+                        "display": ["Public Sans", "sans-serif"],
+                        "body": ["Public Sans", "sans-serif"],
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+    <style>
+        body {
+            font-family: "Public Sans", "Noto Sans", sans-serif;
+        }
+
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        .filled-icon {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+
+<body class="bg-background-light dark:bg-background-dark min-h-screen flex flex-col overflow-hidden">
+    <!-- Header -->
+    <header
+        class="flex-none flex items-center justify-between whitespace-nowrap border-b border-solid border-[#283039] bg-background-dark px-10 py-3 z-10">
+        <div class="flex items-center gap-4 text-white">
+            <div class="size-8 flex items-center justify-center text-primary">
+                <span class="material-symbols-outlined text-3xl">emergency_share</span>
+            </div>
+            <h2 class="text-white text-lg font-bold leading-tight tracking-[-0.015em]">Hệ thống Điều phối Cứu trợ</h2>
+        </div>
+        <div class="flex flex-1 justify-end gap-8">
+            <div class="hidden md:flex items-center gap-9">
+                <a class="text-text-secondary hover:text-white transition-colors text-sm font-medium leading-normal"
+                    href="#">Tổng quan</a>
+                <a class="text-white text-sm font-medium leading-normal border-b-2 border-primary pb-1" href="#">Tình
+                    nguyện viên</a>
+                <a class="text-text-secondary hover:text-white transition-colors text-sm font-medium leading-normal"
+                    href="#">Yêu cầu cứu trợ</a>
+                <a class="text-text-secondary hover:text-white transition-colors text-sm font-medium leading-normal"
+                    href="#">Kho vận</a>
+                <a class="text-text-secondary hover:text-white transition-colors text-sm font-medium leading-normal"
+                    href="#">Bản đồ</a>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="flex flex-col items-end mr-2">
+                    <span class="text-white text-sm font-medium">Lê Minh Tuấn</span>
+                    <span class="text-text-secondary text-xs">Điều phối viên trưởng</span>
+                </div>
+                <div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 border-2 border-[#283039]"
+                    data-alt="Coordinator profile picture showing a man in uniform"
+                    style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCYiOudGsYXX_HFJTa1XmmyQs_fN38d4w3Hwcn6bkVt2-__e2LckSvNV6h5ykdZaaK9pHaWp0znvNDrPk_YzSC9wB9lB3dts58wytgPv4rptrwCo73V0RVyHvoWurnBK_r6bjDEn7d2ogbDysQat2ljeiTms7LDgSYLIrrohgQlGKuR786V9Rdch5mJThWYY6WRaJx5pBPHwtkQSKjlM3SPY4j9V-BBjfPBapVh-wNT6x7vT9P_O6dUUjmIY3K9yvQBaeHdx7F3wIQ");'>
+                </div>
+            </div>
+        </div>
+    </header>
+    <!-- Main Content -->
+    <main class="flex-1 flex overflow-hidden">
+        <!-- Left Sidebar: List of Applicants -->
+        <aside class="w-[420px] flex flex-col border-r border-[#283039] bg-background-dark/50 overflow-hidden shrink-0">
+            <!-- Filters & Search -->
+            <div class="p-4 border-b border-[#283039] flex flex-col gap-4">
+                <div class="flex flex-col gap-1">
+                    <h1 class="text-white text-2xl font-bold leading-tight">Duyệt đơn đăng ký</h1>
+                    <p class="text-text-secondary text-sm">32 đơn mới đang chờ xử lý</p>
+                </div>
+                <!-- Search -->
+                <div class="flex w-full items-center rounded-lg border border-[#3b4754] bg-surface-dark px-3 py-2">
+                    <span class="material-symbols-outlined text-text-secondary mr-2">search</span>
+                    <input class="w-full bg-transparent text-white placeholder:text-text-secondary outline-none text-sm"
+                        placeholder="Tìm tên hoặc số điện thoại..." />
+                </div>
+                <!-- Tags Filter -->
+                <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                    <button
+                        class="flex items-center justify-center rounded-full bg-primary text-white px-4 py-1.5 text-xs font-medium whitespace-nowrap">Tất
+                        cả</button>
+                    <button
+                        class="flex items-center justify-center rounded-full bg-[#283039] text-text-secondary hover:text-white hover:bg-surface-hover px-4 py-1.5 text-xs font-medium whitespace-nowrap border border-[#3b4754]">Y
+                        tế</button>
+                    <button
+                        class="flex items-center justify-center rounded-full bg-[#283039] text-text-secondary hover:text-white hover:bg-surface-hover px-4 py-1.5 text-xs font-medium whitespace-nowrap border border-[#3b4754]">Cứu
+                        hộ</button>
+                    <button
+                        class="flex items-center justify-center rounded-full bg-[#283039] text-text-secondary hover:text-white hover:bg-surface-hover px-4 py-1.5 text-xs font-medium whitespace-nowrap border border-[#3b4754]">Vận
+                        chuyển</button>
+                </div>
+            </div>
+            <!-- List -->
+            <div class="flex-1 overflow-y-auto p-2 space-y-2">
+                <!-- Item 1 (Active) -->
+                <div
+                    class="group flex cursor-pointer items-start gap-3 rounded-lg bg-surface-hover border border-primary/50 p-3 hover:bg-surface-hover transition-all">
+                    <div class="bg-center bg-no-repeat bg-cover rounded-full h-12 w-12 shrink-0 border border-[#3b4754]"
+                        data-alt="Portrait of volunteer candidate Nguyen Van A"
+                        style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCZTiAqQReQxFLwBF9R_U0wifhUW1t-VtlzNyXZvDy7ygo5YkBp9kILH1axO6vRWjUeteYcE22y9wolEwuw0LxEDP6h7T9f48CsRxQD80pQ69muMMUMfL7QOGLAHIPuwt_uZyHVH3yfD6rPXPbNaZ9v5EhGZ_tz4yg-hZULIRoc4OlPiBBYmO2LU2EnU9v2W9E8W0gPP8VGD9X2cZKgTgWX_U-PS_m31OAZPX_3uWiafVDvopU42M3rpk2uc77yly63xOqI5PujyYQ");'>
+                    </div>
+                    <div class="flex flex-col flex-1 min-w-0">
+                        <div class="flex justify-between items-start mb-1">
+                            <h3 class="text-white text-base font-bold truncate">Nguyễn Văn A</h3>
+                            <span class="text-primary text-xs font-medium bg-primary/10 px-2 py-0.5 rounded">Mới</span>
+                        </div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="material-symbols-outlined text-warning text-[16px]">medical_services</span>
+                            <span class="text-gray-300 text-sm">Y tế, Sơ cứu</span>
+                        </div>
+                        <div class="flex justify-between items-end">
+                            <span class="text-text-secondary text-xs">Hà Nội • 15 phút trước</span>
+                        </div>
+                    </div>
+                </div>
+                <!-- Item 2 -->
+                <div
+                    class="group flex cursor-pointer items-start gap-3 rounded-lg p-3 hover:bg-surface-dark border border-transparent hover:border-[#3b4754] transition-all">
+                    <div
+                        class="bg-center bg-no-repeat bg-cover rounded-full h-12 w-12 shrink-0 bg-[#283039] flex items-center justify-center text-text-secondary font-bold text-lg border border-[#3b4754]">
+                        T</div>
+                    <div class="flex flex-col flex-1 min-w-0">
+                        <div class="flex justify-between items-start mb-1">
+                            <h3 class="text-gray-300 text-base font-semibold truncate group-hover:text-white">Trần Thị
+                                Bích</h3>
+                        </div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span
+                                class="material-symbols-outlined text-text-secondary text-[16px]">directions_boat</span>
+                            <span class="text-text-secondary text-sm group-hover:text-gray-300">Cứu hộ đường thủy</span>
+                        </div>
+                        <div class="flex justify-between items-end">
+                            <span class="text-text-secondary text-xs">Yên Bái • 32 phút trước</span>
+                        </div>
+                    </div>
+                </div>
+                <!-- Item 3 -->
+                <div
+                    class="group flex cursor-pointer items-start gap-3 rounded-lg p-3 hover:bg-surface-dark border border-transparent hover:border-[#3b4754] transition-all">
+                    <div class="bg-center bg-no-repeat bg-cover rounded-full h-12 w-12 shrink-0 border border-[#3b4754]"
+                        data-alt="Portrait of volunteer candidate Le Van C"
+                        style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCEkDn5sReXVfL0p4SGbdBF3OvkiC1hXhpgOsIgqXCeU4NqJ1Zo4dtY2s6LbX9wx5fP144kmjpwi3MKQrmkjAky3i9co8pNO99AJ8fsq-Bda9lW9IOreyC2PAddrGlwM6zzZejRC9hskAh8AbwnY8AYw0uXJo30dbLE1Nv4BmpKLs9HPbwGk2fDyLuHGWKquHNyQjKgQrT5VKn5_myeK__RRVyNqzmljQXi7W8W1a99znUMCUpKYNeqqjfSlHWacKKo9IbiwQN5Duo");'>
+                    </div>
+                    <div class="flex flex-col flex-1 min-w-0">
+                        <div class="flex justify-between items-start mb-1">
+                            <h3 class="text-gray-300 text-base font-semibold truncate group-hover:text-white">Lê Văn
+                                Cường</h3>
+                        </div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span
+                                class="material-symbols-outlined text-text-secondary text-[16px]">local_shipping</span>
+                            <span class="text-text-secondary text-sm group-hover:text-gray-300">Vận chuyển, Hậu
+                                cần</span>
+                        </div>
+                        <div class="flex justify-between items-end">
+                            <span class="text-text-secondary text-xs">Hải Phòng • 1 giờ trước</span>
+                        </div>
+                    </div>
+                </div>
+                <!-- Item 4 -->
+                <div
+                    class="group flex cursor-pointer items-start gap-3 rounded-lg p-3 hover:bg-surface-dark border border-transparent hover:border-[#3b4754] transition-all">
+                    <div
+                        class="bg-center bg-no-repeat bg-cover rounded-full h-12 w-12 shrink-0 bg-[#283039] flex items-center justify-center text-text-secondary font-bold text-lg border border-[#3b4754]">
+                        H</div>
+                    <div class="flex flex-col flex-1 min-w-0">
+                        <div class="flex justify-between items-start mb-1">
+                            <h3 class="text-gray-300 text-base font-semibold truncate group-hover:text-white">Hoàng Minh
+                                Tú</h3>
+                        </div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="material-symbols-outlined text-text-secondary text-[16px]">engineering</span>
+                            <span class="text-text-secondary text-sm group-hover:text-gray-300">Sửa chữa điện,
+                                nước</span>
+                        </div>
+                        <div class="flex justify-between items-end">
+                            <span class="text-text-secondary text-xs">Lào Cai • 2 giờ trước</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+        <!-- Right Content: Detail View -->
+        <section class="flex-1 flex flex-col h-full bg-background-dark relative overflow-y-auto">
+            <!-- Applicant Header -->
+            <div class="p-8 pb-6 border-b border-[#283039]">
+                <div class="flex items-start justify-between gap-6">
+                    <div class="flex gap-6">
+                        <div class="bg-center bg-no-repeat bg-cover rounded-xl h-24 w-24 shrink-0 border-2 border-[#3b4754] shadow-lg"
+                            data-alt="High resolution portrait of Nguyen Van A"
+                            style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuA4eYLRqmcwuC7sNbCq--92rEVD-ED-cpaE59P_TOXaKFzV9KxA8aVYRF6bnnvkkP8HYTBba2P9DvFGv1tuwAh2YbRUO7ibIhp8EC8Ub5Bft7255OQZ8IeIGGrqJQoz54JjOmyTNpmbim0edqM8w8EYcGjWa1Ga5GtAEAKZAKkWq0MC0OYpWSpP9mwu7U-o7yPkn1v4jdNhxApbnHxA3q-fwjT1eK-4TAw8dkOAZ-H2lcXmMeEs0R3emiqf_tCb9HbiFChWOTYDp40");'>
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            <div class="flex items-center gap-3">
+                                <h1 class="text-white text-3xl font-black tracking-tight">Nguyễn Văn A</h1>
+                                <span
+                                    class="bg-warning/20 text-warning px-3 py-1 rounded-full text-sm font-bold border border-warning/30 flex items-center gap-1">
+                                    <span class="w-2 h-2 rounded-full bg-warning animate-pulse"></span>
+                                    Chờ duyệt
+                                </span>
+                            </div>
+                            <div class="flex items-center gap-6 text-text-secondary text-base mt-1">
+                                <div class="flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-[20px]">cake</span>
+                                    <span>28 tuổi (Nam)</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-[20px]">location_on</span>
+                                    <span>Hai Bà Trưng, Hà Nội</span>
+                                </div>
+                            </div>
+                            <div class="flex gap-3 mt-2">
+                                <span
+                                    class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded border border-[#3b4754] bg-[#283039] text-xs font-medium text-white">
+                                    <span class="material-symbols-outlined text-[14px] text-success">verified</span>
+                                    SĐT đã xác thực
+                                </span>
+                                <span
+                                    class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded border border-[#3b4754] bg-[#283039] text-xs font-medium text-white">
+                                    <span class="material-symbols-outlined text-[14px] text-success">verified</span>
+                                    CCCD đã xác thực
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex flex-col items-end gap-2 text-text-secondary">
+                        <span class="text-sm">Gửi đơn lúc: 08:30 - 15/09/2024</span>
+                        <span class="text-sm">ID Đơn: #VOL-2024-8892</span>
+                    </div>
+                </div>
+            </div>
+            <!-- Detail Grid -->
+            <div class="p-8 grid grid-cols-12 gap-8 max-w-[1200px]">
+                <!-- Left Column: Core Info -->
+                <div class="col-span-8 space-y-8">
+                    <!-- Contact Info Block -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="p-4 rounded-xl bg-surface-dark border border-[#3b4754] flex items-center gap-4">
+                            <div
+                                class="size-10 rounded-full bg-[#283039] flex items-center justify-center text-primary">
+                                <span class="material-symbols-outlined">call</span>
+                            </div>
+                            <div>
+                                <p class="text-text-secondary text-xs uppercase font-semibold tracking-wider">Số điện
+                                    thoại</p>
+                                <p class="text-white text-lg font-medium font-mono">0912 345 678</p>
+                            </div>
+                        </div>
+                        <div class="p-4 rounded-xl bg-surface-dark border border-[#3b4754] flex items-center gap-4">
+                            <div
+                                class="size-10 rounded-full bg-[#283039] flex items-center justify-center text-primary">
+                                <span class="material-symbols-outlined">mail</span>
+                            </div>
+                            <div>
+                                <p class="text-text-secondary text-xs uppercase font-semibold tracking-wider">Email/Zalo
+                                </p>
+                                <p class="text-white text-lg font-medium">nguyenvana@gmail.com</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Experience & Skills -->
+                    <div class="space-y-4">
+                        <h3 class="text-white text-xl font-bold flex items-center gap-2">
+                            <span class="material-symbols-outlined text-primary">handyman</span>
+                            Kỹ năng &amp; Kinh nghiệm
+                        </h3>
+                        <div class="p-6 rounded-xl bg-surface-dark border border-[#3b4754] space-y-6">
+                            <!-- Skill Tags -->
+                            <div>
+                                <p class="text-text-secondary text-sm mb-3">Nhóm kỹ năng chính:</p>
+                                <div class="flex flex-wrap gap-2">
+                                    <span
+                                        class="px-3 py-1.5 rounded-lg bg-primary/20 text-primary border border-primary/30 text-sm font-semibold">Sơ
+                                        cấp cứu cơ bản</span>
+                                    <span
+                                        class="px-3 py-1.5 rounded-lg bg-[#283039] text-white border border-[#3b4754] text-sm font-medium">Bơi
+                                        lội giỏi</span>
+                                    <span
+                                        class="px-3 py-1.5 rounded-lg bg-[#283039] text-white border border-[#3b4754] text-sm font-medium">Lái
+                                        xe bán tải</span>
+                                    <span
+                                        class="px-3 py-1.5 rounded-lg bg-[#283039] text-white border border-[#3b4754] text-sm font-medium">Biết
+                                        sử dụng bộ đàm</span>
+                                </div>
+                            </div>
+                            <!-- Description -->
+                            <div>
+                                <p class="text-text-secondary text-sm mb-3">Mô tả kinh nghiệm:</p>
+                                <p class="text-white leading-relaxed text-base">
+                                    Tôi đã có kinh nghiệm tham gia đội cứu hộ tự nguyện trong đợt lũ miền Trung năm
+                                    2020. Có khả năng bơi lội tốt, sức khỏe đảm bảo. Hiện tôi đang sở hữu một xe bán tải
+                                    gầm cao (Ford Ranger) có thể hỗ trợ vận chuyển nhu yếu phẩm vào vùng ngập sâu trung
+                                    bình. Đã tiêm đủ vaccine uốn ván và các mũi cơ bản.
+                                </p>
+                            </div>
+                            <!-- Attached Images -->
+                            <div>
+                                <p class="text-text-secondary text-sm mb-3">Ảnh/Chứng chỉ đính kèm:</p>
+                                <div class="flex gap-3">
+                                    <div class="h-20 w-28 bg-cover bg-center rounded-lg border border-[#3b4754] cursor-pointer hover:opacity-80 transition-opacity"
+                                        data-alt="Image of a first aid certificate"
+                                        style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDV21uiPEWtro-1EA8xqWim8fJ7zZywb4moKwp1pF-N21SL21NAzKCwR78U27ykzdPGiYHgYLouDdqBEug5OxQNNFgVmWk_JJ7mZ_YJac7UTNWSK-1RBwViLNLWRe4zJ8lQncqj4iBrR7lZ-7JMox8RAPQ-15Tf4fJ3zS4rHjmD5VSAvDa_VGxegn3HQPfA3nNrfHw9A1TJwGlfLXFKfcOfHkhayz75Fj95K7Gk7LQp9CBfNJKhNO0hlzhYle8aveZRffPxVVFIKkw");'>
+                                    </div>
+                                    <div class="h-20 w-28 bg-cover bg-center rounded-lg border border-[#3b4754] cursor-pointer hover:opacity-80 transition-opacity"
+                                        data-alt="Image of a pickup truck"
+                                        style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCNIqeaVgIEJplTeiPTlR1JDiO2_dFOUIIXhUv4m37QMjEUItpPdwwbAsnsWH4WbOgtCPc8VaDtFvXNQKUYqWHbUiqal10tA52E_XR-12kTqmO1r2Cy_RhJDrSihb1wCHlRiwbCLfqYJylPiRx37jMnYqeIeEV3iM9JT_ZKT2ZucPj2YFWUgF7h9SnquIi2n_p-fFnAkBH3TEH3lhUphp5SwYh3amduQhmjp8X3A4msd6KO55teuso5b5dk8WQiv85F8-qEeOzAp10");'>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Right Column: Checklists & Meta -->
+                <div class="col-span-4 space-y-6">
+                    <!-- Readiness Checklist -->
+                    <div class="p-5 rounded-xl bg-surface-dark border border-[#3b4754]">
+                        <h3 class="text-white text-lg font-bold mb-4">Khả năng đáp ứng</h3>
+                        <div class="space-y-3">
+                            <div
+                                class="flex items-center justify-between p-2 rounded hover:bg-[#283039] transition-colors">
+                                <span class="text-gray-300">Sức khỏe tốt</span>
+                                <span class="material-symbols-outlined text-success">check_circle</span>
+                            </div>
+                            <div
+                                class="flex items-center justify-between p-2 rounded hover:bg-[#283039] transition-colors">
+                                <span class="text-gray-300">Có phương tiện cá nhân</span>
+                                <span class="material-symbols-outlined text-success">check_circle</span>
+                            </div>
+                            <div
+                                class="flex items-center justify-between p-2 rounded hover:bg-[#283039] transition-colors">
+                                <span class="text-gray-300">Sẵn sàng đi tỉnh xa</span>
+                                <span class="material-symbols-outlined text-success">check_circle</span>
+                            </div>
+                            <div
+                                class="flex items-center justify-between p-2 rounded hover:bg-[#283039] transition-colors">
+                                <span class="text-gray-300">Cam kết tối thiểu 3 ngày</span>
+                                <span class="material-symbols-outlined text-text-secondary">remove_circle</span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Admin Notes -->
+                    <div class="p-5 rounded-xl bg-[#283039]/50 border border-[#3b4754]">
+                        <h3 class="text-white text-sm font-bold mb-3 uppercase tracking-wider text-text-secondary">Ghi
+                            chú nội bộ</h3>
+                        <textarea
+                            class="w-full bg-[#111418] border border-[#3b4754] rounded-lg p-3 text-white text-sm focus:ring-1 focus:ring-primary outline-none resize-none h-32"
+                            placeholder="Nhập ghi chú cho điều phối viên khác..."></textarea>
+                    </div>
+                </div>
+            </div>
+            <!-- Sticky Action Footer -->
+            <div
+                class="sticky bottom-0 left-0 right-0 p-6 bg-surface-dark border-t border-[#3b4754] flex justify-between items-center z-20 shadow-2xl">
+                <div class="flex items-center gap-2">
+                    <button
+                        class="flex items-center gap-2 text-text-secondary hover:text-white px-4 py-2 rounded-lg hover:bg-[#283039] transition-colors font-medium">
+                        <span class="material-symbols-outlined">history</span>
+                        Xem lịch sử ứng tuyển
+                    </button>
+                </div>
+                <div class="flex gap-4">
+                    <button
+                        class="px-6 py-3 rounded-lg border border-[#3b4754] bg-[#283039] text-white font-bold hover:bg-[#3b4754] transition-colors flex items-center gap-2">
+                        <span class="material-symbols-outlined">help</span>
+                        Yêu cầu thêm thông tin
+                    </button>
+                    <button
+                        class="px-6 py-3 rounded-lg border border-danger/30 text-danger hover:bg-danger/10 transition-colors font-bold flex items-center gap-2">
+                        <span class="material-symbols-outlined">close</span>
+                        Từ chối
+                    </button>
+                    <button
+                        class="px-8 py-3 rounded-lg bg-primary text-white font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-colors flex items-center gap-2 text-lg">
+                        <span class="material-symbols-outlined filled-icon">check</span>
+                        Chấp nhận &amp; Điều phối
+                    </button>
+                </div>
+            </div>
+        </section>
+    </main>
+</body>
+
+</html>

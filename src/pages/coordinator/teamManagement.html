@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="vi">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Quản lý nhóm cứu trợ - Điều phối thiên tai</title>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+    <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;700;900&amp;display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;700&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#137fec",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101922",
+                        "surface-dark": "#1c232d",
+                        "surface-light": "#ffffff",
+                    },
+                    fontFamily: {
+                        "display": ["Public Sans", "Noto Sans", "sans-serif"],
+                        "body": ["Public Sans", "Noto Sans", "sans-serif"],
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+</head>
+
+<body
+    class="bg-background-light dark:bg-background-dark font-display text-[#111418] dark:text-white overflow-x-hidden min-h-screen flex flex-col">
+    <!-- Top Navigation -->
+    <header
+        class="flex items-center justify-between whitespace-nowrap border-b border-solid border-gray-200 dark:border-[#283039] px-6 py-3 bg-surface-light dark:bg-surface-dark sticky top-0 z-50">
+        <div class="flex items-center gap-8">
+            <div class="flex items-center gap-4 text-[#111418] dark:text-white">
+                <div class="size-8 flex items-center justify-center text-primary">
+                    <span class="material-symbols-outlined text-3xl">flood</span>
+                </div>
+                <h2 class="text-lg font-bold leading-tight tracking-tight">Điều phối cứu trợ</h2>
+            </div>
+            <label class="hidden md:flex flex-col min-w-40 !h-10 max-w-64">
+                <div class="flex w-full flex-1 items-stretch rounded-lg h-full border border-gray-200 dark:border-none">
+                    <div
+                        class="text-[#637588] dark:text-[#9dabb9] flex border-none bg-gray-50 dark:bg-[#283039] items-center justify-center pl-4 rounded-l-lg border-r-0">
+                        <span class="material-symbols-outlined text-xl">search</span>
+                    </div>
+                    <input
+                        class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg rounded-l-none border-none bg-gray-50 dark:bg-[#283039] text-[#111418] dark:text-white focus:outline-0 focus:ring-0 placeholder:text-[#637588] dark:placeholder:text-[#9dabb9] px-4 pl-2 text-sm font-normal leading-normal"
+                        placeholder="Tìm kiếm nhanh..." />
+                </div>
+            </label>
+        </div>
+        <div class="flex flex-1 justify-end gap-8 items-center">
+            <nav class="hidden lg:flex items-center gap-6">
+                <a class="text-[#637588] dark:text-[#9dabb9] hover:text-primary text-sm font-medium leading-normal transition-colors"
+                    href="#">Tổng quan</a>
+                <a class="text-[#637588] dark:text-[#9dabb9] hover:text-primary text-sm font-medium leading-normal transition-colors"
+                    href="#">Bản đồ cứu trợ</a>
+                <a class="text-[#637588] dark:text-[#9dabb9] hover:text-primary text-sm font-medium leading-normal transition-colors"
+                    href="#">Yêu cầu hỗ trợ</a>
+                <a class="text-primary text-sm font-bold leading-normal" href="#">Nhóm cứu trợ</a>
+                <a class="text-[#637588] dark:text-[#9dabb9] hover:text-primary text-sm font-medium leading-normal transition-colors"
+                    href="#">Kho vận</a>
+            </nav>
+            <div class="flex items-center gap-3">
+                <button
+                    class="flex items-center justify-center size-10 rounded-full bg-gray-100 dark:bg-[#283039] text-[#111418] dark:text-white hover:bg-gray-200 dark:hover:bg-[#3b4754] transition-colors relative">
+                    <span class="material-symbols-outlined">notifications</span>
+                    <span class="absolute top-2 right-2 size-2 bg-red-500 rounded-full"></span>
+                </button>
+                <div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 border-2 border-primary cursor-pointer"
+                    data-alt="Coordinator Profile Avatar"
+                    style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBcoxQQgYgJTlb7xUMO9w5nbbBjuHxVXJaQPg42-tXZggZdVeALzx81ZD0mDgyjtuIJH7wo8iGO-K1_lExy0dqq16690W9LY_qjCSX2Wkc9MpkL9p6XPeKJNp1y6A_zZX9fFBme5qDwnDfHrGu4dvEhdiL9EqDXFpqA2G00Ni2FTv_Y6YFAMWmDll3F8xj-hi82g4drMEXGD_Qkqx7zKMBjhcwB2fh9yZc0V9wS3Uz2ZZVO83tBpc6kVG21wYoqd6CmPHnnNEZNxXI");'>
+                </div>
+            </div>
+        </div>
+    </header>
+    <!-- Main Content -->
+    <main class="flex-1 px-4 md:px-10 py-6 md:py-8 max-w-[1440px] mx-auto w-full">
+        <!-- Page Heading & Actions -->
+        <div class="flex flex-wrap justify-between items-end gap-4 mb-8">
+            <div class="flex flex-col gap-2">
+                <h1 class="text-[#111418] dark:text-white text-3xl md:text-4xl font-black leading-tight tracking-tight">
+                    Quản lý nhóm cứu trợ</h1>
+                <p class="text-[#637588] dark:text-[#9dabb9] text-base md:text-lg font-normal leading-normal max-w-2xl">
+                    Theo dõi và điều phối các đội tình nguyện tại các khu vực bị ảnh hưởng bởi thiên tai. Đảm bảo nguồn
+                    lực được phân bổ hiệu quả.
+                </p>
+            </div>
+            <button
+                class="flex items-center justify-center gap-2 rounded-lg h-12 px-6 bg-primary hover:bg-blue-600 text-white text-base font-bold leading-normal transition-all shadow-lg shadow-blue-500/20">
+                <span class="material-symbols-outlined">add</span>
+                <span class="truncate">Tạo nhóm mới</span>
+            </button>
+        </div>
+        <!-- Stats Overview -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div
+                class="flex flex-col gap-2 rounded-xl p-5 border border-gray-200 dark:border-[#3b4754] bg-surface-light dark:bg-surface-dark shadow-sm">
+                <div class="flex items-center gap-2 text-[#637588] dark:text-[#9dabb9]">
+                    <span class="material-symbols-outlined">groups</span>
+                    <p class="text-sm font-medium uppercase tracking-wide">Tổng số nhóm</p>
+                </div>
+                <p class="text-[#111418] dark:text-white text-3xl font-bold leading-tight">42</p>
+            </div>
+            <div
+                class="flex flex-col gap-2 rounded-xl p-5 border border-gray-200 dark:border-[#3b4754] bg-surface-light dark:bg-surface-dark shadow-sm relative overflow-hidden">
+                <div class="absolute right-0 top-0 p-4 opacity-10">
+                    <span class="material-symbols-outlined text-6xl text-green-500">check_circle</span>
+                </div>
+                <div class="flex items-center gap-2 text-green-600 dark:text-green-400">
+                    <span class="material-symbols-outlined">bolt</span>
+                    <p class="text-sm font-medium uppercase tracking-wide">Đang hoạt động</p>
+                </div>
+                <p class="text-[#111418] dark:text-white text-3xl font-bold leading-tight">35</p>
+            </div>
+            <div
+                class="flex flex-col gap-2 rounded-xl p-5 border border-gray-200 dark:border-[#3b4754] bg-surface-light dark:bg-surface-dark shadow-sm">
+                <div class="flex items-center gap-2 text-[#637588] dark:text-[#9dabb9]">
+                    <span class="material-symbols-outlined">volunteer_activism</span>
+                    <p class="text-sm font-medium uppercase tracking-wide">Tình nguyện viên</p>
+                </div>
+                <p class="text-[#111418] dark:text-white text-3xl font-bold leading-tight">1,250</p>
+            </div>
+            <div
+                class="flex flex-col gap-2 rounded-xl p-5 border border-gray-200 dark:border-[#3b4754] bg-surface-light dark:bg-surface-dark shadow-sm">
+                <div class="flex items-center gap-2 text-[#637588] dark:text-[#9dabb9]">
+                    <span class="material-symbols-outlined">location_on</span>
+                    <p class="text-sm font-medium uppercase tracking-wide">Khu vực</p>
+                </div>
+                <p class="text-[#111418] dark:text-white text-3xl font-bold leading-tight">12 Tỉnh</p>
+            </div>
+        </div>
+        <!-- Split Layout: Table and Detail View -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Left: Groups List -->
+            <div class="lg:col-span-2 flex flex-col gap-4">
+                <!-- Search Bar for Table -->
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <div class="relative flex-1">
+                        <div
+                            class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#637588] dark:text-[#9dabb9]">
+                            <span class="material-symbols-outlined">search</span>
+                        </div>
+                        <input
+                            class="block w-full pl-10 pr-3 py-3 border border-gray-200 dark:border-[#3b4754] rounded-lg leading-5 bg-surface-light dark:bg-surface-dark text-[#111418] dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary sm:text-sm"
+                            placeholder="Tìm nhóm theo tên, khu vực, trưởng nhóm..." type="text" />
+                    </div>
+                    <button
+                        class="flex items-center justify-center gap-2 px-4 py-3 border border-gray-200 dark:border-[#3b4754] rounded-lg bg-surface-light dark:bg-surface-dark text-[#111418] dark:text-white hover:bg-gray-50 dark:hover:bg-[#2a3441] transition-colors">
+                        <span class="material-symbols-outlined">filter_list</span>
+                        <span>Bộ lọc</span>
+                    </button>
+                </div>
+                <!-- Table Container -->
+                <div
+                    class="overflow-x-auto rounded-xl border border-gray-200 dark:border-[#3b4754] bg-surface-light dark:bg-surface-dark shadow-sm">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-50 dark:bg-[#1c2127] border-b border-gray-200 dark:border-[#3b4754]">
+                                <th
+                                    class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-[#637588] dark:text-[#9dabb9]">
+                                    Tên nhóm</th>
+                                <th
+                                    class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-[#637588] dark:text-[#9dabb9]">
+                                    Khu vực</th>
+                                <th
+                                    class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-[#637588] dark:text-[#9dabb9]">
+                                    Trưởng nhóm</th>
+                                <th
+                                    class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-[#637588] dark:text-[#9dabb9]">
+                                    Thành viên</th>
+                                <th
+                                    class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-[#637588] dark:text-[#9dabb9]">
+                                    Trạng thái</th>
+                                <th
+                                    class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-[#637588] dark:text-[#9dabb9] text-right">
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 dark:divide-[#3b4754]">
+                            <!-- Row 1: Selected -->
+                            <tr
+                                class="bg-blue-50/50 dark:bg-primary/10 cursor-pointer hover:bg-gray-100 dark:hover:bg-[#2a3441] transition-colors group">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="flex items-center">
+                                        <div class="size-2 rounded-full bg-primary mr-3"></div>
+                                        <span class="text-sm font-bold text-[#111418] dark:text-white">Đội Cứu Hộ Lệ
+                                            Thủy</span>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-[#637588] dark:text-[#9dabb9]">Lệ
+                                    Thủy, Quảng Bình</td>
+                                <td
+                                    class="px-6 py-4 whitespace-nowrap text-sm text-[#111418] dark:text-white font-medium">
+                                    Nguyễn Văn A</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-[#637588] dark:text-[#9dabb9]">15
+                                    người</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span
+                                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                                        Đang hoạt động
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <button
+                                        class="text-[#637588] dark:text-[#9dabb9] hover:text-primary transition-colors">
+                                        <span class="material-symbols-outlined">edit</span>
+                                    </button>
+                                </td>
+                            </tr>
+                            <!-- Row 2 -->
+                            <tr class="cursor-pointer hover:bg-gray-100 dark:hover:bg-[#2a3441] transition-colors">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="flex items-center">
+                                        <div class="size-2 rounded-full bg-transparent mr-3"></div>
+                                        <span class="text-sm font-medium text-[#111418] dark:text-white">Nhóm Y Tế Bạch
+                                            Mai</span>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-[#637588] dark:text-[#9dabb9]">Yên
+                                    Bái</td>
+                                <td
+                                    class="px-6 py-4 whitespace-nowrap text-sm text-[#111418] dark:text-white font-medium">
+                                    Trần Thị B</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-[#637588] dark:text-[#9dabb9]">8
+                                    người</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span
+                                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+                                        Nghỉ ngơi
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <button
+                                        class="text-[#637588] dark:text-[#9dabb9] hover:text-primary transition-colors">
+                                        <span class="material-symbols-outlined">edit</span>
+                                    </button>
+                                </td>
+                            </tr>
+                            <!-- Row 3 -->
+                            <tr class="cursor-pointer hover:bg-gray-100 dark:hover:bg-[#2a3441] transition-colors">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="flex items-center">
+                                        <div class="size-2 rounded-full bg-transparent mr-3"></div>
+                                        <span class="text-sm font-medium text-[#111418] dark:text-white">Đội Cano
+                                            03</span>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-[#637588] dark:text-[#9dabb9]">Hạ
+                                    Long, Quảng Ninh</td>
+                                <td
+                                    class="px-6 py-4 whitespace-nowrap text-sm text-[#111418] dark:text-white font-medium">
+                                    Lê Văn C</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-[#637588] dark:text-[#9dabb9]">5
+                                    người</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span
+                                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                                        Đang di chuyển
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <button
+                                        class="text-[#637588] dark:text-[#9dabb9] hover:text-primary transition-colors">
+                                        <span class="material-symbols-outlined">edit</span>
+                                    </button>
+                                </td>
+                            </tr>
+                            <!-- Row 4 -->
+                            <tr class="cursor-pointer hover:bg-gray-100 dark:hover:bg-[#2a3441] transition-colors">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="flex items-center">
+                                        <div class="size-2 rounded-full bg-transparent mr-3"></div>
+                                        <span class="text-sm font-medium text-[#111418] dark:text-white">Nhóm Hậu Cần Số
+                                            1</span>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-[#637588] dark:text-[#9dabb9]">TP.
+                                    Lào Cai</td>
+                                <td
+                                    class="px-6 py-4 whitespace-nowrap text-sm text-[#111418] dark:text-white font-medium">
+                                    Phạm Thị D</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-[#637588] dark:text-[#9dabb9]">20
+                                    người</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span
+                                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                                        Sẵn sàng
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <button
+                                        class="text-[#637588] dark:text-[#9dabb9] hover:text-primary transition-colors">
+                                        <span class="material-symbols-outlined">edit</span>
+                                    </button>
+                                </td>
+                            </tr>
+                            <!-- Row 5 -->
+                            <tr class="cursor-pointer hover:bg-gray-100 dark:hover:bg-[#2a3441] transition-colors">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="flex items-center">
+                                        <div class="size-2 rounded-full bg-transparent mr-3"></div>
+                                        <span class="text-sm font-medium text-[#111418] dark:text-white">Đội Tìm Kiếm
+                                            Cứu Nạn</span>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-[#637588] dark:text-[#9dabb9]">Bảo
+                                    Yên, Lào Cai</td>
+                                <td
+                                    class="px-6 py-4 whitespace-nowrap text-sm text-[#111418] dark:text-white font-medium">
+                                    Hoàng Văn E</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-[#637588] dark:text-[#9dabb9]">12
+                                    người</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span
+                                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
+                                        Khẩn cấp
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <button
+                                        class="text-[#637588] dark:text-[#9dabb9] hover:text-primary transition-colors">
+                                        <span class="material-symbols-outlined">edit</span>
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <!-- Right: Details Panel -->
+            <div class="lg:col-span-1 flex flex-col gap-4">
+                <div
+                    class="sticky top-24 rounded-xl border border-gray-200 dark:border-[#3b4754] bg-surface-light dark:bg-surface-dark shadow-lg flex flex-col overflow-hidden h-fit max-h-[calc(100vh-8rem)]">
+                    <!-- Detail Header -->
+                    <div class="p-6 border-b border-gray-200 dark:border-[#3b4754]">
+                        <div class="flex justify-between items-start mb-4">
+                            <span
+                                class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                                Đang hoạt động
+                            </span>
+                            <div class="flex gap-2">
+                                <button
+                                    class="p-2 text-[#637588] dark:text-[#9dabb9] hover:text-white hover:bg-gray-100 dark:hover:bg-[#3b4754] rounded-lg transition-colors"
+                                    title="Chỉnh sửa">
+                                    <span class="material-symbols-outlined">edit</span>
+                                </button>
+                                <button
+                                    class="p-2 text-[#637588] dark:text-[#9dabb9] hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                    title="Xóa nhóm">
+                                    <span class="material-symbols-outlined">delete</span>
+                                </button>
+                            </div>
+                        </div>
+                        <h3 class="text-2xl font-bold text-[#111418] dark:text-white mb-2">Đội Cứu Hộ Lệ Thủy</h3>
+                        <div class="flex flex-col gap-2">
+                            <div class="flex items-center text-[#637588] dark:text-[#9dabb9] text-sm">
+                                <span class="material-symbols-outlined text-lg mr-2">location_on</span>
+                                Xã An Thủy, Huyện Lệ Thủy, Quảng Bình
+                            </div>
+                            <div class="flex items-center text-[#637588] dark:text-[#9dabb9] text-sm">
+                                <span class="material-symbols-outlined text-lg mr-2">person</span>
+                                Trưởng nhóm: <span class="text-[#111418] dark:text-white font-medium ml-1">Nguyễn Văn
+                                    A</span>
+                            </div>
+                            <div class="flex items-center text-[#637588] dark:text-[#9dabb9] text-sm">
+                                <span class="material-symbols-outlined text-lg mr-2">call</span>
+                                Liên hệ: 0912 345 678
+                            </div>
+                        </div>
+                        <!-- Mini Map Preview -->
+                        <div class="mt-4 w-full h-32 rounded-lg bg-gray-200 dark:bg-[#283039] bg-cover bg-center relative"
+                            data-location="Quảng Bình Map"
+                            style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAv-XpNn70KGwrXp8rU_PBWA19iotbS4EQ5r83F1IZQ4DorzR3dmzjCCNKqSwS-f2v0LnjSMd9L0uDn7n0krrHMSPez9pxN6Tr8mAxFhncmHLANE_ySHEEt27d2SdtBlUnjUPNMmv2v00yJpe5xbu7qgpz09HIniz9B_-BAvQD2MZlzDavZH-rj20v6Avlog8EycqbI97KXvENXy1oDnrbrFgwcFUc6EH9q63HXbsmdMnFoO8SD79z0aL4sAvobaodKWw455nLNzwQ');">
+                            <div class="absolute inset-0 bg-black/20 flex items-center justify-center">
+                                <button
+                                    class="bg-surface-light dark:bg-surface-dark text-xs font-bold px-3 py-1.5 rounded-full shadow flex items-center gap-1 hover:bg-gray-100 dark:hover:bg-[#3b4754] transition-colors">
+                                    <span class="material-symbols-outlined text-sm">map</span>
+                                    Xem bản đồ
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Member List -->
+                    <div class="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                        <div class="flex justify-between items-center mb-4 px-2">
+                            <h4 class="text-sm font-bold text-[#111418] dark:text-white uppercase tracking-wide">Thành
+                                viên (15)</h4>
+                            <button class="text-primary text-sm font-bold hover:underline">Quản lý</button>
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            <!-- Member 1 -->
+                            <div
+                                class="flex items-center p-3 rounded-lg bg-gray-50 dark:bg-[#283039] border border-transparent hover:border-gray-200 dark:hover:border-[#3b4754] transition-colors group/member">
+                                <div class="size-10 rounded-full bg-cover bg-center mr-3" data-alt="Volunteer avatar"
+                                    style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuB48OJ4VxK1FjibJzIRFAfN4zjZrQFl7fIVFJDuVwVUvZ_pH009Ue9j8m-1Pf6_rpHWen-PY6494nRit7mjRuTCOEGiFm4nUnhpZEv3qw-dzjnD7TmaM3opv9Q4SPzNBQMPcq_AbFtHmXkU5CIWAys2wI1NJ-UW-nOqKSvH24YaL6b6yxGeyjcv61aPA5bUfSuz3R2Rl5dPuBjboHKpnMuvnY3z0Y-4Tx7JCKAzsrd-2htBAqhSFCQHZ42QkububzGoFQw67DdmhaM');">
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-bold text-[#111418] dark:text-white truncate">Nguyễn Văn A
+                                    </p>
+                                    <p class="text-xs text-primary truncate">Trưởng nhóm</p>
+                                </div>
+                                <button
+                                    class="text-[#637588] dark:text-[#9dabb9] hover:text-red-500 opacity-0 group-hover/member:opacity-100 transition-opacity p-1">
+                                    <span class="material-symbols-outlined text-xl">remove_circle_outline</span>
+                                </button>
+                            </div>
+                            <!-- Member 2 -->
+                            <div
+                                class="flex items-center p-3 rounded-lg bg-gray-50 dark:bg-[#283039] border border-transparent hover:border-gray-200 dark:hover:border-[#3b4754] transition-colors group/member">
+                                <div class="size-10 rounded-full bg-cover bg-center mr-3" data-alt="Volunteer avatar"
+                                    style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAaLovaKKBYkQP633wV0lH2InVDIeGFsmulwpK8a5fj91rb3dgjgyhhKGs9LrcedCDm7IfT8EMhIPfp1sKmP8t41nbx0t9Cw_03oE7EjzbZJjzkxOjXejdfmNC_JiYvJaxoHJKYmHcmFFshZSpxVigbPBrr1LTuTIeEh5RMKxQkjE1aVkp-Oo-Saq8oKALWvIaccTHJ8ycahmMPyTmmrBqlJbFbnuZJjkHkZ6EqAbL-Uqbpdg4pJbZTtD4st9myS6rZoQn5e5Q-XTY');">
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-bold text-[#111418] dark:text-white truncate">Lê Thị Mai</p>
+                                    <p class="text-xs text-[#637588] dark:text-[#9dabb9] truncate">Y tá</p>
+                                </div>
+                                <button
+                                    class="text-[#637588] dark:text-[#9dabb9] hover:text-red-500 opacity-0 group-hover/member:opacity-100 transition-opacity p-1">
+                                    <span class="material-symbols-outlined text-xl">remove_circle_outline</span>
+                                </button>
+                            </div>
+                            <!-- Member 3 -->
+                            <div
+                                class="flex items-center p-3 rounded-lg bg-gray-50 dark:bg-[#283039] border border-transparent hover:border-gray-200 dark:hover:border-[#3b4754] transition-colors group/member">
+                                <div class="size-10 rounded-full bg-cover bg-center mr-3" data-alt="Volunteer avatar"
+                                    style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCxYWxRPn-hpDYN1Yms-VzVjSVLWHsrpAWQJCKdCP9wiQWexMZl6lne82CfPQ5C3BHyj6jbIiTgg-GIlG6Lu1NHdAoTIqUTxX0E1PKvAtKPVOWsG-jeySDpHnIhLjCTNuiA9oNS5Ktt6vDtwWOdqnVb6wvg79CnHQ67XflKhQfnt_HVoGnYNNonhBCLouzG6z4r1DVod0HtcD2-h59ngb2GP-35jokXNEzY0dbJ7SjKyLT0iIdhmK-RuV5Tj78wnEQzqEMRPC92wLE');">
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-bold text-[#111418] dark:text-white truncate">Trần Văn Hùng
+                                    </p>
+                                    <p class="text-xs text-[#637588] dark:text-[#9dabb9] truncate">Lái xe</p>
+                                </div>
+                                <button
+                                    class="text-[#637588] dark:text-[#9dabb9] hover:text-red-500 opacity-0 group-hover/member:opacity-100 transition-opacity p-1">
+                                    <span class="material-symbols-outlined text-xl">remove_circle_outline</span>
+                                </button>
+                            </div>
+                            <!-- Member 4 -->
+                            <div
+                                class="flex items-center p-3 rounded-lg bg-gray-50 dark:bg-[#283039] border border-transparent hover:border-gray-200 dark:hover:border-[#3b4754] transition-colors group/member">
+                                <div class="size-10 rounded-full bg-cover bg-center mr-3" data-alt="Volunteer avatar"
+                                    style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAoYe5SeHqZ9wgzhaYcQU6om8uHBpRXDNkFlQpSvJDFZP-9PK71WYMAWybSSO8pAXXWCHF_Jx1t7LxEF2BiXYl7acBFsRtUPSw66vKoiDQnAslQGgNZniexC8BaqOTpTEaUh988PgrTQ4deQ0QxZ7KJaX7aR1znrWyWAV7lTrIob3xtYv2Vugub6fAEVMP9W05Ysr1XG67kxiQOB8K--UJCHcupGfyMGhHttkrTzKA0uOdG-r7SQtN9BC3v6KF7Mxth1HrHPKwKpSQ');">
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-bold text-[#111418] dark:text-white truncate">Phạm Minh Tuấn
+                                    </p>
+                                    <p class="text-xs text-[#637588] dark:text-[#9dabb9] truncate">Hậu cần</p>
+                                </div>
+                                <button
+                                    class="text-[#637588] dark:text-[#9dabb9] hover:text-red-500 opacity-0 group-hover/member:opacity-100 transition-opacity p-1">
+                                    <span class="material-symbols-outlined text-xl">remove_circle_outline</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Footer Action -->
+                    <div class="p-4 border-t border-gray-200 dark:border-[#3b4754] bg-gray-50 dark:bg-[#1c2127]">
+                        <button
+                            class="flex items-center justify-center w-full gap-2 rounded-lg h-10 px-4 bg-gray-200 dark:bg-[#3b4754] text-[#111418] dark:text-white text-sm font-bold hover:bg-gray-300 dark:hover:bg-[#4b5a6b] transition-colors">
+                            <span class="material-symbols-outlined text-lg">person_add</span>
+                            Thêm tình nguyện viên
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    <style>
+        /* Custom scrollbar for better look in dark mode */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #3b4754;
+            border-radius: 20px;
+        }
+    </style>
+</body>
+
+</html>

@@ -234,7 +234,7 @@ export default function CoordinatorRequestManagementPage() {
         { label: 'Đội tình nguyện', path: '/portal/coordinator/teams', icon: 'groups' },
         {
           label: 'Yêu cầu tình nguyện',
-          path: '/portal/coordinator/volunteers',
+          path: '/portal/coordinator/volunteer-request',
           icon: 'how_to_reg',
         },
         {

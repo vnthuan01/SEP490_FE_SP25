@@ -3,11 +3,11 @@ import LoginPage from '@/pages/auth/LoginPage';
 import DataManagementPage from '@/pages/admin/DataManagementPage';
 import AdminDashboardPage from '@/pages/admin/DashboardPage';
 import AdminUserManagementPage from '@/pages/admin/UserManagementPage';
-// import CoordinationPage from '@/pages/coordinator/CoordinationPage';
+import CoordinatorVolunteerRequestPage from '@/pages/coordinator/VolunteerRequestManagement';
 import CoordinatorDashboardPage from '@/pages/coordinator/DashboardPage';
 import CoordinatorRequestManagementPage from '@/pages/coordinator/RequestManagementPage';
 import CoordinatorMapsPage from '@/pages/coordinator/MemberAllocationPage';
-// import CoordinatorTeamsPage from '@/pages/coordinator/TeamsPage';
+import CoordinatorTeamsPage from '@/pages/coordinator/TeamManagement';
 import CoordinatorInventoryPage from '@/pages/coordinator/InventoryPage';
 import type { AppRoute } from '@/types/routes';
 import RoleBasedRoute from './protectedRoute';
@@ -54,12 +54,12 @@ export const routes: AppRoute[] = [
     // roles: [UserRole.Coordinator],
     isProtected: false,
   },
-  // {
-  //   path: '/portal/coordinator/teams',
-  //   element: <CoordinatorTeamsPage />,
-  //   // roles: [UserRole.Coordinator],
-  //   isProtected: false,
-  // },
+  {
+    path: '/portal/coordinator/teams',
+    element: <CoordinatorTeamsPage />,
+    // roles: [UserRole.Coordinator],
+    isProtected: false,
+  },
   {
     path: '/portal/coordinator/inventory',
     element: <CoordinatorInventoryPage />,
@@ -69,6 +69,12 @@ export const routes: AppRoute[] = [
   {
     path: '/portal/coordinator/requests',
     element: <CoordinatorRequestManagementPage />,
+    // roles: [UserRole.Coordinator],
+    isProtected: false,
+  },
+  {
+    path: '/portal/coordinator/volunteer-requests',
+    element: <CoordinatorVolunteerRequestPage />,
     // roles: [UserRole.Coordinator],
     isProtected: false,
   },
