@@ -56,6 +56,13 @@ const getAiBadgeClass = (score: number) => {
   return 'bg-surface-dark-highlight text-text-sub-dark border border-border-dark';
 };
 
+const getAiColor = (score: number) => {
+  if (score >= 85) return { text: 'text-red-500', bar: 'bg-red-500' };
+  if (score >= 70) return { text: 'text-orange-500', bar: 'bg-orange-500' };
+  if (score >= 50) return { text: 'text-blue-500', bar: 'bg-blue-500' };
+  return { text: 'text-text-sub-dark', bar: 'bg-text-sub-dark' };
+};
+
 const processConfig: Record<ProcessStatus, { label: string; icon: string; className: string }> = {
   submitted: { label: 'Đã gửi', icon: 'upload', className: 'text-text-sub-dark' },
   approved: { label: 'Đã chấp thuận', icon: 'check_circle', className: 'text-blue-500' },
@@ -72,16 +79,41 @@ const supportTypeConfig: Record<SupportType, { label: string; icon: string }> = 
   food: { label: 'Lương thực', icon: 'restaurant' },
   medicine: { label: 'Thuốc men', icon: 'medical_services' },
   evacuation: { label: 'Sơ tán', icon: 'directions_run' },
-  rescue: { label: 'Cứu hộ', icon: 'support' },
+  rescue: { label: 'Cứu hộ', icon: 'emergency' },
   other: { label: 'Khác', icon: 'more_horiz' },
 };
 
-const actionConfig: Record<ProcessStatus, { primary?: string; secondary?: string }> = {
-  submitted: { primary: 'Chấp thuận', secondary: 'Từ chối' },
-  approved: { primary: 'Bắt đầu xử lý' },
-  in_progress: { primary: 'Hoàn thành' },
-  completed: {},
-  rejected: {},
+const actionConfig: Record<
+  ProcessStatus,
+  { primary?: string; icon?: string; className?: string; secondary?: string }
+> = {
+  submitted: {
+    primary: 'Chấp thuận',
+    icon: 'check_circle',
+    className: 'bg-emerald-600 hover:bg-emerald-700 text-white border-transparent',
+    secondary: 'Từ chối',
+  },
+  approved: {
+    primary: 'Bắt đầu xử lý',
+    icon: 'play_circle',
+    className: 'bg-blue-600 hover:bg-blue-700 text-white border-transparent',
+  },
+  in_progress: {
+    primary: 'Hoàn thành',
+    icon: 'verified',
+    className: 'bg-green-600 hover:bg-green-700 text-white border-transparent',
+  },
+  completed: {
+    primary: 'Đã hoàn thành',
+    icon: 'verified',
+    className:
+      'bg-green-500/10 text-green-500 cursor-default hover:bg-green-500/10 border-green-500/20',
+  },
+  rejected: {
+    primary: 'Đã hủy',
+    icon: 'cancel',
+    className: 'bg-red-500/10 text-red-500 cursor-default hover:bg-red-500/10 border-red-500/20',
+  },
 };
 
 const mockRequests: Request[] = [
@@ -221,6 +253,8 @@ export default function CoordinatorRequestManagementPage() {
   const [selectedRequest, setSelectedRequest] = useState<Request>(mockRequests[0]);
   const [filterStatus, setFilterStatus] = useState<RequestStatus | 'all'>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const filteredRequests = useMemo(() => {
     let res = mockRequests;
@@ -272,10 +306,8 @@ export default function CoordinatorRequestManagementPage() {
           {/* HEADER */}
           <div className="p-4 border-b border-surface-dark-highlight flex flex-col gap-4">
             <div className="flex flex-col gap-1">
-              <h1 className="text-2xl font-bold leading-tight text-text-main-dark">
-                Yêu cầu cứu trợ
-              </h1>
-              <p className="text-sm text-text-sub-dark">
+              <h1 className="text-2xl font-bold leading-tight text-primary">Yêu cầu cứu trợ</h1>
+              <p className="text-sm text-muted-foreground">
                 Tổng {filteredRequests.length} yêu cầu cần xử lý
               </p>
             </div>
@@ -368,7 +400,10 @@ export default function CoordinatorRequestManagementPage() {
             {filteredRequests.map((r) => (
               <div
                 key={r.id}
-                onClick={() => setSelectedRequest(r)}
+                onClick={() => {
+                  setSelectedRequest(r);
+                  setCurrentMediaIndex(0);
+                }}
                 className={cn(
                   'group flex cursor-pointer flex-col gap-2 rounded-lg p-3 transition-all',
                   'border border-transparent bg-background-dark',
@@ -475,7 +510,15 @@ export default function CoordinatorRequestManagementPage() {
                       </Button>
                     )}
                     {actions?.primary && (
-                      <Button variant="primary" className="dark:text-white">
+                      <Button
+                        variant="primary"
+                        className={cn('dark:text-white flex items-center gap-2', actions.className)}
+                      >
+                        {actions.icon && (
+                          <span className="material-symbols-outlined text-[18px]">
+                            {actions.icon}
+                          </span>
+                        )}
                         {actions.primary}
                       </Button>
                     )}
@@ -524,26 +567,162 @@ export default function CoordinatorRequestManagementPage() {
                     <div className="space-y-4">
                       <h3 className="text-xl font-bold flex items-center gap-2 text-text-main-dark">
                         <span className="material-symbols-outlined text-primary">perm_media</span>
-                        Hình ảnh/Video đính kèm
+                        Hình ảnh/Video đính kèm ({selectedRequest.media.length})
                       </h3>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                        {selectedRequest.media.map((m, i) =>
-                          m.type === 'image' ? (
+
+                      {/* Main Main View */}
+                      <div className="relative w-full aspect-video bg-black/20 rounded-xl overflow-hidden border border-border-dark group">
+                        {selectedRequest.media[currentMediaIndex].type === 'image' ? (
+                          <div
+                            className="w-full h-full bg-contain bg-center bg-no-repeat cursor-zoom-in"
+                            style={{
+                              backgroundImage: `url("${selectedRequest.media[currentMediaIndex].url}")`,
+                            }}
+                            onClick={() => setIsFullscreen(true)}
+                          />
+                        ) : (
+                          <video
+                            src={selectedRequest.media[currentMediaIndex].url}
+                            controls
+                            className="w-full h-full"
+                          />
+                        )}
+
+                        {isFullscreen && (
+                          <div
+                            onClick={() => setIsFullscreen(false)}
+                            className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center animate-in fade-in duration-200"
+                          >
+                            <div className="relative w-full h-full max-w-[90vw] max-h-[90vh] flex items-center justify-center">
+                              {selectedRequest.media[currentMediaIndex].type === 'image' ? (
+                                <img
+                                  src={selectedRequest.media[currentMediaIndex].url}
+                                  className="max-h-full max-w-full rounded-lg object-contain"
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                              ) : (
+                                <video
+                                  src={selectedRequest.media[currentMediaIndex].url}
+                                  controls
+                                  className="max-h-full max-w-full rounded-lg"
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                              )}
+
+                              {/* Navigation Buttons in Fullscreen */}
+                              {selectedRequest.media.length > 1 && (
+                                <>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setCurrentMediaIndex((prev) =>
+                                        prev === 0 ? selectedRequest.media!.length - 1 : prev - 1,
+                                      );
+                                    }}
+                                    className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-all backdrop-blur-sm"
+                                  >
+                                    <span className="material-symbols-outlined text-3xl">
+                                      chevron_left
+                                    </span>
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setCurrentMediaIndex((prev) =>
+                                        prev === selectedRequest.media!.length - 1 ? 0 : prev + 1,
+                                      );
+                                    }}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-all backdrop-blur-sm"
+                                  >
+                                    <span className="material-symbols-outlined text-3xl">
+                                      chevron_right
+                                    </span>
+                                  </button>
+                                </>
+                              )}
+
+                              <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-black/50 text-white text-sm font-medium backdrop-blur-sm">
+                                {currentMediaIndex + 1} / {selectedRequest.media.length}
+                              </div>
+                            </div>
+
+                            <button
+                              onClick={() => setIsFullscreen(false)}
+                              className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors"
+                            >
+                              <span className="material-symbols-outlined text-4xl">close</span>
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Navigation Buttons */}
+                        {selectedRequest.media.length > 1 && (
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setCurrentMediaIndex((prev) =>
+                                  prev === 0 ? selectedRequest.media!.length - 1 : prev - 1,
+                                );
+                              }}
+                              className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-primary transition-all opacity-0 group-hover:opacity-100 backdrop-blur-sm"
+                            >
+                              <span className="material-symbols-outlined text-[20px]">
+                                chevron_left
+                              </span>
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setCurrentMediaIndex((prev) =>
+                                  prev === selectedRequest.media!.length - 1 ? 0 : prev + 1,
+                                );
+                              }}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-primary transition-all opacity-0 group-hover:opacity-100 backdrop-blur-sm"
+                            >
+                              <span className="material-symbols-outlined text-[20px]">
+                                chevron_right
+                              </span>
+                            </button>
+                          </>
+                        )}
+
+                        {/* Counter Badge */}
+                        <div className="absolute top-3 right-3 px-2 py-1 rounded-md bg-black/60 text-white text-xs font-medium backdrop-blur-sm">
+                          {currentMediaIndex + 1} / {selectedRequest.media.length}
+                        </div>
+                      </div>
+
+                      {/* Thumbnails */}
+                      {selectedRequest.media.length > 1 && (
+                        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-border-dark scrollbar-track-transparent">
+                          {selectedRequest.media.map((m, i) => (
                             <div
                               key={i}
-                              className="aspect-square bg-cover bg-center rounded-xl border border-border-dark cursor-pointer hover:opacity-90 transition-opacity"
-                              style={{ backgroundImage: `url("${m.url}")` }}
-                            />
-                          ) : (
-                            <video
-                              key={i}
-                              src={m.url}
-                              controls
-                              className="w-full aspect-video rounded-xl border border-border-dark bg-black"
-                            />
-                          ),
-                        )}
-                      </div>
+                              onClick={() => setCurrentMediaIndex(i)}
+                              className={cn(
+                                'relative w-20 h-14 shrink-0 rounded-lg overflow-hidden cursor-pointer border-2 transition-all',
+                                i === currentMediaIndex
+                                  ? 'border-primary opacity-100 ring-2 ring-primary/20'
+                                  : 'border-transparent opacity-60 hover:opacity-100 hover:border-border-dark',
+                              )}
+                            >
+                              {m.type === 'image' ? (
+                                <div
+                                  className="w-full h-full bg-cover bg-center"
+                                  style={{ backgroundImage: `url("${m.url}")` }}
+                                />
+                              ) : (
+                                <div className="w-full h-full bg-black/80 flex items-center justify-center">
+                                  <span className="material-symbols-outlined text-white/80 text-[20px]">
+                                    play_circle
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -571,12 +750,14 @@ export default function CoordinatorRequestManagementPage() {
                                 active ? 'border-primary' : 'border-border-dark',
                               )}
                             >
-                              <div
+                              <span
                                 className={cn(
-                                  'w-2.5 h-2.5 rounded-full',
-                                  active ? 'bg-primary' : 'bg-border-dark',
+                                  'material-symbols-outlined text-[14px]',
+                                  active ? 'text-primary' : 'text-text-sub-dark',
                                 )}
-                              ></div>
+                              >
+                                {cfg.icon}
+                              </span>
                             </div>
                             <div>
                               <p
@@ -606,17 +787,32 @@ export default function CoordinatorRequestManagementPage() {
                         <h3 className="text-sm font-bold uppercase tracking-wider text-text-sub-dark">
                           AI Đánh giá
                         </h3>
-                        <span className="material-symbols-outlined text-primary">auto_awesome</span>
+                        <span
+                          className={cn(
+                            'material-symbols-outlined',
+                            getAiColor(selectedRequest.aiScore).text,
+                          )}
+                        >
+                          auto_awesome
+                        </span>
                       </div>
                       <div className="flex items-end gap-2 mb-2">
-                        <span className="text-4xl font-black text-text-main-dark">
+                        <span
+                          className={cn(
+                            'text-4xl font-black',
+                            getAiColor(selectedRequest.aiScore).text,
+                          )}
+                        >
                           {selectedRequest.aiScore}
                         </span>
                         <span className="text-sm text-text-sub-dark mb-1.5">/ 100 điểm</span>
                       </div>
                       <div className="w-full bg-background-dark h-2 rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-gradient-to-r from-blue-500 to-primary"
+                          className={cn(
+                            'h-full transition-all duration-500',
+                            getAiColor(selectedRequest.aiScore).bar,
+                          )}
                           style={{ width: `${selectedRequest.aiScore}%` }}
                         ></div>
                       </div>

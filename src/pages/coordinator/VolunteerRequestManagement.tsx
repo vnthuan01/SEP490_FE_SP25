@@ -76,10 +76,8 @@ export default function CoordinatorVolunteerRequestPage() {
           {/* Header & Search */}
           <div className="p-4 border-b border-surface-dark-highlight flex flex-col gap-4">
             <div className="flex flex-col gap-1">
-              <h1 className="text-2xl font-bold leading-tight text-text-main-dark">
-                Duyệt đơn đăng ký
-              </h1>
-              <p className="text-text-sub-dark text-sm">
+              <h1 className="text-2xl font-bold leading-tight text-primary">Duyệt đơn đăng ký</h1>
+              <p className="text-muted-foreground text-sm">
                 {filteredRequests.length} đơn mới đang chờ xử lý
               </p>
             </div>
@@ -424,7 +422,10 @@ export default function CoordinatorVolunteerRequestPage() {
               </div>
 
               {/* Sticky Footer */}
-              <div className="sticky bottom-0 left-0 right-0 p-6 bg-card-dark border-t border-border-dark flex justify-between items-center z-20 shadow-2xl mt-auto">
+              <div
+                className="sticky bottom-0 left-0 right-0 p-6 bg-card-dark/90
+  backdrop-blur-md border-t border-border-dark flex justify-between items-center z-20 shadow-2xl mt-auto"
+              >
                 <Button variant="outline" className="gap-2">
                   <span className="material-symbols-outlined">history</span>
                   Xem lịch sử
