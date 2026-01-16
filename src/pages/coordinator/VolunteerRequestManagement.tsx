@@ -11,6 +11,8 @@ export default function CoordinatorVolunteerRequestPage() {
   const [selectedId, setSelectedId] = useState<string>(volunteerRequestsData[0]?.id);
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState<'all' | 'health' | 'rescue' | 'transport'>('all');
+  const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const selectedRequest = useMemo(
     () => volunteerRequestsData.find((r) => r.id === selectedId) || volunteerRequestsData[0],
@@ -133,7 +135,10 @@ export default function CoordinatorVolunteerRequestPage() {
             {filteredRequests.map((req) => (
               <div
                 key={req.id}
-                onClick={() => setSelectedId(req.id)}
+                onClick={() => {
+                  setSelectedId(req.id);
+                  setCurrentMediaIndex(0);
+                }}
                 className={cn(
                   'group flex cursor-pointer items-start gap-3 rounded-lg p-3 transition-all border',
                   selectedId === req.id
@@ -332,17 +337,143 @@ export default function CoordinatorVolunteerRequestPage() {
                       </div>
                       {selectedRequest.images.length > 0 && (
                         <div>
-                          <p className="text-text-sub-dark text-sm mb-3">Ảnh/Chứng chỉ đính kèm:</p>
-                          <div className="flex gap-3">
-                            {selectedRequest.images.map((img, idx) => (
+                          <p className="text-text-sub-dark text-sm mb-3">
+                            Ảnh/Chứng chỉ đính kèm ({selectedRequest.images.length}):
+                          </p>
+
+                          {/* Main View */}
+                          <div className="relative w-full aspect-video bg-black/20 rounded-xl overflow-hidden border border-border-dark group">
+                            <div
+                              className="w-full h-full bg-contain bg-center bg-no-repeat cursor-zoom-in"
+                              style={{
+                                backgroundImage: `url("${selectedRequest.images[currentMediaIndex].url}")`,
+                              }}
+                              onClick={() => setIsFullscreen(true)}
+                            />
+
+                            {/* Fullscreen Modal */}
+                            {isFullscreen && (
                               <div
-                                key={idx}
-                                className="h-20 w-28 bg-cover bg-center rounded-lg border border-border-dark cursor-pointer hover:opacity-80 transition-opacity"
-                                style={{ backgroundImage: `url("${img.url}")` }}
-                                title={img.caption}
-                              />
-                            ))}
+                                onClick={() => setIsFullscreen(false)}
+                                className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center animate-in fade-in duration-200"
+                              >
+                                <div className="relative w-full h-full max-w-[90vw] max-h-[90vh] flex items-center justify-center">
+                                  <img
+                                    src={selectedRequest.images[currentMediaIndex].url}
+                                    className="max-h-full max-w-full rounded-lg object-contain"
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+
+                                  {/* Navigation Buttons in Fullscreen */}
+                                  {selectedRequest.images.length > 1 && (
+                                    <>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setCurrentMediaIndex((prev) =>
+                                            prev === 0
+                                              ? selectedRequest.images.length - 1
+                                              : prev - 1,
+                                          );
+                                        }}
+                                        className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-all backdrop-blur-sm"
+                                      >
+                                        <span className="material-symbols-outlined text-3xl">
+                                          chevron_left
+                                        </span>
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setCurrentMediaIndex((prev) =>
+                                            prev === selectedRequest.images.length - 1
+                                              ? 0
+                                              : prev + 1,
+                                          );
+                                        }}
+                                        className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-all backdrop-blur-sm"
+                                      >
+                                        <span className="material-symbols-outlined text-3xl">
+                                          chevron_right
+                                        </span>
+                                      </button>
+                                    </>
+                                  )}
+
+                                  <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-black/50 text-white text-sm font-medium backdrop-blur-sm">
+                                    {currentMediaIndex + 1} / {selectedRequest.images.length}
+                                  </div>
+                                </div>
+
+                                <button
+                                  onClick={() => setIsFullscreen(false)}
+                                  className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors"
+                                >
+                                  <span className="material-symbols-outlined text-4xl">close</span>
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Navigation Buttons (Main View) */}
+                            {selectedRequest.images.length > 1 && (
+                              <>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setCurrentMediaIndex((prev) =>
+                                      prev === 0 ? selectedRequest.images.length - 1 : prev - 1,
+                                    );
+                                  }}
+                                  className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-primary transition-all opacity-0 group-hover:opacity-100 backdrop-blur-sm"
+                                >
+                                  <span className="material-symbols-outlined text-[20px]">
+                                    chevron_left
+                                  </span>
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setCurrentMediaIndex((prev) =>
+                                      prev === selectedRequest.images.length - 1 ? 0 : prev + 1,
+                                    );
+                                  }}
+                                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-primary transition-all opacity-0 group-hover:opacity-100 backdrop-blur-sm"
+                                >
+                                  <span className="material-symbols-outlined text-[20px]">
+                                    chevron_right
+                                  </span>
+                                </button>
+                              </>
+                            )}
+
+                            {/* Counter Badge */}
+                            <div className="absolute top-3 right-3 px-2 py-1 rounded-md bg-black/60 text-white text-xs font-medium backdrop-blur-sm">
+                              {currentMediaIndex + 1} / {selectedRequest.images.length}
+                            </div>
                           </div>
+
+                          {/* Thumbnails */}
+                          {selectedRequest.images.length > 1 && (
+                            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-border-dark scrollbar-track-transparent mt-3">
+                              {selectedRequest.images.map((img, i) => (
+                                <div
+                                  key={i}
+                                  onClick={() => setCurrentMediaIndex(i)}
+                                  className={cn(
+                                    'relative w-20 h-14 shrink-0 rounded-lg overflow-hidden cursor-pointer border-2 transition-all',
+                                    i === currentMediaIndex
+                                      ? 'border-primary opacity-100 ring-2 ring-primary/20'
+                                      : 'border-transparent opacity-60 hover:opacity-100 hover:border-border-dark',
+                                  )}
+                                >
+                                  <div
+                                    className="w-full h-full bg-cover bg-center"
+                                    style={{ backgroundImage: `url("${img.url}")` }}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
