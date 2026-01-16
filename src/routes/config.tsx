@@ -6,7 +6,7 @@ import AdminUserManagementPage from '@/pages/admin/UserManagementPage';
 import CoordinatorVolunteerRequestPage from '@/pages/coordinator/VolunteerRequestManagement';
 import CoordinatorDashboardPage from '@/pages/coordinator/DashboardPage';
 import CoordinatorRequestManagementPage from '@/pages/coordinator/RequestManagementPage';
-import CoordinatorMapsPage from '@/pages/coordinator/MemberAllocationPage';
+import CoordinatorMapsPage from '@/pages/coordinator/TeamAllocationPage';
 import CoordinatorTeamsPage from '@/pages/coordinator/TeamManagement';
 import CoordinatorInventoryPage from '@/pages/coordinator/InventoryPage';
 import type { AppRoute } from '@/types/routes';

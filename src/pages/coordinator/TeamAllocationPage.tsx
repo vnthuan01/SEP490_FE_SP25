@@ -18,7 +18,7 @@ import { LocationDetailSheet } from './components/LocationDetailSheet';
 
 const GOONG_API_KEY = import.meta.env.VITE_GOONG_MAP_KEY || '';
 
-export default function CoordinatorMemberAllocationPage() {
+export default function CoordinatorTeamAllocationPage() {
   const [teams, setTeams] = useState<Team[]>(teamsData);
   const [search, setSearch] = useState('');
   const [urgencyFilter, setUrgencyFilter] = useState<string>('all');
