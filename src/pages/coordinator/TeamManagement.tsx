@@ -5,11 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import type { Team } from './components/types';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useNavigate } from 'react-router-dom';
 
 export default function CoordinatorTeamManagementPage() {
   const [selectedTeamId, setSelectedTeamId] = useState<string>(teamsData[0]?.id);
   const [searchTerm, setSearchTerm] = useState('');
-
+  const navigate = useNavigate();
   const selectedTeam = useMemo(
     () => teamsData.find((t) => t.id === selectedTeamId) || teamsData[0],
     [selectedTeamId],
@@ -64,7 +66,7 @@ export default function CoordinatorTeamManagementPage() {
   return (
     <DashboardLayout
       projects={[
-        { label: 'Tổng quan', path: '/portal/coordinator/coordination', icon: 'dashboard' },
+        { label: 'Tổng quan', path: '/portal/coordinator/data-management', icon: 'dashboard' },
         { label: 'Điều phối & Bản đồ', path: '/portal/coordinator/maps', icon: 'map' },
         { label: 'Đội tình nguyện', path: '/portal/coordinator/teams', icon: 'groups' },
         {
@@ -91,55 +93,99 @@ export default function CoordinatorTeamManagementPage() {
       <div className="flex flex-wrap justify-between items-end gap-4 mb-8">
         <div className="flex flex-col gap-2">
           <h1 className="text-4xl text-primary font-black">Quản lý nhóm cứu trợ</h1>
-          <p className="text-text-sub-dark text-lg">
+          <p className="text-muted-foreground text-lg">
             Theo dõi và điều phối các đội tình nguyện tại các khu vực bị ảnh hưởng.
           </p>
         </div>
-        <Button variant="primary" className="gap-2 text-base px-6 h-12">
-          <span className="material-symbols-outlined">add</span>
-          Tạo nhóm mới
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => {
+              navigate('/portal/coordinator/volunteer-allocation');
+            }}
+            variant="outline"
+            className="gap-2 text-base px-6 h-12"
+          >
+            <span className="material-symbols-outlined">add</span>
+            Phân công tình nguyện viên
+          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="primary" className="gap-2 text-base px-6 h-12">
+                  <span className="material-symbols-outlined">add</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-white dark:text-black">Tạo đội ngũ mới</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
       </div>
 
       {/* STATS OVERVIEW */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <Card className="bg-card-dark border-border-dark">
-          <CardContent className="p-5 flex flex-col gap-2">
-            <div className="flex items-center gap-2 text-text-sub-dark">
-              <span className="material-symbols-outlined">groups</span>
-              <p className="text-sm font-medium uppercase tracking-wide">Tổng số nhóm</p>
+        <Card className="bg-card-dark dark:bg-card border-border hover:border-primary/50 transition-colors group">
+          <CardContent className="p-6 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <p className="text-text-sub-dark dark:text-text-sub-light text-sm font-semibold uppercase tracking-wider">
+                Tổng số nhóm
+              </p>
+              <div className="size-8 rounded-full bg-blue-500/20 dark:bg-blue-500/30 flex items-center justify-center text-blue-400 group-hover:bg-blue-500 group-hover:text-white transition-all">
+                <span className="material-symbols-outlined text-lg">groups</span>
+              </div>
             </div>
-            <p className="text-3xl font-bold">{stats.total}</p>
+            <p className="text-text-main-dark dark:text-text-main-light text-4xl font-black">
+              {stats.total}
+            </p>
           </CardContent>
         </Card>
-        <Card className="bg-card-dark border-border-dark relative overflow-hidden">
+        <Card className="bg-card-dark dark:bg-card border-border hover:border-primary/50 transition-colors group relative overflow-hidden">
           <div className="absolute right-0 top-0 p-4 opacity-10">
             <span className="material-symbols-outlined text-6xl text-green-500">check_circle</span>
           </div>
-          <CardContent className="p-5 flex flex-col gap-2">
-            <div className="flex items-center gap-2 text-blue-500">
-              <span className="material-symbols-outlined">bolt</span>
-              <p className="text-sm font-medium uppercase tracking-wide">Đang hoạt động</p>
+          <CardContent className="p-6 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <p className="text-text-sub-dark dark:text-text-sub-light text-sm font-semibold uppercase tracking-wider">
+                Đang hoạt động
+              </p>
+              <div className="size-8 rounded-full bg-green-500/20 dark:bg-green-500/30 flex items-center justify-center text-green-400 group-hover:bg-green-500 group-hover:text-white transition-all">
+                <span className="material-symbols-outlined text-lg">bolt</span>
+              </div>
             </div>
-            <p className="text-3xl font-bold">{stats.active}</p>
+            <p className="text-text-main-dark dark:text-text-main-light text-4xl font-black">
+              {stats.active}
+            </p>
           </CardContent>
         </Card>
-        <Card className="bg-card-dark border-border-dark">
-          <CardContent className="p-5 flex flex-col gap-2">
-            <div className="flex items-center gap-2 text-text-sub-dark">
-              <span className="material-symbols-outlined">volunteer_activism</span>
-              <p className="text-sm font-medium uppercase tracking-wide">Tình nguyện viên</p>
+        <Card className="bg-card-dark dark:bg-card border-border hover:border-primary/50 transition-colors group">
+          <CardContent className="p-6 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <p className="text-text-sub-dark dark:text-text-sub-light text-sm font-semibold uppercase tracking-wider">
+                Tình nguyện viên
+              </p>
+              <div className="size-8 rounded-full bg-red-500/20 dark:bg-red-500/30 flex items-center justify-center text-red-400 group-hover:bg-red-500 group-hover:text-white transition-all">
+                <span className="material-symbols-outlined text-lg">volunteer_activism</span>
+              </div>
             </div>
-            <p className="text-3xl font-bold">{stats.members}</p>
+            <p className="text-text-main-dark dark:text-text-main-light text-4xl font-black">
+              {stats.members}
+            </p>
           </CardContent>
         </Card>
-        <Card className="bg-card-dark border-border-dark">
-          <CardContent className="p-5 flex flex-col gap-2">
-            <div className="flex items-center gap-2 text-text-sub-dark">
-              <span className="material-symbols-outlined">location_on</span>
-              <p className="text-sm font-medium uppercase tracking-wide">Khu vực</p>
+        <Card className="bg-card-dark dark:bg-card border-border hover:border-primary/50 transition-colors group">
+          <CardContent className="p-6 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <p className="text-text-sub-dark dark:text-text-sub-light text-sm font-semibold uppercase tracking-wider">
+                Khu vực
+              </p>
+              <div className="size-8 rounded-full bg-purple-500/20 dark:bg-purple-500/30 flex items-center justify-center text-purple-400 group-hover:bg-purple-500 group-hover:text-white transition-all">
+                <span className="material-symbols-outlined text-lg">location_on</span>
+              </div>
             </div>
-            <p className="text-3xl font-bold">{stats.areas} Tỉnh/TP</p>
+            <p className="text-text-main-dark dark:text-text-main-light text-4xl font-black">
+              {stats.areas} Tỉnh/TP
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -151,11 +197,11 @@ export default function CoordinatorTeamManagementPage() {
           {/* Search & Filter */}
           <div className="flex gap-3">
             <div className="relative flex-1">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-text-sub-dark">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-muted-foreground">
                 <span className="material-symbols-outlined">search</span>
               </div>
               <input
-                className="block w-full pl-10 pr-3 py-3 border border-border-dark rounded-lg bg-card-dark text-white placeholder-text-sub-dark focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary sm:text-sm"
+                className="block w-full pl-10 pr-3 py-3 border border-slate-200 dark:border-border-dark rounded-lg bg-white dark:bg-card-dark text-slate-900 dark:text-text-main-dark placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary sm:text-sm"
                 placeholder="Tìm nhóm theo tên, khu vực, trưởng nhóm..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -168,35 +214,35 @@ export default function CoordinatorTeamManagementPage() {
           </div>
 
           {/* Table */}
-          <div className="flex-1 overflow-auto rounded-xl border border-border-dark bg-card-dark custom-scrollbar">
+          <div className="flex-1 overflow-auto rounded-xl border border-border bg-card-dark dark:bg-card custom-scrollbar">
             <table className="w-full text-left border-collapse">
-              <thead className="sticky top-0 bg-[#1c2127] z-10">
-                <tr className="border-b border-border-dark">
-                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-text-sub-dark">
+              <thead className="sticky top-0 bg-slate-50 dark:bg-background-dark z-10">
+                <tr className="border-b border-slate-200 dark:border-border-dark">
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     Tên nhóm
                   </th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-text-sub-dark">
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     Khu vực
                   </th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-text-sub-dark">
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     Trưởng nhóm
                   </th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-text-sub-dark">
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     Thành viên
                   </th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-text-sub-dark">
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     Trạng thái
                   </th>
                   <th className="px-6 py-4"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border-dark">
+              <tbody className="divide-y divide-slate-200 dark:divide-border-dark">
                 {filteredTeams.map((team) => (
                   <tr
                     key={team.id}
                     onClick={() => setSelectedTeamId(team.id)}
                     className={cn(
-                      'cursor-pointer transition-colors hover:bg-[#2a3441]',
+                      'cursor-pointer transition-colors hover:bg-slate-50 dark:hover:bg-surface-dark-highlight',
                       selectedTeamId === team.id ? 'bg-primary/10' : '',
                     )}
                   >
@@ -211,20 +257,22 @@ export default function CoordinatorTeamManagementPage() {
                         <span
                           className={cn(
                             'text-sm font-bold',
-                            selectedTeamId === team.id ? 'text-primary' : 'text-white',
+                            selectedTeamId === team.id
+                              ? 'text-primary'
+                              : 'text-slate-900 dark:text-text-main-dark',
                           )}
                         >
                           {team.name}
                         </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-text-sub-dark">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                       {team.area || 'N/A'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 dark:text-text-main-dark">
                       {team.leader}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-text-sub-dark">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                       {team.members} người
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -238,7 +286,7 @@ export default function CoordinatorTeamManagementPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button className="text-text-sub-dark hover:text-primary transition-colors">
+                      <button className="text-muted-foreground hover:text-primary transition-colors">
                         <span className="material-symbols-outlined">edit</span>
                       </button>
                     </td>
@@ -252,9 +300,9 @@ export default function CoordinatorTeamManagementPage() {
         {/* RIGHT: DETAIL PANEL */}
         <div className="lg:col-span-1 flex flex-col h-full gap-4">
           {selectedTeam ? (
-            <div className="rounded-xl border border-border-dark bg-card-dark flex flex-col h-full overflow-hidden shadow-lg">
+            <div className="rounded-xl border border-border bg-card-dark dark:bg-card flex flex-col h-full overflow-hidden shadow-lg">
               {/* Header */}
-              <div className="p-6 border-b border-border-dark shrink-0">
+              <div className="p-6 border-b border-slate-200 dark:border-border-dark shrink-0">
                 <div className="flex justify-between items-start mb-4">
                   <span
                     className={cn(
@@ -265,39 +313,43 @@ export default function CoordinatorTeamManagementPage() {
                     {getStatusLabel(selectedTeam.status)}
                   </span>
                   <div className="flex gap-2">
-                    <button className="p-2 text-text-sub-dark hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+                    <button className="p-2 text-muted-foreground hover:text-slate-900 dark:hover:text-text-main-dark hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg transition-colors">
                       <span className="material-symbols-outlined">edit</span>
                     </button>
-                    <button className="p-2 text-text-sub-dark hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
+                    <button className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
                       <span className="material-symbols-outlined">delete</span>
                     </button>
                   </div>
                 </div>
-                <h3 className="text-2xl font-bold text-white mb-2">{selectedTeam.name}</h3>
+                <h3 className="text-2xl font-bold text-slate-900 dark:text-text-main-dark mb-2">
+                  {selectedTeam.name}
+                </h3>
                 <div className="flex flex-col gap-2">
-                  <div className="flex items-center text-text-sub-dark text-sm">
+                  <div className="flex items-center text-muted-foreground text-sm">
                     <span className="material-symbols-outlined text-lg mr-2">location_on</span>
                     {selectedTeam.area || 'Chưa định vị'}
                   </div>
-                  <div className="flex items-center text-text-sub-dark text-sm">
+                  <div className="flex items-center text-muted-foreground text-sm">
                     <span className="material-symbols-outlined text-lg mr-2">person</span>
                     Trưởng nhóm:{' '}
-                    <span className="text-white font-medium ml-1">{selectedTeam.leader}</span>
+                    <span className="text-slate-900 dark:text-text-main-dark font-medium ml-1">
+                      {selectedTeam.leader}
+                    </span>
                   </div>
-                  <div className="flex items-center text-text-sub-dark text-sm">
+                  <div className="flex items-center text-muted-foreground text-sm">
                     <span className="material-symbols-outlined text-lg mr-2">call</span>
                     Liên hệ: {selectedTeam.contactPhone}
                   </div>
                 </div>
                 {/* Mini Map Preview Placeholder */}
-                <div className="mt-4 w-full h-32 rounded-lg bg-[#283039] relative flex items-center justify-center border border-border-dark group cursor-pointer">
+                <div className="mt-4 w-full h-32 rounded-lg bg-slate-100 dark:bg-background-dark relative flex items-center justify-center border border-slate-200 dark:border-border-dark group cursor-pointer">
                   <div
                     className="absolute inset-0 bg-cover bg-center opacity-50 group-hover:opacity-75 transition-opacity"
                     style={{
                       backgroundImage: `url('https://lh3.googleusercontent.com/aida-public/AB6AXuAv-XpNn70KGwrXp8rU_PBWA19iotbS4EQ5r83F1IZQ4DorzR3dmzjCCNKqSwS-f2v0LnjSMd9L0uDn7n0krrHMSPez9pxN6Tr8mAxFhncmHLANE_ySHEEt27d2SdtBlUnjUPNMmv2v00yJpe5xbu7qgpz09HIniz9B_-BAvQD2MZlzDavZH-rj20v6Avlog8EycqbI97KXvENXy1oDnrbrFgwcFUc6EH9q63HXbsmdMnFoO8SD79z0aL4sAvobaodKWw455nLNzwQ')`,
                     }}
                   />
-                  <div className="z-10 bg-card-dark/80 px-3 py-1.5 rounded-full flex items-center gap-1 shadow-sm backdrop-blur-sm">
+                  <div className="z-10 bg-white/80 dark:bg-card-dark/80 px-3 py-1.5 rounded-full flex items-center gap-1 shadow-sm backdrop-blur-sm text-slate-900 dark:text-text-main-dark">
                     <span className="material-symbols-outlined text-sm">map</span>
                     <span className="text-xs font-bold">Xem bản đồ</span>
                   </div>
@@ -307,7 +359,7 @@ export default function CoordinatorTeamManagementPage() {
               {/* Member List */}
               <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
                 <div className="flex justify-between items-center mb-4 px-2">
-                  <h4 className="text-sm font-bold text-white uppercase tracking-wide">
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-text-main-dark uppercase tracking-wide">
                     Thành viên ({selectedTeam.members})
                   </h4>
                   <button className="text-primary text-sm font-bold hover:underline">
@@ -319,17 +371,19 @@ export default function CoordinatorTeamManagementPage() {
                     selectedTeam.memberDetails.map((member) => (
                       <div
                         key={member.id}
-                        className="flex items-center p-3 rounded-lg bg-[#283039] border border-transparent hover:border-border-dark transition-colors group/member"
+                        className="flex items-center p-3 rounded-lg bg-slate-50 dark:bg-background-dark border border-transparent hover:border-slate-300 dark:hover:border-border-dark transition-colors group/member"
                       >
                         <div
                           className="size-10 rounded-full bg-cover bg-center mr-3"
                           style={{ backgroundImage: `url('${member.avatar}')` }}
                         />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold text-white truncate">{member.name}</p>
-                          <p className="text-xs text-text-sub-dark truncate">{member.role}</p>
+                          <p className="text-sm font-bold text-slate-900 dark:text-text-main-dark truncate">
+                            {member.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">{member.role}</p>
                         </div>
-                        <button className="text-text-sub-dark hover:text-red-500 opacity-0 group-hover/member:opacity-100 transition-opacity p-1">
+                        <button className="text-muted-foreground hover:text-red-500 opacity-0 group-hover/member:opacity-100 transition-opacity p-1">
                           <span className="material-symbols-outlined text-xl">
                             remove_circle_outline
                           </span>
@@ -337,7 +391,7 @@ export default function CoordinatorTeamManagementPage() {
                       </div>
                     ))
                   ) : (
-                    <div className="text-center p-8 text-text-sub-dark text-sm">
+                    <div className="text-center p-8 text-muted-foreground text-sm">
                       Không có thông tin chi tiết thành viên.
                     </div>
                   )}
@@ -345,10 +399,10 @@ export default function CoordinatorTeamManagementPage() {
               </div>
 
               {/* Footer Action */}
-              <div className="p-4 border-t border-border-dark bg-[#1c2127]">
+              <div className="p-4 border-t border-slate-200 dark:border-border-dark bg-slate-50 dark:bg-background-dark">
                 <Button
                   variant="outline"
-                  className="w-full gap-2 border-dashed bg-transparent hover:bg-white/5"
+                  className="w-full gap-2 border-dashed bg-transparent hover:bg-slate-200 dark:hover:bg-white/5 text-slate-900 dark:text-text-main-dark"
                 >
                   <span className="material-symbols-outlined text-lg">person_add</span>
                   Thêm tình nguyện viên
@@ -356,7 +410,7 @@ export default function CoordinatorTeamManagementPage() {
               </div>
             </div>
           ) : (
-            <div className="rounded-xl border border-border-dark bg-card-dark flex items-center justify-center h-full text-text-sub-dark">
+            <div className="rounded-xl border border-border bg-card-dark dark:bg-card flex items-center justify-center h-full text-muted-foreground">
               Chọn một nhóm để xem chi tiết
             </div>
           )}

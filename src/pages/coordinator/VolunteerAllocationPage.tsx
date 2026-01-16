@@ -60,14 +60,14 @@ export default function VolunteerAllocationPage() {
   return (
     <DashboardLayout
       projects={[
-        { label: 'Tổng quan', path: '/portal/coordinator/coordination', icon: 'dashboard' },
+        { label: 'Tổng quan', path: '/portal/coordinator/data-management', icon: 'dashboard' },
         { label: 'Điều phối & Bản đồ', path: '/portal/coordinator/maps', icon: 'map' },
         { label: 'Đội tình nguyện', path: '/portal/coordinator/teams', icon: 'groups' },
-        {
-          label: 'Tuyển tình nguyện viên',
-          path: '/portal/coordinator/volunteer-allocation' /* Current Page */,
-          icon: 'person_add',
-        },
+        // {
+        //     label: 'Tuyển tình nguyện viên',
+        //     path: '/portal/coordinator/volunteer-allocation' /* Current Page */,
+        //     icon: 'person_add',
+        // },
         {
           label: 'Yêu cầu tình nguyện',
           path: '/portal/coordinator/volunteer-requests',
@@ -88,34 +88,13 @@ export default function VolunteerAllocationPage() {
         { label: 'Báo cáo & Thống kê', path: '/portal/coordinator/dashboard', icon: 'description' },
       ]}
     >
-      {/* Breadcrumbs */}
-      <div className="flex flex-wrap gap-2 px-2 pb-4">
-        <a
-          className="text-text-sub-light dark:text-text-sub-dark text-sm font-medium hover:text-primary transition-colors"
-          href="#"
-        >
-          Trang chủ
-        </a>
-        <span className="text-text-sub-light dark:text-text-sub-dark text-sm font-medium">/</span>
-        <a
-          className="text-text-sub-light dark:text-text-sub-dark text-sm font-medium hover:text-primary transition-colors"
-          href="#"
-        >
-          Quản lý nhân sự
-        </a>
-        <span className="text-text-sub-light dark:text-text-sub-dark text-sm font-medium">/</span>
-        <span className="text-slate-900 dark:text-white text-sm font-medium">
-          Phân công tình nguyện viên
-        </span>
-      </div>
-
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between gap-6 mb-8 px-2">
         <div className="flex flex-col gap-2">
-          <h1 className="text-slate-900 dark:text-white text-3xl md:text-4xl font-black leading-tight tracking-[-0.033em]">
+          <h1 className="text-primary text-3xl md:text-4xl font-black leading-tight tracking-[-0.033em]">
             Phân công tình nguyện viên
           </h1>
-          <p className="text-text-sub-light dark:text-text-sub-dark text-base font-normal max-w-2xl">
+          <p className="text-muted-foreground text-base font-normal max-w-2xl">
             Chọn tình nguyện viên từ danh sách chờ để gán vào các nhóm cứu trợ tại các khu vực chịu
             ảnh hưởng bão lũ.
           </p>
@@ -130,50 +109,56 @@ export default function VolunteerAllocationPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div className="flex flex-col gap-2 rounded-xl p-6 bg-white dark:bg-card-dark border border-gray-200 dark:border-surface-dark-highlight shadow-sm">
+        <div className="flex flex-col gap-3 rounded-xl p-6 bg-card-dark dark:bg-card border border-border hover:border-primary/50 transition-colors group shadow-sm">
           <div className="flex items-center justify-between">
-            <p className="text-text-sub-light dark:text-text-sub-dark text-sm font-medium uppercase tracking-wider">
+            <p className="text-text-sub-dark dark:text-text-sub-light text-sm font-semibold uppercase tracking-wider">
               Tình nguyện viên chờ
             </p>
-            <span className="material-symbols-outlined text-primary">person_search</span>
+            <div className="size-8 rounded-full bg-blue-500/20 dark:bg-blue-500/30 flex items-center justify-center text-blue-400 group-hover:bg-blue-500 group-hover:text-white transition-all">
+              <span className="material-symbols-outlined text-lg">person_search</span>
+            </div>
           </div>
           <div className="flex items-end gap-3">
-            <p className="text-slate-900 dark:text-white text-3xl font-bold leading-tight">
+            <p className="text-text-main-dark dark:text-text-main-light text-4xl font-black leading-none">
               {stats.waiting}
             </p>
-            <span className="text-green-500 text-sm font-medium mb-1 flex items-center bg-green-500/10 px-1.5 rounded">
+            <span className="text-green-500 text-sm font-medium flex items-center bg-green-500/10 px-1.5 py-0.5 rounded">
               <span className="material-symbols-outlined text-[14px] mr-0.5">trending_up</span>+5
             </span>
           </div>
         </div>
-        <div className="flex flex-col gap-2 rounded-xl p-6 bg-white dark:bg-card-dark border border-gray-200 dark:border-surface-dark-highlight shadow-sm">
+        <div className="flex flex-col gap-3 rounded-xl p-6 bg-card-dark dark:bg-card border border-border hover:border-primary/50 transition-colors group shadow-sm">
           <div className="flex items-center justify-between">
-            <p className="text-text-sub-light dark:text-text-sub-dark text-sm font-medium uppercase tracking-wider">
+            <p className="text-text-sub-dark dark:text-text-sub-light text-sm font-semibold uppercase tracking-wider">
               Đã phân công hôm nay
             </p>
-            <span className="material-symbols-outlined text-green-500">assignment_turned_in</span>
+            <div className="size-8 rounded-full bg-green-500/20 dark:bg-green-500/30 flex items-center justify-center text-green-400 group-hover:bg-green-500 group-hover:text-white transition-all">
+              <span className="material-symbols-outlined text-lg">assignment_turned_in</span>
+            </div>
           </div>
           <div className="flex items-end gap-3">
-            <p className="text-slate-900 dark:text-white text-3xl font-bold leading-tight">
+            <p className="text-text-main-dark dark:text-text-main-light text-4xl font-black leading-none">
               {stats.assignedToday}
             </p>
-            <span className="text-green-500 text-sm font-medium mb-1 flex items-center bg-green-500/10 px-1.5 rounded">
+            <span className="text-green-500 text-sm font-medium flex items-center bg-green-500/10 px-1.5 py-0.5 rounded">
               <span className="material-symbols-outlined text-[14px] mr-0.5">trending_up</span>+12%
             </span>
           </div>
         </div>
-        <div className="flex flex-col gap-2 rounded-xl p-6 bg-white dark:bg-card-dark border border-gray-200 dark:border-surface-dark-highlight shadow-sm">
+        <div className="flex flex-col gap-3 rounded-xl p-6 bg-card-dark dark:bg-card border border-border hover:border-primary/50 transition-colors group shadow-sm">
           <div className="flex items-center justify-between">
-            <p className="text-text-sub-light dark:text-text-sub-dark text-sm font-medium uppercase tracking-wider">
+            <p className="text-text-sub-dark dark:text-text-sub-light text-sm font-semibold uppercase tracking-wider">
               Nhóm đang hoạt động
             </p>
-            <span className="material-symbols-outlined text-orange-400">groups</span>
+            <div className="size-8 rounded-full bg-orange-500/20 dark:bg-orange-500/30 flex items-center justify-center text-orange-400 group-hover:bg-orange-500 group-hover:text-white transition-all">
+              <span className="material-symbols-outlined text-lg">groups</span>
+            </div>
           </div>
           <div className="flex items-end gap-3">
-            <p className="text-slate-900 dark:text-white text-3xl font-bold leading-tight">
+            <p className="text-text-main-dark dark:text-text-main-light text-4xl font-black leading-none">
               {stats.activeTeams}
             </p>
-            <span className="text-text-sub-light dark:text-text-sub-dark text-sm font-medium mb-1">
+            <span className="text-text-sub-dark dark:text-text-sub-light text-sm font-medium bg-slate-100 dark:bg-white/10 px-1.5 py-0.5 rounded">
               0 thay đổi
             </span>
           </div>
@@ -183,12 +168,14 @@ export default function VolunteerAllocationPage() {
       {/* Main Area */}
       <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-24rem)] min-h-[600px]">
         {/* LEFT COLUMN: VOLUNTEER LIST */}
-        <div className="flex-1 flex flex-col bg-white dark:bg-card-dark rounded-xl border border-gray-200 dark:border-surface-dark-highlight overflow-hidden shadow-sm">
-          <div className="p-4 border-b border-gray-200 dark:border-border-dark bg-gray-50 dark:bg-surface-dark">
+        <div className="flex-1 flex flex-col bg-card-dark dark:bg-card rounded-xl border border-border overflow-hidden shadow-sm">
+          <div className="p-4 border-b border-slate-200 dark:border-border-dark bg-slate-50 dark:bg-background-dark">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <h3 className="text-slate-900 dark:text-white text-lg font-bold">Danh sách chờ</h3>
-                <span className="bg-gray-200 dark:bg-surface-dark-highlight text-slate-900 dark:text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                <h3 className="text-slate-900 dark:text-text-main-dark text-lg font-bold">
+                  Danh sách chờ
+                </h3>
+                <span className="bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold px-2 py-0.5 rounded-full">
                   {filteredVolunteers.length}
                 </span>
               </div>
@@ -198,11 +185,11 @@ export default function VolunteerAllocationPage() {
             </div>
 
             <div className="relative w-full mb-3">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-text-sub-light dark:text-text-sub-dark">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-muted-foreground">
                 <span className="material-symbols-outlined text-[20px]">search</span>
               </div>
               <input
-                className="w-full bg-white dark:bg-background-dark border border-gray-200 dark:border-surface-dark-highlight text-slate-900 dark:text-white text-sm rounded-lg focus:ring-primary focus:border-primary block pl-10 p-2.5 placeholder-gray-400 dark:placeholder-text-sub-dark"
+                className="w-full bg-white dark:bg-background-dark border border-slate-200 dark:border-border-dark text-slate-900 dark:text-text-main-dark text-sm rounded-lg focus:ring-primary focus:border-primary block pl-10 p-2.5 placeholder-muted-foreground"
                 placeholder="Tìm theo tên, kỹ năng..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -216,7 +203,7 @@ export default function VolunteerAllocationPage() {
                   'px-3 py-1 rounded-full text-xs font-medium transition-colors border',
                   filter === 'all'
                     ? 'bg-primary/20 text-primary border-primary/30'
-                    : 'bg-gray-100 dark:bg-surface-dark-highlight text-gray-500 dark:text-text-sub-dark border-transparent hover:text-slate-900 dark:hover:text-white',
+                    : 'bg-slate-100 dark:bg-background-dark text-muted-foreground border-transparent hover:text-slate-900 dark:hover:text-text-main-dark',
                 )}
               >
                 Tất cả
@@ -227,7 +214,7 @@ export default function VolunteerAllocationPage() {
                   'px-3 py-1 rounded-full text-xs font-medium transition-colors border',
                   filter === 'health'
                     ? 'bg-primary/20 text-primary border-primary/30'
-                    : 'bg-gray-100 dark:bg-surface-dark-highlight text-gray-500 dark:text-text-sub-dark border-transparent hover:text-slate-900 dark:hover:text-white',
+                    : 'bg-slate-100 dark:bg-background-dark text-muted-foreground border-transparent hover:text-slate-900 dark:hover:text-text-main-dark',
                 )}
               >
                 Y tế
@@ -238,7 +225,7 @@ export default function VolunteerAllocationPage() {
                   'px-3 py-1 rounded-full text-xs font-medium transition-colors border',
                   filter === 'rescue'
                     ? 'bg-primary/20 text-primary border-primary/30'
-                    : 'bg-gray-100 dark:bg-surface-dark-highlight text-gray-500 dark:text-text-sub-dark border-transparent hover:text-slate-900 dark:hover:text-white',
+                    : 'bg-slate-100 dark:bg-background-dark text-muted-foreground border-transparent hover:text-slate-900 dark:hover:text-text-main-dark',
                 )}
               >
                 Cứu hộ
@@ -249,7 +236,7 @@ export default function VolunteerAllocationPage() {
                   'px-3 py-1 rounded-full text-xs font-medium transition-colors border',
                   filter === 'logistics'
                     ? 'bg-primary/20 text-primary border-primary/30'
-                    : 'bg-gray-100 dark:bg-surface-dark-highlight text-gray-500 dark:text-text-sub-dark border-transparent hover:text-slate-900 dark:hover:text-white',
+                    : 'bg-slate-100 dark:bg-background-dark text-muted-foreground border-transparent hover:text-slate-900 dark:hover:text-text-main-dark',
                 )}
               >
                 Hậu cần
@@ -268,12 +255,12 @@ export default function VolunteerAllocationPage() {
                   'group flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all',
                   selectedVolunteerId === vol.id
                     ? 'bg-primary/10 border-primary shadow-[0_0_0_1px_rgba(59,130,246,0.5)]'
-                    : 'bg-white dark:bg-transparent border-transparent hover:bg-gray-50 dark:hover:bg-surface-dark-highlight hover:border-gray-200 dark:hover:border-border-dark',
+                    : 'bg-white dark:bg-transparent border-transparent hover:bg-slate-50 dark:hover:bg-surface-dark-highlight hover:border-slate-200 dark:hover:border-border-dark',
                 )}
               >
                 <span
                   className={cn(
-                    'material-symbols-outlined text-gray-400 dark:text-text-sub-dark',
+                    'material-symbols-outlined text-muted-foreground',
                     selectedVolunteerId === vol.id && 'text-primary',
                   )}
                 >
@@ -281,21 +268,21 @@ export default function VolunteerAllocationPage() {
                 </span>
                 <div className="relative">
                   <div
-                    className="size-10 rounded-full bg-cover bg-center border border-gray-200 dark:border-gray-700"
+                    className="size-10 rounded-full bg-cover bg-center border border-slate-200 dark:border-slate-700"
                     style={{ backgroundImage: `url("${vol.avatar}")` }}
                   ></div>
                   <span
                     className={cn(
-                      'absolute bottom-0 right-0 size-3 border-2 border-white dark:border-surface-dark rounded-full',
+                      'absolute bottom-0 right-0 size-3 border-2 border-white dark:border-slate-800 rounded-full',
                       vol.readiness.health ? 'bg-green-500' : 'bg-yellow-500',
                     )}
                   ></span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-slate-900 dark:text-white text-sm font-bold truncate">
+                  <p className="text-slate-900 dark:text-text-main-dark text-sm font-bold truncate">
                     {vol.name}
                   </p>
-                  <p className="text-text-sub-light dark:text-text-sub-dark text-xs truncate flex items-center gap-1">
+                  <p className="text-muted-foreground text-xs truncate flex items-center gap-1">
                     <span className="material-symbols-outlined text-[12px]">location_on</span>{' '}
                     {vol.location}
                   </p>
@@ -308,7 +295,7 @@ export default function VolunteerAllocationPage() {
               </div>
             ))}
             {filteredVolunteers.length === 0 && (
-              <div className="p-8 text-center text-text-sub-light dark:text-text-sub-dark">
+              <div className="p-8 text-center text-muted-foreground">
                 <span className="material-symbols-outlined text-4xl mb-2 opacity-50">
                   search_off
                 </span>
@@ -321,9 +308,11 @@ export default function VolunteerAllocationPage() {
         {/* RIGHT COLUMN: TEAM GRID */}
         <div className="flex-[2] flex flex-col gap-4">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-slate-900 dark:text-white text-xl font-bold">Các nhóm cứu trợ</h3>
+            <h3 className="text-slate-900 dark:text-text-main-dark text-xl font-bold">
+              Các nhóm cứu trợ
+            </h3>
             <div className="flex gap-2">
-              <select className="bg-white dark:bg-surface-dark-highlight text-slate-900 dark:text-white text-sm rounded-lg border-gray-200 dark:border-none focus:ring-0 px-3 py-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-border-dark">
+              <select className="bg-white dark:bg-card-dark text-slate-900 dark:text-text-main-dark text-sm rounded-lg border-slate-200 dark:border-border-dark focus:ring-0 px-3 py-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-surface-dark-highlight">
                 <option>Tất cả khu vực</option>
                 <option>Lào Cai</option>
                 <option>Yên Bái</option>
@@ -341,10 +330,10 @@ export default function VolunteerAllocationPage() {
               <div
                 key={team.id}
                 className={cn(
-                  'bg-white dark:bg-surface-dark rounded-xl border p-5 relative overflow-hidden transition-all shadow-sm',
+                  'bg-card-dark dark:bg-card rounded-xl border p-5 relative overflow-hidden transition-all shadow-sm',
                   selectedVolunteerId
-                    ? 'border-primary/50 border-dashed hover:border-primary hover:bg-primary/5 dark:hover:bg-surface-dark-highlight cursor-pointer'
-                    : 'border-gray-200 dark:border-surface-dark-highlight hover:border-gray-300 dark:hover:border-border-dark',
+                    ? 'border-primary/50 border-dashed hover:border-primary hover:bg-primary/5 dark:hover:bg-background-dark cursor-pointer'
+                    : 'border-border hover:border-primary/50',
                 )}
                 onClick={() => handleAssign(team.id)}
               >
@@ -371,8 +360,10 @@ export default function VolunteerAllocationPage() {
                 </div>
 
                 <div className="mb-4">
-                  <h4 className="text-slate-900 dark:text-white text-lg font-bold">{team.name}</h4>
-                  <p className="text-text-sub-light dark:text-text-sub-dark text-sm flex items-center gap-1 mt-1">
+                  <h4 className="text-slate-900 dark:text-text-main-dark text-lg font-bold">
+                    {team.name}
+                  </h4>
+                  <p className="text-muted-foreground text-sm flex items-center gap-1 mt-1">
                     <span className="material-symbols-outlined text-[16px]">location_on</span>{' '}
                     {team.area || 'Chưa định vị'}
                   </p>
@@ -380,14 +371,12 @@ export default function VolunteerAllocationPage() {
 
                 <div className="space-y-3 mb-6">
                   <div className="flex justify-between text-sm mb-1">
-                    <span className="text-text-sub-light dark:text-text-sub-dark">
-                      Nhân sự hiện tại
-                    </span>
-                    <span className="text-slate-900 dark:text-white font-medium">
+                    <span className="text-muted-foreground">Nhân sự hiện tại</span>
+                    <span className="text-slate-900 dark:text-text-main-dark font-medium">
                       {team.members} / 20
                     </span>
                   </div>
-                  <div className="w-full bg-gray-200 dark:bg-surface-dark-highlight rounded-full h-2">
+                  <div className="w-full bg-slate-200 dark:bg-background-dark rounded-full h-2">
                     <div
                       className={cn(
                         'h-2 rounded-full',
@@ -399,9 +388,7 @@ export default function VolunteerAllocationPage() {
                   <div className="flex gap-2 mt-2">
                     {team.members < 20 ? (
                       <>
-                        <span className="text-xs text-text-sub-light dark:text-text-sub-dark">
-                          Đang cần:
-                        </span>
+                        <span className="text-xs text-muted-foreground">Đang cần:</span>
                         <span className="text-xs font-bold text-slate-700 dark:text-white flex items-center gap-1">
                           {20 - team.members} Tình nguyện viên
                         </span>
@@ -422,7 +409,7 @@ export default function VolunteerAllocationPage() {
                 )}
 
                 {!selectedVolunteerId && (
-                  <Button className="w-full py-2 bg-gray-100 dark:bg-surface-dark-highlight hover:bg-gray-200 dark:hover:bg-border-dark text-slate-900 dark:text-white text-sm font-medium rounded-lg transition-colors border border-transparent dark:border-transparent">
+                  <Button className="w-full py-2 bg-slate-100 dark:bg-background-dark hover:bg-slate-200 dark:hover:bg-border-dark text-slate-900 dark:text-text-main-dark text-sm font-medium rounded-lg transition-colors border border-transparent dark:border-transparent">
                     Quản lý nhóm
                   </Button>
                 )}

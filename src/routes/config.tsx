@@ -9,9 +9,11 @@ import CoordinatorRequestManagementPage from '@/pages/coordinator/RequestManagem
 import CoordinatorMapsPage from '@/pages/coordinator/TeamAllocationPage';
 import CoordinatorTeamsPage from '@/pages/coordinator/TeamManagement';
 import CoordinatorInventoryPage from '@/pages/coordinator/InventoryPage';
+import CoordinatorVolunteerAllocationPage from '@/pages/coordinator/VolunteerAllocationPage';
 import type { AppRoute } from '@/types/routes';
 import RoleBasedRoute from './protectedRoute';
 import { Navigate } from 'react-router-dom';
+import CoordinatorDataManagementPage from '@/pages/coordinator/DataManagementPage';
 
 export const routes: AppRoute[] = [
   //Authentication
@@ -75,6 +77,18 @@ export const routes: AppRoute[] = [
   {
     path: '/portal/coordinator/volunteer-requests',
     element: <CoordinatorVolunteerRequestPage />,
+    // roles: [UserRole.Coordinator],
+    isProtected: false,
+  },
+  {
+    path: '/portal/coordinator/data-management',
+    element: <CoordinatorDataManagementPage />,
+    // roles: [UserRole.Coordinator],
+    isProtected: false,
+  },
+  {
+    path: '/portal/coordinator/volunteer-allocation',
+    element: <CoordinatorVolunteerAllocationPage />,
     // roles: [UserRole.Coordinator],
     isProtected: false,
   },

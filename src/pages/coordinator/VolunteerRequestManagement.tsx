@@ -49,7 +49,7 @@ export default function CoordinatorVolunteerRequestPage() {
   return (
     <DashboardLayout
       projects={[
-        { label: 'Tổng quan', path: '/portal/coordinator/coordination', icon: 'dashboard' },
+        { label: 'Tổng quan', path: '/portal/coordinator/data-management', icon: 'dashboard' },
         { label: 'Điều phối & Bản đồ', path: '/portal/coordinator/maps', icon: 'map' },
         { label: 'Đội tình nguyện', path: '/portal/coordinator/teams', icon: 'groups' },
         {
