@@ -72,7 +72,7 @@ export default function CoordinatorVolunteerRequestPage() {
         { label: 'Báo cáo & Thống kê', path: '/portal/coordinator/dashboard', icon: 'description' },
       ]}
     >
-      <div className="flex h-[calc(100vh-6rem)] overflow-hidden -m-6">
+      <div className="flex h-[calc(100vh-6rem)] overflow-hidden -m-4">
         {/* LEFT SIDEBAR: LIST */}
         <aside className="w-[420px] flex flex-col border-r border-surface-dark-highlight bg-card-dark overflow-hidden shrink-0">
           {/* Header & Search */}
