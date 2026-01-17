@@ -1,234 +1,164 @@
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-// import { Badge } from '@/components/ui/badge';
+import { StatsCard } from '@/pages/admin/components/StatsCard';
+import { DonationChart } from '@/pages/admin/components/DonationChart';
+import { VisitorChart } from '@/pages/admin/components/VisitorChart';
+import { TeamOverview } from '@/pages/admin/components/TeamOverview';
+import { TimeTracker } from '@/pages/admin/components/TimeTracker';
+import { CampaignProgress } from '@/pages/admin/components/CampaignProgress';
+import { InventoryStats } from '@/pages/admin/components/InventoryStats';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
 export default function AdminDashboardPage() {
   return (
     <DashboardLayout>
-      {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
-        <div className="flex flex-col gap-2">
-          <h1 className="text-3xl lg:text-4xl font-black leading-tight tracking-tight text-primary dark:text-textMainLight">
-            Báo cáo & Thống kê
-          </h1>
-          <p className="text-text-sub-dark dark:text-text-sub-light text-base md:text-lg max-w-2xl">
-            Tổng quan tình hình cứu trợ và hiệu quả hoạt động hệ thống trong 24h qua.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center bg-card-dark dark:bg-card rounded-lg px-3 py-2 border border-border">
-            <span className="material-symbols-outlined text-text-sub-dark dark:text-text-sub-light mr-2 text-sm">
-              calendar_today
-            </span>
-            <span className="text-text-main-dark dark:text-text-main-light text-sm font-medium">
-              01/10/2023 - 07/10/2023
-            </span>
+      <div className="flex flex-col gap-6">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-black text-primary">Dashboard</h1>
+            <p className="text-text-sub-dark dark:text-text-sub-light">
+              Quản lý, ưu tiên và hoàn thành nhiệm vụ dễ dàng.
+            </p>
           </div>
-          <Button variant="outline" size="md" className="gap-2">
-            <span className="material-symbols-outlined text-sm">download</span>
-            <span>Xuất Excel</span>
-          </Button>
-          <Button variant="primary" size="md" className="gap-2 shadow-lg shadow-primary/20">
-            <span className="material-symbols-outlined text-sm">picture_as_pdf</span>
-            <span>Xuất Báo Cáo PDF</span>
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button size="lg" className="bg-primary text-white gap-2 font-bold rounded-full">
+              <span className="material-symbols-outlined text-lg">add</span>
+              Tạo chiến dịch
+            </Button>
+            <Button variant="outline" size="lg" className="rounded-full font-bold border-2">
+              Xuất dữ liệu
+            </Button>
+          </div>
         </div>
-      </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6">
-        <Card className="bg-card-dark dark:bg-card border-border hover:border-primary/50 transition-colors group">
-          <CardContent className="p-6 flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <p className="text-text-sub-dark dark:text-text-sub-light text-sm font-semibold uppercase tracking-wider">
-                Tổng yêu cầu
-              </p>
-              <div className="size-8 rounded-full bg-blue-500/20 dark:bg-blue-500/30 flex items-center justify-center text-blue-400 group-hover:bg-blue-500 group-hover:text-white transition-all">
-                <span className="material-symbols-outlined text-lg">sos</span>
-              </div>
-            </div>
-            <p className="text-text-main-dark dark:text-text-main-light text-4xl font-black">
-              1,240
-            </p>
-            <div className="flex items-center gap-1 text-green-500 text-sm font-medium bg-green-500/10 w-fit px-2 py-1 rounded">
-              <span className="material-symbols-outlined text-base">trending_up</span>
-              <span>+12% hôm qua</span>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Top Stats Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatsCard
+            title="Tổng yêu cầu"
+            value="1,240"
+            icon="sos"
+            trend="Tăng 12% so với tháng trước"
+            variant="primary"
+          />
 
-        <Card className="bg-card-dark dark:bg-card border-border hover:border-primary/50 transition-colors group">
-          <CardContent className="p-6 flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <p className="text-text-sub-dark dark:text-text-sub-light text-sm font-semibold uppercase tracking-wider">
-                Đã xử lý
-              </p>
-              <div className="size-8 rounded-full bg-green-500/20 dark:bg-green-500/30 flex items-center justify-center text-green-400 group-hover:bg-green-500 group-hover:text-white transition-all">
-                <span className="material-symbols-outlined text-lg">check_circle</span>
-              </div>
-            </div>
-            <p className="text-text-main-dark dark:text-text-main-light text-4xl font-black">850</p>
-            <div className="flex items-center gap-1 text-green-500 text-sm font-medium bg-green-500/10 w-fit px-2 py-1 rounded">
-              <span className="material-symbols-outlined text-base">bolt</span>
-              <span>98% đúng hạn</span>
-            </div>
-          </CardContent>
-        </Card>
+          <StatsCard
+            title="Chiến dịch đã kết thúc"
+            value="10"
+            icon="event_busy"
+            trend="Tăng 6% so với tháng trước"
+            variant="success"
+          />
 
-        <Card className="bg-card-dark dark:bg-card border-border hover:border-red-500/50 transition-colors group">
-          <CardContent className="p-6 flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <p className="text-text-sub-dark dark:text-text-sub-light text-sm font-semibold uppercase tracking-wider">
-                Khu vực báo động
-              </p>
-              <div className="size-8 rounded-full bg-red-500/20 dark:bg-red-500/30 flex items-center justify-center text-red-400 group-hover:bg-red-500 group-hover:text-white transition-all">
-                <span className="material-symbols-outlined text-lg">warning</span>
-              </div>
-            </div>
-            <p className="text-text-main-dark dark:text-text-main-light text-4xl font-black">3</p>
-            <div className="flex items-center gap-1 text-yellow-500 text-sm font-medium bg-yellow-500/10 w-fit px-2 py-1 rounded">
-              <span>Yên Bái, Lào Cai, Hà Giang</span>
-            </div>
-          </CardContent>
-        </Card>
+          <StatsCard
+            title="Chiến dịch đang chạy"
+            value="12"
+            icon="campaign"
+            trend="Tăng 2% so với tháng trước"
+            variant="info"
+          />
 
-        <Card className="bg-card-dark dark:bg-card border-border hover:border-primary/50 transition-colors group">
-          <CardContent className="p-6 flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <p className="text-text-sub-dark dark:text-text-sub-light text-sm font-semibold uppercase tracking-wider">
-                Tồn kho thiết yếu
-              </p>
-              <div className="size-8 rounded-full bg-purple-500/20 dark:bg-purple-500/30 flex items-center justify-center text-purple-400 group-hover:bg-purple-500 group-hover:text-white transition-all">
-                <span className="material-symbols-outlined text-lg">inventory</span>
-              </div>
-            </div>
-            <p className="text-text-main-dark dark:text-text-main-light text-4xl font-black">
-              Ổn định
-            </p>
-            <div className="flex items-center gap-1 text-text-sub-dark dark:text-text-sub-light text-sm font-medium bg-text-sub-dark/10 dark:bg-text-sub-light/10 w-fit px-2 py-1 rounded">
-              <span>Đủ cung ứng 7 ngày tới</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          <StatsCard
+            title="Dự án chờ duyệt"
+            value="2"
+            icon="pending_actions"
+            trend="Đang thảo luận"
+            variant="warning"
+          />
+        </div>
 
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        {/* Trend Chart */}
-        <Card className="lg:col-span-2 bg-surface-dark dark:bg-surface-light border-border">
-          <CardContent className="p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-text-main-dark dark:text-text-main-light text-lg font-bold">
-                Xu hướng cứu trợ 7 ngày qua
-              </h3>
-              <div className="flex gap-2">
-                <span className="flex items-center gap-1 text-xs text-text-sub-dark dark:text-text-sub-light">
-                  <div className="w-3 h-3 rounded-full bg-primary"></div>
-                  Yêu cầu
-                </span>
-                <span className="flex items-center gap-1 text-xs text-text-sub-dark dark:text-text-sub-light">
-                  <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                  Đã xử lý
-                </span>
-              </div>
-            </div>
-            <div className="relative h-[300px] w-full flex items-end justify-between gap-2 px-2 pb-6 border-b border-border">
-              <div className="absolute left-0 top-0 bottom-6 flex flex-col justify-between text-xs text-text-sub-dark dark:text-text-sub-light w-8">
-                <span>200</span>
-                <span>150</span>
-                <span>100</span>
-                <span>50</span>
-                <span>0</span>
-              </div>
-              <div className="ml-10 flex-1 flex items-end justify-between h-full gap-4">
-                {[40, 55, 75, 90, 60, 50, 30].map((height, index) => (
-                  <div
-                    key={index}
-                    className="flex flex-col items-center gap-2 h-full justify-end w-full group cursor-pointer"
-                  >
-                    <div
-                      className="w-full max-w-[40px] bg-primary/20 hover:bg-primary/40 rounded-t-sm relative transition-all duration-300"
-                      style={{ height: `${height}%` }}
-                    >
-                      <div
-                        className="absolute bottom-0 w-full bg-primary rounded-t-sm"
-                        style={{ height: `${height * 0.8}%` }}
-                      ></div>
-                    </div>
-                    <span className="text-xs text-text-sub-dark dark:text-text-sub-light">
-                      0{index + 1}/10
-                    </span>
+        {/* Middle Section: Analytics & Lists */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+          {/* Left Column: Analytics (2 cols) */}
+          <div className="lg:col-span-2 flex flex-col gap-4">
+            <VisitorChart className="py-2" />
+          </div>
+
+          {/* Middle Column: Logs/Reminders (1 col) */}
+          <div className="flex flex-col gap-4 ">
+            <TimeTracker className="h-full" />
+          </div>
+
+          {/* Right Column: Project/Request List (1 col) */}
+          <div className="flex flex-col gap-4">
+            <Card className="bg-surface-dark dark:bg-surface-light border-border h-full">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-lg font-bold">Yêu cầu mới</CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs rounded-full outline outline-1 outline-primary"
+                  disabled
+                >
+                  New+
+                </Button>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="size-8 rounded bg-blue-500/10 flex items-center justify-center text-blue-500">
+                    <span className="material-symbols-outlined text-lg">api</span>
                   </div>
-                ))}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+                  <div className="flex flex-col">
+                    <p className="text-sm font-bold text-text-main-dark dark:text-text-main-light">
+                      Cứu trợ Xã B
+                    </p>
+                    <p className="text-[10px] text-text-sub-dark dark:text-text-sub-light">
+                      Hạn: 26 Nov, 2024
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="size-8 rounded bg-orange-500/10 flex items-center justify-center text-orange-500">
+                    <span className="material-symbols-outlined text-lg">inventory_2</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <p className="text-sm font-bold text-text-main-dark dark:text-text-main-light">
+                      Điều phối Kho A
+                    </p>
+                    <p className="text-[10px] text-text-sub-dark dark:text-text-sub-light">
+                      Hạn: 28 Nov, 2024
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="size-8 rounded bg-purple-500/10 flex items-center justify-center text-purple-500">
+                    <span className="material-symbols-outlined text-lg">group</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <p className="text-sm font-bold text-text-main-dark dark:text-text-main-light">
+                      Tình nguyện viên
+                    </p>
+                    <p className="text-[10px] text-text-sub-dark dark:text-text-sub-light">
+                      Hạn: 30 Nov, 2024
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
-        {/* Status Chart */}
-        <Card className="bg-surface-dark dark:bg-surface-light border-border">
-          <CardContent className="p-6">
-            <h3 className="text-text-main-dark dark:text-text-main-light text-lg font-bold mb-4">
-              Trạng thái yêu cầu
-            </h3>
-            <div className="flex-1 flex flex-col items-center justify-center relative mb-6">
-              <div className="relative size-48 rounded-full border-[16px] border-border flex items-center justify-center">
-                <div
-                  className="absolute inset-0 rounded-full"
-                  style={{
-                    background: 'conic-gradient(#137fec 0% 65%, #f59e0b 65% 85%, #ef4444 85% 100%)',
-                    maskImage: 'radial-gradient(transparent 55%, black 56%)',
-                    WebkitMaskImage: 'radial-gradient(transparent 55%, black 56%)',
-                  }}
-                ></div>
-                <div className="flex flex-col items-center z-10">
-                  <span className="text-3xl font-black text-text-main-dark dark:text-text-main-light">
-                    65%
-                  </span>
-                  <span className="text-xs text-text-sub-dark dark:text-text-sub-light">
-                    Đã hoàn thành
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="size-3 rounded-full bg-primary"></div>
-                  <span className="text-sm text-text-sub-dark dark:text-text-sub-light">
-                    Đã hoàn thành
-                  </span>
-                </div>
-                <span className="text-sm font-bold text-text-main-dark dark:text-text-main-light">
-                  850
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="size-3 rounded-full bg-yellow-500"></div>
-                  <span className="text-sm text-text-sub-dark dark:text-text-sub-light">
-                    Đang xử lý
-                  </span>
-                </div>
-                <span className="text-sm font-bold text-text-main-dark dark:text-text-main-light">
-                  260
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="size-3 rounded-full bg-red-500"></div>
-                  <span className="text-sm text-text-sub-dark dark:text-text-sub-light">
-                    Chưa xử lý
-                  </span>
-                </div>
-                <span className="text-sm font-bold text-text-main-dark dark:text-text-main-light">
-                  130
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+          <div className="lg:col-span-4">
+            <DonationChart className="h-[550px] py-2" />
+          </div>
+        </div>
+
+        {/* Bottom Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+          {/* Team Collab */}
+          <div className="lg:col-span-1 min-w-0">
+            <TeamOverview className="h-full" />
+          </div>
+
+          {/* Progress (Radial) */}
+          <div className="lg:col-span-1 min-w-0">
+            <CampaignProgress completed={41} inProgress={24} pending={35} />
+          </div>
+
+          {/* Inventory */}
+          <div className="lg:col-span-1 min-w-0">
+            <InventoryStats />
+          </div>
+        </div>
       </div>
     </DashboardLayout>
   );
