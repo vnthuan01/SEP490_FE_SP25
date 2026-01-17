@@ -77,7 +77,7 @@ export default function AdminDashboardPage() {
 
           {/* Middle Column: Logs/Reminders (1 col) */}
           <div className="flex flex-col gap-4 ">
-            <TimeTracker className="h-full" />
+            <CampaignProgress completed={41} inProgress={24} pending={35} />
           </div>
 
           {/* Right Column: Project/Request List (1 col) */}
@@ -153,7 +153,7 @@ export default function AdminDashboardPage() {
 
           {/* Progress (Radial) */}
           <div className="lg:col-span-1 min-w-0">
-            <CampaignProgress completed={41} inProgress={24} pending={35} />
+            <TimeTracker className="h-full" />
           </div>
 
           {/* Inventory */}

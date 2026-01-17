@@ -48,7 +48,17 @@ export function DashboardHeader({
     setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
   };
   return (
-    <header className="flex items-center justify-between whitespace-nowrap border-b border-slate-200 dark:border-[#233648] bg-surface-light dark:bg-[#111a22] px-6 py-3 h-16">
+    <header
+      className="
+    sticky top-0 z-50
+    flex items-center justify-between whitespace-nowrap
+    border-b border-slate-200 dark:border-[#233648]
+    bg-surface-light/80 dark:bg-[#111a22]/70
+    backdrop-blur-md
+    px-6 py-3 h-16
+  "
+    >
+      {' '}
       {/* Desktop Sidebar Toggle & Mobile Menu Button */}
       <div className="flex items-center gap-2">
         <button
@@ -67,7 +77,6 @@ export function DashboardHeader({
           <span className="material-symbols-outlined">menu</span>
         </button>
       </div>
-
       {/* Search Bar */}
       {/* <label className="flex flex-col min-w-40 h-10 w-full max-w-md">
         <div className="flex h-full rounded-lg bg-slate-100 dark:bg-[#233648] focus-within:ring-2 ring-primary/50">
@@ -82,7 +91,6 @@ export function DashboardHeader({
           />
         </div>
       </label> */}
-
       {/* Right Actions */}
       <div className="flex flex-1 justify-end items-center gap-4">
         {/* Toggle Theme */}
