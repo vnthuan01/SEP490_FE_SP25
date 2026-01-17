@@ -63,7 +63,7 @@ export function DonationChart({ className }: DonationChartProps) {
       <CardHeader className="flex flex-col sm:flex-row items-center justify-between pb-4 border-b border-border/50">
         <div className="flex flex-col gap-1">
           <CardTitle className="text-text-main-dark dark:text-text-main-light text-lg font-bold flex items-center gap-2">
-            <span className="material-symbols-outlined text-neon-green">show_chart</span>
+            <span className="material-symbols-outlined text-green-500">show_chart</span>
             Xu hướng ủng hộ
           </CardTitle>
           <p className="text-sm text-text-sub-dark dark:text-text-sub-light">

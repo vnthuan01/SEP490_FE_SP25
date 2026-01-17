@@ -27,6 +27,7 @@ export default function AdminDashboardPage() {
               Tạo chiến dịch
             </Button>
             <Button variant="outline" size="lg" className="rounded-full font-bold border-2">
+              <span className="material-symbols-outlined text-lg">download</span>
               Xuất dữ liệu
             </Button>
           </div>
@@ -90,7 +91,8 @@ export default function AdminDashboardPage() {
                   className="h-7 text-xs rounded-full outline outline-1 outline-primary"
                   disabled
                 >
-                  New+
+                  <span className="material-symbols-outlined">other_admission</span>
+                  New
                 </Button>
               </CardHeader>
               <CardContent className="flex flex-col gap-4">

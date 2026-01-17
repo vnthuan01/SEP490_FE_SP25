@@ -1,7 +1,7 @@
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-
+// import { Analytics } from '@vercel/analytics/react';
 const data = [
   { name: 'Mon', visits: 4000 },
   { name: 'Tue', visits: 3000 },
@@ -17,7 +17,10 @@ export function VisitorChart({ className }: { className?: string }) {
     <Card className={cn('bg-card border-border', className)}>
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <div>
-          <CardTitle className="text-lg font-bold text-foreground">Lượng truy cập</CardTitle>
+          <CardTitle className="text-lg font-bold text-foreground flex items-center gap-2">
+            <span className="material-symbols-outlined text-green-500">groups</span>
+            Lượng truy cập
+          </CardTitle>
           <p className="text-xs text-muted-foreground mt-1">Vercel Analytics</p>
         </div>
         <div className="flex items-center gap-2 text-xs font-medium bg-primary/10 text-primary px-2 py-1 rounded-full">
