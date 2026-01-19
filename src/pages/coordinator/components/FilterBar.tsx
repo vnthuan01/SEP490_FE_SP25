@@ -46,11 +46,11 @@ export function FilterBar({
   stats,
 }: FilterBarProps) {
   return (
-    <div className="border-b bg-background p-4 space-y-3">
+    <div className="border-b space-y-3 ">
       <div className="flex items-center justify-between">
         <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-bold text-primary leading-tight">
-            Điều phối cứu trợ miền Trung
+            Điều phối cứu trợ cả nước
           </h1>
           <p className="text-sm text-muted-foreground">
             {stats.total} điểm cần cứu trợ • {stats.highUrgency} khẩn cấp cao

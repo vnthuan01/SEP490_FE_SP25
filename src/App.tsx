@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { Analytics } from '@vercel/analytics/react';
 import AppRoutes from '@/routes/index';
+import { Analytics } from '@vercel/analytics/react';
 // import { SignalRProvider } from '@/components/provider/signalr/SignalRProvider';
 // import { ConnectionIndicator } from '@/components/provider/signalr/ConnectionIndicator';
 
@@ -13,6 +14,7 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       {/* <SignalRProvider> */}
       <AppRoutes />
+      <Analytics />
       {/* <ConnectionIndicator /> */}
       {/* </SignalRProvider> */}
       <ReactQueryDevtools initialIsOpen={false} />
