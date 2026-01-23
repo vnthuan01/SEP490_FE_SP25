@@ -1,0 +1,306 @@
+---
+description: API Service and TypeScript Types Standards
+globs: 
+alwaysApply: false
+---
+# API Service and TypeScript Types Standards
+
+## Service Layer Structure
+
+### File Organization
+1. **Service Files Location**: `/src/services/{domain}Service.ts`
+   - Example: `authService.ts`, `userService.ts`, `inventoryService.ts`
+   - One service per domain/resource
+   - Export service object with methods
+
+2. **API Client**: Use centralized `apiClient` from `/src/lib/apiClients.ts`
+   - Pre-configured Axios instance with interceptors
+   - Automatic token injection
+   - Automatic token refresh on 401
+   - Base URL from environment variable
+
+### Service Function Patterns
+
+```typescript
+// Example service structure
+import { apiClient } from '@/lib/apiClients';
+
+export interface ResourceResponse<T> {
+  success: boolean;
+  statusCode: number;
+  message: string;
+  data: T;
+}
+
+export const resourceService = {
+  getAll: (params?: FilterParams) =>
+    apiClient.get<ResourceResponse<Resource[]>>('/Resource', { params }),
+  
+  getById: (id: string) =>
+    apiClient.get<ResourceResponse<Resource>>(`/Resource/${id}`),
+  
+  create: (data: CreateResourcePayload) =>
+    apiClient.post<ResourceResponse<Resource>>('/Resource', data),
+  
+  update: (id: string, data: UpdateResourcePayload) =>
+    apiClient.put<ResourceResponse<Resource>>(`/Resource/${id}`, data),
+  
+  delete: (id: string) =>
+    apiClient.delete<ResourceResponse<void>>(`/Resource/${id}`),
+};
+```
+
+### HTTP Method Conventions
+- **GET**: Retrieve data (list or single item)
+- **POST**: Create new resources
+- **PUT**: Full update of existing resource
+- **PATCH**: Partial update of existing resource
+- **DELETE**: Remove resource
+
+## TypeScript Type Patterns
+
+### Response Wrapper Types
+
+```typescript
+// Use consistent response wrapper for all APIs
+export interface ApiResponse<T> {
+  success: boolean;
+  statusCode: number;
+  message: string;
+  data: T;
+}
+
+// Alternative pattern for auth responses
+export interface AuthResponse<T> {
+  success: boolean;
+  statusCode: number;
+  message: string;
+  data: T;
+}
+```
+
+### Request Payload Types
+
+```typescript
+// Use descriptive suffixes for different payload types
+export interface LoginPayload {
+  emailOrPhone: string;
+  password: string;
+}
+
+export interface CreateUserPayload {
+  fullName: string;
+  email: string;
+  phoneNumber: string;
+  role: UserRoleType;
+}
+
+export interface UpdateUserPayload {
+  fullName?: string;
+  email?: string;
+  phoneNumber?: string;
+  avatarUrl?: string;
+}
+
+// For filter/search params
+export interface UserFilterParams {
+  search?: string;
+  role?: UserRoleType;
+  status?: string;
+  page?: number;
+  pageSize?: number;
+}
+```
+
+### Entity/Model Types
+
+```typescript
+// Main entity interface
+export interface User {
+  id: string;
+  avatarUrl?: string | null;
+  email: string;
+  fullName: string;
+  phoneNumber: string;
+  address?: string;
+  dateOfBirth?: string;
+  gender?: string;
+  role: UserRoleType;
+  status: string;
+  lastActivity?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// Use optional (?) for nullable fields
+// Use | null for explicitly nullable fields that come from API
+```
+
+### Enum Types
+
+```typescript
+// Use const object pattern for enums
+export const UserRole = {
+  Admin: 'Admin',
+  Coordinator: 'Coordinator',
+  Volunteer: 'Volunteer',
+  User: 'User',
+} as const;
+
+export type UserRoleType = (typeof UserRole)[keyof typeof UserRole];
+
+// Location: /src/enums/{EnumName}.ts
+```
+
+## API Integration Patterns
+
+### Axios Interceptors
+
+The project uses automatic token management via interceptors in `apiClients.ts`:
+
+```typescript
+// Request interceptor - auto attach token
+apiClient.interceptors.request.use((config) => {
+  const token = getAuthToken();
+  if (token) {
+    config.headers['Authorization'] = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Response interceptor - auto refresh on 401
+apiClient.interceptors.response.use(
+  (res) => res,
+  async (error) => {
+    // Handle token refresh logic
+    // Queue failed requests during refresh
+    // Retry with new token
+  }
+);
+```
+
+**Key Points**:
+- Don't manually add Authorization headers in services
+- Token refresh is automatic on 401 errors
+- Queue system prevents multiple refresh calls
+
+### Error Handling
+
+```typescript
+// In service usage (hooks or components)
+try {
+  const response = await resourceService.getAll();
+  const data = response.data.data; // Extract actual data
+} catch (error: any) {
+  if (error.response?.status === 401) {
+    // Unauthorized - handled by interceptor automatically
+  } else if (error.response?.status === 404) {
+    // Not found
+  } else {
+    // Generic error
+    console.error('API Error:', error.response?.data?.message || error.message);
+  }
+}
+```
+
+## Type Organization
+
+### File Structure
+```
+/src/types/
+  ├── {domain}.ts        # Domain-specific types
+  ├── routes.ts          # Route types
+  ├── mock.ts            # Mock data types
+  └── goong-maps.d.ts    # Third-party type declarations
+```
+
+### Co-location Pattern
+- **Preferred**: Define types in service files when tightly coupled
+- **Shared Types**: Extract to `/src/types/` when used across multiple files
+- **Component Types**: Define in component file unless shared
+
+### Import Aliases
+Always use path aliases for cleaner imports:
+```typescript
+import { authService } from '@/services/authService';
+import type { User } from '@/services/authService';
+import { apiClient } from '@/lib/apiClients';
+import { UserRole } from '@/enums/UserRole';
+```
+
+## Best Practices
+
+1. **Type Safety**
+   - Never use `any` - use `unknown` with runtime checks
+   - Always type API response generics
+   - Use TypeScript's strict mode
+
+2. **Naming Conventions**
+   - Services: `{domain}Service.ts`
+   - Interfaces: PascalCase (e.g., `UserProfile`)
+   - Types: PascalCase with descriptive suffix (e.g., `UserRoleType`)
+   - Enums: PascalCase constant object pattern
+
+3. **Documentation**
+   - Add JSDoc comments for complex service methods
+   - Document expected API response structure
+   - Note any special handling or side effects
+
+4. **Consistency**
+   - Use same response wrapper pattern across all services
+   - Follow established HTTP method conventions
+   - Maintain consistent error handling patterns
+
+## Example: Complete Service File
+
+```typescript
+import type { UserRoleType } from '@/enums/UserRole';
+import { apiClient } from '@/lib/apiClients';
+
+// Response wrapper
+export interface AuthResponse<T> {
+  success: boolean;
+  statusCode: number;
+  message: string;
+  data: T;
+}
+
+// Payloads
+export interface LoginPayload {
+  emailOrPhone: string;
+  password: string;
+}
+
+export interface RefreshTokenPayload {
+  refreshToken: string;
+}
+
+// Response data
+export interface LoginResponseData {
+  accessToken: string;
+  refreshToken: string;
+}
+
+// Entity
+export interface User {
+  id: string;
+  email: string;
+  fullName: string;
+  phoneNumber: string;
+  role: UserRoleType;
+  avatarUrl?: string | null;
+  status?: string;
+}
+
+// Service
+export const authService = {
+  login: (data: LoginPayload) =>
+    apiClient.post<AuthResponse<LoginResponseData>>('/Auth/login', data),
+
+  me: () => 
+    apiClient.get<AuthResponse<User>>('/Auth/me'),
+
+  refreshToken: (data: RefreshTokenPayload) =>
+    apiClient.post<AuthResponse<LoginResponseData>>('/Auth/refresh-token', data),
+};
+```

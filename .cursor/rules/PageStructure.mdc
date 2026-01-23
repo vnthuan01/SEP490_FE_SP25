@@ -1,0 +1,582 @@
+---
+description: Page Structure and Organization Standards
+globs: 
+alwaysApply: false
+---
+# Page Structure and Organization Standards
+
+## Page Directory Structure
+
+```
+/src/pages/
+  ├── auth/               # Authentication pages
+  │   └── LoginPage.tsx
+  ├── admin/              # Admin role pages
+  │   ├── DashboardPage.tsx
+  │   ├── UserManagementPage.tsx
+  │   ├── DataManagementPage.tsx
+  │   └── components/     # Admin-specific components
+  ├── coordinator/        # Coordinator role pages
+  │   ├── DashboardPage.tsx
+  │   ├── VolunteerRequestManagement.tsx
+  │   └── components/     # Coordinator-specific components
+  └── notfound/           # 404 page
+      └── NotFoundPage.tsx
+```
+
+### Naming Convention
+- Page files: `{Name}Page.tsx` (e.g., `DashboardPage.tsx`)
+- Role-based folders: `/pages/{role}/`
+- Page-specific components: `/pages/{role}/components/`
+
+## Page Component Structure
+
+### Basic Page Template
+
+```tsx
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+
+function DashboardPage() {
+  // 1. State
+  const [filter, setFilter] = useState('all');
+
+  // 2. Data fetching
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['dashboard', filter],
+    queryFn: async () => {
+      const response = await dashboardService.getStats();
+      return response.data.data;
+    },
+  });
+
+  // 3. Loading state
+  if (isLoading) {
+    return <LoadingSkeleton />;
+  }
+
+  // 4. Error state
+  if (error) {
+    return <ErrorState message="Không thể tải dữ liệu" />;
+  }
+
+  // 5. Render
+  return (
+    <div className="min-h-screen bg-background">
+      <PageHeader title="Dashboard" />
+      <div className="container py-6">
+        <div className="grid gap-6">
+          {/* Page content */}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default DashboardPage;
+```
+
+### Page with Layout
+
+```tsx
+function UserManagementPage() {
+  return (
+    <div className="min-h-screen flex flex-col bg-background">
+      {/* Header */}
+      <header className="border-b bg-surface px-6 py-4">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Quản lý người dùng</h1>
+          <Button onClick={handleAddUser}>Thêm người dùng</Button>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="flex-1 p-6">
+        <div className="max-w-7xl mx-auto">
+          {/* Content */}
+        </div>
+      </main>
+    </div>
+  );
+}
+```
+
+## Data Fetching Patterns
+
+### Using React Query with Custom Hook
+
+```tsx
+// /src/hooks/useUsers.ts
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { userService } from '@/services/userService';
+
+export function useUsers(filters?: UserFilters) {
+  return useQuery({
+    queryKey: ['users', filters],
+    queryFn: async () => {
+      const response = await userService.getAll(filters);
+      return response.data.data;
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+}
+
+export function useCreateUser() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: CreateUserPayload) => userService.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      toast.success('Tạo người dùng thành công');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Có lỗi xảy ra');
+    },
+  });
+}
+
+// Usage in page
+function UserManagementPage() {
+  const { data: users, isLoading } = useUsers();
+  const createUser = useCreateUser();
+
+  const handleSubmit = async (values: CreateUserPayload) => {
+    await createUser.mutateAsync(values);
+  };
+
+  // ...
+}
+```
+
+### Conditional Fetching
+
+```tsx
+function UserDetailPage({ userId }: { userId: string }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['user', userId],
+    queryFn: async () => {
+      const response = await userService.getById(userId);
+      return response.data.data;
+    },
+    enabled: !!userId, // Only fetch when userId exists
+  });
+
+  // ...
+}
+```
+
+### Polling/Refetching
+
+```tsx
+const { data } = useQuery({
+  queryKey: ['dashboard-stats'],
+  queryFn: fetchStats,
+  refetchInterval: 30000, // Refetch every 30 seconds
+  refetchOnWindowFocus: true,
+});
+```
+
+## State Management Patterns
+
+### Local UI State
+
+```tsx
+function DataManagementPage() {
+  // UI state
+  const [selectedTab, setSelectedTab] = useState('inventory');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Server state via React Query
+  const { data } = useQuery({
+    queryKey: ['data', selectedTab, searchQuery],
+    queryFn: fetchData,
+  });
+
+  // ...
+}
+```
+
+### Auth State (Global)
+
+```tsx
+import { useAuth } from '@/hooks/useAuth';
+
+function DashboardPage() {
+  const { user, role, isAuthenticated } = useAuth();
+
+  // Role-based rendering
+  if (role === 'Admin') {
+    return <AdminDashboard />;
+  }
+
+  return <CoordinatorDashboard />;
+}
+```
+
+## Page Sections
+
+### Page Header
+
+```tsx
+function PageHeader({ 
+  title, 
+  description, 
+  actions 
+}: { 
+  title: string; 
+  description?: string;
+  actions?: React.ReactNode;
+}) {
+  return (
+    <header className="border-b bg-surface px-6 py-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">{title}</h1>
+          {description && (
+            <p className="text-sm text-muted-foreground mt-1">{description}</p>
+          )}
+        </div>
+        {actions && <div className="flex gap-2">{actions}</div>}
+      </div>
+    </header>
+  );
+}
+
+// Usage
+<PageHeader 
+  title="Quản lý người dùng"
+  description="Xem và quản lý tất cả người dùng trong hệ thống"
+  actions={
+    <>
+      <Button variant="outline">Xuất Excel</Button>
+      <Button onClick={handleAddUser}>Thêm người dùng</Button>
+    </>
+  }
+/>
+```
+
+### Stats Grid
+
+```tsx
+import { Users, Package, TrendingUp, AlertCircle } from 'lucide-react';
+
+function StatsSection() {
+  const stats = [
+    { title: 'Tổng người dùng', value: '1,234', icon: Users, variant: 'default' },
+    { title: 'Kho hàng', value: '567', icon: Package, variant: 'primary' },
+    { title: 'Tăng trưởng', value: '+23%', icon: TrendingUp, variant: 'success' },
+    { title: 'Cảnh báo', value: '12', icon: AlertCircle, variant: 'warning' },
+  ];
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {stats.map((stat, index) => (
+        <StatsCard key={index} {...stat} />
+      ))}
+    </div>
+  );
+}
+```
+
+### Filters Bar
+
+```tsx
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Search } from 'lucide-react';
+
+function FiltersBar({ 
+  onSearchChange, 
+  onRoleChange 
+}: {
+  onSearchChange: (value: string) => void;
+  onRoleChange: (value: string) => void;
+}) {
+  return (
+    <div className="flex flex-col sm:flex-row gap-4 mb-6">
+      <div className="relative flex-1">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+        <Input
+          placeholder="Tìm kiếm..."
+          className="pl-10"
+          onChange={(e) => onSearchChange(e.target.value)}
+        />
+      </div>
+      <Select onValueChange={onRoleChange}>
+        <SelectTrigger className="w-full sm:w-[200px]">
+          <SelectValue placeholder="Chọn vai trò" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Tất cả</SelectItem>
+          <SelectItem value="Admin">Admin</SelectItem>
+          <SelectItem value="Coordinator">Coordinator</SelectItem>
+          <SelectItem value="Volunteer">Volunteer</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+```
+
+### Tabs Navigation
+
+```tsx
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+function DataManagementPage() {
+  return (
+    <div className="container py-6">
+      <Tabs defaultValue="inventory">
+        <TabsList>
+          <TabsTrigger value="inventory">Kho hàng</TabsTrigger>
+          <TabsTrigger value="requests">Yêu cầu</TabsTrigger>
+          <TabsTrigger value="distribution">Phân phối</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="inventory">
+          <InventoryContent />
+        </TabsContent>
+        
+        <TabsContent value="requests">
+          <RequestsContent />
+        </TabsContent>
+        
+        <TabsContent value="distribution">
+          <DistributionContent />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+```
+
+## Modal/Dialog Patterns
+
+### Add/Edit Modal
+
+```tsx
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+
+function UserManagementPage() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+
+  const handleAdd = () => {
+    setEditingUser(null);
+    setIsModalOpen(true);
+  };
+
+  const handleEdit = (user: User) => {
+    setEditingUser(user);
+    setIsModalOpen(true);
+  };
+
+  return (
+    <>
+      <Button onClick={handleAdd}>Thêm người dùng</Button>
+      
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editingUser ? 'Chỉnh sửa người dùng' : 'Thêm người dùng mới'}
+            </DialogTitle>
+          </DialogHeader>
+          <UserForm 
+            user={editingUser} 
+            onSuccess={() => setIsModalOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+```
+
+## Navigation Patterns
+
+### Programmatic Navigation
+
+```tsx
+import { useNavigate } from 'react-router-dom';
+
+function LoginPage() {
+  const navigate = useNavigate();
+
+  const handleLogin = async () => {
+    await login(credentials);
+    navigate('/portal/dashboard', { replace: true });
+  };
+
+  // ...
+}
+```
+
+### Role-based Routing
+
+```tsx
+import { useAuth } from '@/hooks/useAuth';
+import { UserRole } from '@/enums/UserRole';
+
+function HomePage() {
+  const { role } = useAuth();
+
+  useEffect(() => {
+    if (role === UserRole.Admin) {
+      navigate('/portal/admin/dashboard');
+    } else if (role === UserRole.Coordinator) {
+      navigate('/portal/coordinator/dashboard');
+    }
+  }, [role]);
+
+  // ...
+}
+```
+
+## Loading and Error Handling
+
+### Full Page Loading
+
+```tsx
+function DashboardPage() {
+  const { data, isLoading } = useQuery({ ... });
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="space-y-4 w-full max-w-4xl p-6">
+          <Skeleton className="h-32 w-full" />
+          <div className="grid grid-cols-4 gap-4">
+            <Skeleton className="h-24" />
+            <Skeleton className="h-24" />
+            <Skeleton className="h-24" />
+            <Skeleton className="h-24" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ...
+}
+```
+
+### Section Loading
+
+```tsx
+function DataSection() {
+  const { data, isLoading } = useQuery({ ... });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Dữ liệu</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-3/4" />
+          </div>
+        ) : (
+          <div>{/* Actual content */}</div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+```
+
+## Best Practices
+
+1. **Consistent Structure**: Follow the page template structure
+2. **Loading States**: Always handle loading/error states
+3. **Custom Hooks**: Extract data fetching logic to hooks
+4. **Role-based Pages**: Organize by user role
+5. **Page-specific Components**: Co-locate in `/pages/{role}/components/`
+6. **Responsive Design**: Test on mobile and desktop
+7. **Vietnamese Text**: All UI text in Vietnamese
+8. **SEO**: Use semantic HTML and proper headings
+9. **Accessibility**: Add ARIA labels and keyboard navigation
+10. **Error Handling**: Show user-friendly error messages
+11. **Toast Notifications**: Use Sonner for feedback
+12. **Query Invalidation**: Invalidate queries after mutations
+
+## Example: Complete Page
+
+```tsx
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Plus } from 'lucide-react';
+import { userService } from '@/services/userService';
+import { useAuth } from '@/hooks/useAuth';
+import UserTable from './components/UserTable';
+import UserModal from './components/UserModal';
+import FiltersBar from './components/FiltersBar';
+
+function UserManagementPage() {
+  const { role } = useAuth();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [filters, setFilters] = useState({ search: '', role: 'all' });
+
+  const { data: users, isLoading } = useQuery({
+    queryKey: ['users', filters],
+    queryFn: async () => {
+      const response = await userService.getAll(filters);
+      return response.data.data;
+    },
+  });
+
+  if (isLoading) {
+    return <LoadingSkeleton />;
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col bg-background">
+      <header className="border-b bg-surface px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Quản lý người dùng</h1>
+            <p className="text-sm text-muted-foreground">
+              Xem và quản lý tất cả người dùng trong hệ thống
+            </p>
+          </div>
+          <Button onClick={() => setIsModalOpen(true)}>
+            <Plus className="size-4 mr-2" />
+            Thêm người dùng
+          </Button>
+        </div>
+      </header>
+
+      <main className="flex-1 p-6">
+        <div className="max-w-7xl mx-auto space-y-6">
+          <FiltersBar 
+            onSearchChange={(search) => setFilters(prev => ({ ...prev, search }))}
+            onRoleChange={(role) => setFilters(prev => ({ ...prev, role }))}
+          />
+          
+          <Card>
+            <UserTable users={users || []} />
+          </Card>
+        </div>
+      </main>
+
+      <UserModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+      />
+    </div>
+  );
+}
+
+export default UserManagementPage;
+```

@@ -1,0 +1,507 @@
+---
+description: Form Handling and Validation Standards
+globs: 
+alwaysApply: false
+---
+# Form Handling and Validation Standards
+
+## React Hook Form Integration
+
+### Basic Form Setup
+
+```tsx
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import {
+  Form,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormControl,
+  FormMessage,
+} from '@/components/ui/form';
+
+// Define Zod schema
+const formSchema = z.object({
+  email: z.string().email('Email không hợp lệ'),
+  password: z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự'),
+});
+
+type FormValues = z.infer<typeof formSchema>;
+
+function MyForm() {
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      email: '',
+      password: '',
+    },
+  });
+
+  const onSubmit = async (values: FormValues) => {
+    // Handle form submission
+  };
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)}>
+        {/* Form fields */}
+      </form>
+    </Form>
+  );
+}
+```
+
+### Form Field Pattern
+
+```tsx
+<FormField
+  control={form.control}
+  name="email"
+  render={({ field }) => (
+    <FormItem>
+      <FormLabel>Email</FormLabel>
+      <FormControl>
+        <Input placeholder="Nhập email" {...field} />
+      </FormControl>
+      <FormMessage />
+    </FormItem>
+  )}
+/>
+```
+
+## Zod Validation Schemas
+
+### Schema Location
+- **Simple schemas**: Define inline in component file
+- **Reusable schemas**: Export from `/src/lib/schema.ts`
+- **Complex domain schemas**: Create separate file in `/src/lib/schemas/{domain}Schema.ts`
+
+### Common Zod Patterns
+
+**String Validation**:
+```typescript
+// Required string with trimming
+z.string().trim().min(1, 'Trường này là bắt buộc')
+
+// String with length constraints
+z.string().trim().min(10, 'Tối thiểu 10 ký tự').max(200, 'Tối đa 200 ký tự')
+
+// Email
+z.string().email('Email không hợp lệ')
+
+// Phone number (Vietnamese format)
+z.string().regex(/^(0|\+84)[0-9]{9,10}$/, 'Số điện thoại không hợp lệ')
+
+// Optional string
+z.string().optional()
+
+// Nullable string
+z.string().nullable()
+```
+
+**Number Validation**:
+```typescript
+// Basic number
+z.number().min(0, 'Không được âm')
+
+// Coerce string to number (for input fields)
+z.coerce.number().min(1, 'Giá phải lớn hơn 0')
+
+// Optional with default
+z.number().default(0)
+
+// Integer only
+z.number().int('Phải là số nguyên')
+
+// Number with range
+z.number().min(1, 'Tối thiểu 1').max(100, 'Tối đa 100')
+```
+
+**Boolean Validation**:
+```typescript
+z.boolean().default(false)
+
+// Required checkbox
+z.boolean().refine(val => val === true, 'Bạn phải đồng ý với điều khoản')
+```
+
+**Array Validation**:
+```typescript
+// Array of strings
+z.array(z.string()).min(1, 'Chọn ít nhất 1 mục')
+
+// Array with max items
+z.array(z.string()).max(5, 'Tối đa 5 mục')
+
+// Optional array
+z.array(z.string()).optional()
+```
+
+**Object Validation**:
+```typescript
+z.object({
+  name: z.string(),
+  age: z.number(),
+  address: z.object({
+    street: z.string(),
+    city: z.string(),
+  }),
+})
+```
+
+**Enum Validation**:
+```typescript
+import { UserRole } from '@/enums/UserRole';
+
+z.enum(['Admin', 'Coordinator', 'Volunteer', 'User'])
+
+// Or using const object
+z.nativeEnum(UserRole)
+```
+
+**Date Validation**:
+```typescript
+// Date object
+z.date()
+
+// String date
+z.string().datetime()
+
+// Date range
+z.date().min(new Date('2024-01-01'), 'Ngày phải sau 01/01/2024')
+```
+
+**Custom Validation**:
+```typescript
+// Refine method
+z.string().refine(
+  (val) => val.length >= 8,
+  { message: 'Mật khẩu phải có ít nhất 8 ký tự' }
+)
+
+// Transform method
+z.string().transform((val) => val.toLowerCase())
+```
+
+### Example: Complete Schema
+
+```typescript
+// /src/lib/schema.ts
+import z from 'zod';
+
+export const loginSchema = z.object({
+  emailOrPhone: z.string().trim().min(1, 'Vui lòng nhập email hoặc số điện thoại'),
+  password: z.string().min(1, 'Vui lòng nhập mật khẩu'),
+});
+
+export const addServiceSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().trim().min(1, 'Tên dịch vụ là bắt buộc').max(200),
+  description: z.string().trim().min(10, 'Mô tả phải có ít nhất 10 ký tự').max(2000),
+  standardPrice: z.coerce.number().min(1, 'Giá phải lớn hơn 0'),
+  salePrice: z.coerce.number().min(0, 'Giá sale không được âm').optional(),
+  relatedParties: z.string().trim().min(1, 'Vui lòng chọn bên liên quan'),
+  isMainService: z.boolean().default(false),
+});
+
+export const userSchema = z.object({
+  fullName: z.string().trim().min(1, 'Họ tên là bắt buộc').max(100),
+  email: z.string().email('Email không hợp lệ'),
+  phoneNumber: z.string().regex(/^(0|\+84)[0-9]{9,10}$/, 'Số điện thoại không hợp lệ'),
+  role: z.enum(['Admin', 'Coordinator', 'Volunteer', 'User']),
+  address: z.string().optional(),
+  dateOfBirth: z.string().optional(),
+  gender: z.enum(['Male', 'Female', 'Other']).optional(),
+});
+
+// Infer TypeScript type from schema
+export type LoginFormValues = z.infer<typeof loginSchema>;
+export type AddServiceFormValues = z.infer<typeof addServiceSchema>;
+export type UserFormValues = z.infer<typeof userSchema>;
+```
+
+## Form Components Integration
+
+### Input Field
+```tsx
+<FormField
+  control={form.control}
+  name="fullName"
+  render={({ field }) => (
+    <FormItem>
+      <FormLabel>Họ và tên</FormLabel>
+      <FormControl>
+        <Input placeholder="Nhập họ và tên" {...field} />
+      </FormControl>
+      <FormMessage />
+    </FormItem>
+  )}
+/>
+```
+
+### Select Field
+```tsx
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+<FormField
+  control={form.control}
+  name="role"
+  render={({ field }) => (
+    <FormItem>
+      <FormLabel>Vai trò</FormLabel>
+      <Select onValueChange={field.onChange} defaultValue={field.value}>
+        <FormControl>
+          <SelectTrigger>
+            <SelectValue placeholder="Chọn vai trò" />
+          </SelectTrigger>
+        </FormControl>
+        <SelectContent>
+          <SelectItem value="Admin">Admin</SelectItem>
+          <SelectItem value="Coordinator">Coordinator</SelectItem>
+          <SelectItem value="Volunteer">Volunteer</SelectItem>
+          <SelectItem value="User">User</SelectItem>
+        </SelectContent>
+      </Select>
+      <FormMessage />
+    </FormItem>
+  )}
+/>
+```
+
+### Checkbox Field
+```tsx
+import { Checkbox } from '@/components/ui/checkbox';
+
+<FormField
+  control={form.control}
+  name="isMainService"
+  render={({ field }) => (
+    <FormItem className="flex items-center gap-2">
+      <FormControl>
+        <Checkbox
+          checked={field.value}
+          onCheckedChange={field.onChange}
+        />
+      </FormControl>
+      <FormLabel className="!mt-0">Dịch vụ chính</FormLabel>
+    </FormItem>
+  )}
+/>
+```
+
+### Textarea Field
+```tsx
+import { Textarea } from '@/components/ui/textarea';
+
+<FormField
+  control={form.control}
+  name="description"
+  render={({ field }) => (
+    <FormItem>
+      <FormLabel>Mô tả</FormLabel>
+      <FormControl>
+        <Textarea 
+          placeholder="Nhập mô tả" 
+          rows={4}
+          {...field} 
+        />
+      </FormControl>
+      <FormMessage />
+    </FormItem>
+  )}
+/>
+```
+
+### Password Field with Toggle
+```tsx
+import { Input } from '@/components/ui/input';
+import { EyeIcon, EyeOffIcon } from 'lucide-react';
+import { useState } from 'react';
+
+const [showPassword, setShowPassword] = useState(false);
+
+<FormField
+  control={form.control}
+  name="password"
+  render={({ field }) => (
+    <FormItem>
+      <FormLabel>Mật khẩu</FormLabel>
+      <FormControl>
+        <div className="relative">
+          <Input
+            type={showPassword ? 'text' : 'password'}
+            placeholder="Nhập mật khẩu"
+            className="pr-10"
+            {...field}
+          />
+          {showPassword ? (
+            <EyeOffIcon
+              onClick={() => setShowPassword(false)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 size-5 text-muted-foreground cursor-pointer"
+            />
+          ) : (
+            <EyeIcon
+              onClick={() => setShowPassword(true)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 size-5 text-muted-foreground cursor-pointer"
+            />
+          )}
+        </div>
+      </FormControl>
+      <FormMessage />
+    </FormItem>
+  )}
+/>
+```
+
+## Error Handling
+
+### Field-Level Errors
+Automatically displayed via `<FormMessage />` component
+
+### Form-Level Errors
+```tsx
+const [rootError, setRootError] = useState('');
+
+const onSubmit = async (values: FormValues) => {
+  setRootError(''); // Clear previous errors
+  
+  try {
+    await submitForm(values);
+  } catch (error: any) {
+    if (error.response?.status === 401) {
+      setRootError('Email hoặc mật khẩu không đúng');
+    } else {
+      setRootError('Đã có lỗi xảy ra. Vui lòng thử lại');
+    }
+  }
+};
+
+// Display in form
+{rootError && (
+  <p className="text-sm text-destructive text-center font-medium">
+    {rootError}
+  </p>
+)}
+```
+
+### Validation with react-hook-form Rules (Alternative to Zod)
+```tsx
+<FormField
+  control={form.control}
+  name="email"
+  rules={{
+    required: 'Email là bắt buộc',
+    pattern: {
+      value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+      message: 'Email không hợp lệ',
+    },
+  }}
+  render={({ field }) => (
+    <FormItem>
+      <FormLabel>Email</FormLabel>
+      <FormControl>
+        <Input {...field} />
+      </FormControl>
+      <FormMessage />
+    </FormItem>
+  )}
+/>
+```
+
+## Form State Management
+
+### Loading States
+```tsx
+const form = useForm<FormValues>();
+const [isSubmitting, setIsSubmitting] = useState(false);
+
+const onSubmit = async (values: FormValues) => {
+  setIsSubmitting(true);
+  try {
+    await submitForm(values);
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
+<Button type="submit" disabled={isSubmitting}>
+  {isSubmitting ? 'Đang xử lý...' : 'Gửi'}
+</Button>
+```
+
+### Reset Form
+```tsx
+// Reset to default values
+form.reset();
+
+// Reset with new values
+form.reset({
+  email: 'new@email.com',
+  password: '',
+});
+```
+
+### Set Values Programmatically
+```tsx
+// Single field
+form.setValue('email', 'new@email.com');
+
+// Multiple fields
+form.setValue('email', 'new@email.com');
+form.setValue('password', 'newpassword');
+```
+
+### Watch Values
+```tsx
+const email = form.watch('email');
+const allValues = form.watch();
+
+// Watch with callback
+useEffect(() => {
+  const subscription = form.watch((value, { name, type }) => {
+    console.log(value, name, type);
+  });
+  return () => subscription.unsubscribe();
+}, [form.watch]);
+```
+
+## Vietnamese Error Messages
+
+All error messages should be in Vietnamese:
+
+```typescript
+const messages = {
+  required: '{field} là bắt buộc',
+  email: 'Email không hợp lệ',
+  phone: 'Số điện thoại không hợp lệ',
+  minLength: '{field} phải có ít nhất {min} ký tự',
+  maxLength: '{field} không được vượt quá {max} ký tự',
+  min: '{field} phải lớn hơn hoặc bằng {min}',
+  max: '{field} phải nhỏ hơn hoặc bằng {max}',
+  pattern: '{field} không đúng định dạng',
+  
+  // Specific fields
+  'fullName.required': 'Vui lòng nhập họ và tên',
+  'email.required': 'Vui lòng nhập email',
+  'password.required': 'Vui lòng nhập mật khẩu',
+  'password.min': 'Mật khẩu phải có ít nhất 6 ký tự',
+  'confirmPassword.match': 'Mật khẩu xác nhận không khớp',
+};
+```
+
+## Best Practices
+
+1. **Always use Zod with zodResolver** for complex forms
+2. **Use react-hook-form rules** for simple validation only
+3. **Provide Vietnamese error messages** for all validations
+4. **Use FormMessage component** for displaying field errors
+5. **Handle form-level errors separately** with custom error state
+6. **Use coerce for number inputs** (`z.coerce.number()`)
+7. **Trim strings** before validation (`z.string().trim()`)
+8. **Export form schemas** when reused across components
+9. **Infer TypeScript types** from Zod schemas
+10. **Disable submit button** during form submission
+11. **Reset form** after successful submission if needed
+12. **Use defaultValues** to prevent uncontrolled inputs

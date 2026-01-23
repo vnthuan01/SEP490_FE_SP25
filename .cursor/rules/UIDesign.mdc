@@ -1,0 +1,385 @@
+---
+description: UI Design and Styling Standards
+globs: 
+alwaysApply: false
+---
+# UI Design and Styling Standards
+
+## Tailwind CSS Conventions
+
+### Utility Class Order
+Follow this consistent order for Tailwind classes:
+1. Layout (display, position, flex, grid)
+2. Sizing (width, height, min/max)
+3. Spacing (margin, padding, gap)
+4. Typography (font, text, line-height)
+5. Borders (border, rounded)
+6. Background (bg)
+7. Effects (shadow, opacity)
+8. Transitions/Animations
+9. Responsive variants
+10. State variants (hover, focus, dark)
+
+```tsx
+// Good example
+<div className="flex items-center justify-between w-full px-6 py-4 text-lg font-bold bg-surface border-b shadow-sm hover:bg-muted dark:bg-card">
+```
+
+### Responsive Design
+- Mobile-first approach
+- Use Tailwind breakpoints: `sm:`, `md:`, `lg:`, `xl:`, `2xl:`
+- Test on both mobile and desktop viewports
+
+```tsx
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+```
+
+## Color Palette and Theme
+
+### Theme Variables
+Use CSS custom properties defined in `index.css`:
+
+```typescript
+// Light/Dark mode support via next-themes
+const colorVariables = {
+  // Base colors
+  background: 'hsl(var(--background))',
+  foreground: 'hsl(var(--foreground))',
+  
+  // Component colors
+  card: 'hsl(var(--card))',
+  surface: 'hsl(var(--surface))',
+  
+  // Semantic colors
+  primary: 'hsl(var(--primary))',
+  destructive: 'hsl(var(--destructive))',
+  success: 'hsl(var(--success))',
+  warning: 'hsl(var(--warning))',
+  
+  // Text colors
+  'muted-foreground': 'hsl(var(--muted-foreground))',
+};
+```
+
+### Color Usage Patterns
+
+**Backgrounds**:
+```tsx
+<div className="bg-background">      {/* Page background */}
+<div className="bg-surface">         {/* Elevated surface */}
+<div className="bg-card">            {/* Card background */}
+<div className="bg-muted">           {/* Muted/secondary bg */}
+```
+
+**Text Colors**:
+```tsx
+<h1 className="text-foreground">     {/* Primary text */}
+<p className="text-muted-foreground"> {/* Secondary text */}
+<span className="text-primary">      {/* Branded text */}
+<span className="text-destructive">  {/* Error/danger text */}
+```
+
+**Theme-Aware Dark Mode**:
+```tsx
+// Automatically adapts via CSS variables - preferred
+<div className="bg-primary text-primary-foreground">
+
+// Manual dark mode override - only when needed
+<div className="bg-blue-500 dark:bg-blue-700">
+```
+
+## Variant Styles Pattern
+
+For components with multiple visual variants, use the established pattern:
+
+```typescript
+// Define variant type
+export type Variant = 'default' | 'primary' | 'success' | 'warning' | 'info';
+
+// Define variant styles Record
+export const variantStyles: Record<
+  Variant,
+  {
+    card: string;
+    icon: string;
+    text: string;
+    badge: string;
+    hover: string;
+  }
+> = {
+  default: {
+    card: 'bg-card',
+    icon: 'bg-muted text-muted-foreground',
+    text: 'text-foreground',
+    badge: 'bg-muted text-muted-foreground',
+    hover: 'hover:bg-muted/40',
+  },
+  primary: {
+    card: 'bg-primary/15 dark:bg-primary/10',
+    icon: 'bg-primary/20 text-primary',
+    text: 'text-primary',
+    badge: 'bg-primary/20 text-primary',
+    hover: 'hover:bg-primary/25 dark:hover:bg-primary/20',
+  },
+  success: {
+    card: 'bg-emerald-500/15 dark:bg-emerald-500/10',
+    icon: 'bg-emerald-500/20 text-emerald-500',
+    text: 'text-emerald-600 dark:text-emerald-400',
+    badge: 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400',
+    hover: 'hover:bg-emerald-500/25 dark:hover:bg-emerald-500/20',
+  },
+  warning: {
+    card: 'bg-orange-500/15 dark:bg-orange-500/10',
+    icon: 'bg-orange-500/20 text-orange-500',
+    text: 'text-orange-600 dark:text-orange-400',
+    badge: 'bg-orange-500/20 text-orange-600 dark:text-orange-400',
+    hover: 'hover:bg-orange-500/25 dark:hover:bg-orange-500/20',
+  },
+  info: {
+    card: 'bg-blue-500/15 dark:bg-blue-500/10',
+    icon: 'bg-blue-500/20 text-blue-500',
+    text: 'text-blue-600 dark:text-blue-400',
+    badge: 'bg-blue-500/20 text-blue-600 dark:text-blue-400',
+    hover: 'hover:bg-blue-500/25 dark:hover:bg-blue-500/20',
+  },
+};
+
+// Usage in component
+interface StatsCardProps {
+  variant?: Variant;
+}
+
+const StatsCard = ({ variant = 'default' }: StatsCardProps) => {
+  const styles = variantStyles[variant];
+  
+  return (
+    <div className={cn(styles.card, styles.hover, 'p-6 rounded-lg')}>
+      <div className={cn(styles.icon, 'p-3 rounded-full')}>
+        <Icon />
+      </div>
+      <p className={styles.text}>Content</p>
+    </div>
+  );
+};
+```
+
+## Icon Usage
+
+### Lucide React Icons
+Primary icon library. Use for UI elements:
+
+```tsx
+import { Search, User, Settings, ChevronDown } from 'lucide-react';
+
+<Search className="size-5 text-muted-foreground" />
+<User className="size-4" />
+```
+
+### Material Symbols
+Used for specific app iconography:
+
+```tsx
+{/* Filled variant */}
+<span className="material-symbols-outlined text-2xl">flood</span>
+<span className="material-symbols-outlined text-sm">arrow_forward</span>
+
+{/* Outlined variant - default */}
+<span className="material-symbols-outlined">settings</span>
+```
+
+**Icon Sizing**:
+- `size-4` (16px) - Small inline icons
+- `size-5` (20px) - Standard UI icons
+- `size-6` (24px) - Large UI icons
+- `size-8` (32px) - Feature icons
+- `text-sm/base/lg/xl/2xl` for Material Symbols
+
+## Layout Patterns
+
+### Page Layout
+```tsx
+function Page() {
+  return (
+    <main className="min-h-screen flex flex-col bg-background">
+      {/* Header */}
+      <header className="border-b bg-surface px-6 py-4">
+        {/* Header content */}
+      </header>
+      
+      {/* Main Content */}
+      <div className="flex-1 p-6">
+        {/* Page content */}
+      </div>
+    </main>
+  );
+}
+```
+
+### Card Pattern
+```tsx
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+
+<Card className="bg-card hover:shadow-lg transition-shadow">
+  <CardHeader>
+    <CardTitle>Title</CardTitle>
+  </CardHeader>
+  <CardContent>
+    {/* Content */}
+  </CardContent>
+</Card>
+```
+
+### Grid Layouts
+```tsx
+{/* Stats Grid */}
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+  {stats.map(stat => <StatsCard key={stat.id} {...stat} />)}
+</div>
+
+{/* Dashboard Grid */}
+<div className="grid gap-6 lg:grid-cols-12">
+  <div className="lg:col-span-8">
+    {/* Main content */}
+  </div>
+  <div className="lg:col-span-4">
+    {/* Sidebar */}
+  </div>
+</div>
+```
+
+### Flex Layouts
+```tsx
+{/* Header with actions */}
+<div className="flex items-center justify-between mb-6">
+  <h1 className="text-2xl font-bold">Title</h1>
+  <Button>Action</Button>
+</div>
+
+{/* Centered content */}
+<div className="flex items-center justify-center min-h-screen">
+  <div className="w-full max-w-md">
+    {/* Centered content */}
+  </div>
+</div>
+```
+
+## Animation and Transitions
+
+### Tailwind Transitions
+```tsx
+{/* Basic transition */}
+<div className="transition-all duration-300 hover:scale-105">
+
+{/* Color transition */}
+<button className="transition-colors hover:bg-primary/90">
+
+{/* Multiple properties */}
+<div className="transition-[background-color,transform] duration-200">
+```
+
+### Framer Motion (Motion)
+For complex animations:
+
+```tsx
+import { motion } from 'motion/react';
+
+<motion.div
+  initial={{ opacity: 0, y: 20 }}
+  animate={{ opacity: 1, y: 0 }}
+  exit={{ opacity: 0, y: -20 }}
+  transition={{ duration: 0.3 }}
+>
+  {/* Content */}
+</motion.div>
+```
+
+### Gradient Animations
+```tsx
+<div className="
+  h-1.5
+  bg-gradient-to-r
+  from-blue-600 from-0%
+  via-primary via-15%
+  to-blue-400 to-100%
+  bg-[length:200%_200%]
+  animate-[gradientShift_5s_ease-in-out_infinite]
+" />
+```
+
+## Common Design Patterns
+
+### Glass Morphism / Surface Elevation
+```tsx
+<div className="bg-surface/80 backdrop-blur-sm border shadow-xl rounded-2xl">
+```
+
+### Hover States
+```tsx
+<div className="hover:bg-muted/40 transition-colors cursor-pointer">
+<button className="hover:bg-primary/90 hover:shadow-lg transition-all">
+```
+
+### Loading Skeleton
+```tsx
+import { Skeleton } from '@/components/ui/skeleton';
+
+<Skeleton className="h-4 w-full" />
+<Skeleton className="h-8 w-32" />
+```
+
+### Badge/Tag
+```tsx
+import { Badge } from '@/components/ui/badge';
+
+<Badge variant="success">Active</Badge>
+<Badge variant="warning">Pending</Badge>
+<Badge variant="destructive">Inactive</Badge>
+```
+
+## Accessibility
+
+### Semantic HTML
+```tsx
+<main>      {/* Main content */}
+<header>    {/* Page header */}
+<nav>       {/* Navigation */}
+<section>   {/* Content sections */}
+<article>   {/* Independent content */}
+<aside>     {/* Sidebar content */}
+```
+
+### ARIA Labels
+```tsx
+<button aria-label="Close dialog">
+  <X className="size-4" />
+</button>
+
+<input 
+  aria-describedby="email-error"
+  aria-invalid={!!error}
+/>
+```
+
+### Focus States
+```tsx
+<button className="focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
+```
+
+## Best Practices
+
+1. **Use Theme Variables**: Always use CSS custom properties for colors
+2. **Consistent Spacing**: Use Tailwind's spacing scale (0, 0.5, 1, 2, 3, 4, 5, 6, 8, 10, 12, 16, 20, 24, etc.)
+3. **Border Radius**: Stick to `-sm`, `-md`, `-lg`, `-xl`, `-2xl` variants
+4. **Z-Index**: Use sparingly - prefer stacking context with relative positioning
+5. **Dark Mode**: Test all components in both light and dark themes
+6. **Mobile First**: Design for mobile, enhance for desktop
+7. **Avoid Custom CSS**: Use Tailwind utilities whenever possible
+8. **Component Reusability**: Extract reusable patterns to components
+
+## Vietnamese Language Support
+
+Project uses Vietnamese as primary language:
+- All UI text should be in Vietnamese
+- Use proper Vietnamese diacritics
+- Error messages in Vietnamese
+- Use i18next for internationalization when needed
