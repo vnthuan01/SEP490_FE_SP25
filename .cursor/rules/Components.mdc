@@ -1,0 +1,537 @@
+---
+description: Component Architecture and Patterns
+globs: 
+alwaysApply: false
+---
+# Component Architecture and Patterns
+
+## Component Organization
+
+### Directory Structure
+```
+/src/components/
+  ├── ui/                 # ShadCN/Radix UI components (DON'T MODIFY)
+  ├── layout/             # Layout components (Header, Footer, Sidebar)
+  └── provider/           # Context providers
+
+/src/pages/{role}/
+  └── components/         # Page-specific components
+```
+
+### Component File Naming
+- Use PascalCase: `UserCard.tsx`, `DataTable.tsx`
+- One component per file (except related sub-components)
+- Co-locate types in component file or separate `types.ts`
+
+## Component Patterns
+
+### Basic Component Structure
+
+```tsx
+import { cn } from '@/lib/utils';
+
+interface ComponentProps {
+  title: string;
+  description?: string;
+  variant?: 'default' | 'primary';
+  className?: string;
+  children?: React.ReactNode;
+}
+
+function Component({ 
+  title, 
+  description, 
+  variant = 'default', 
+  className,
+  children 
+}: ComponentProps) {
+  return (
+    <div className={cn('base-classes', className)}>
+      <h2>{title}</h2>
+      {description && <p>{description}</p>}
+      {children}
+    </div>
+  );
+}
+
+export default Component;
+```
+
+### Component with State
+
+```tsx
+import { useState } from 'react';
+
+interface CounterProps {
+  initialValue?: number;
+  onValueChange?: (value: number) => void;
+}
+
+function Counter({ initialValue = 0, onValueChange }: CounterProps) {
+  const [count, setCount] = useState(initialValue);
+
+  const handleIncrement = () => {
+    const newValue = count + 1;
+    setCount(newValue);
+    onValueChange?.(newValue);
+  };
+
+  return (
+    <div>
+      <p>Count: {count}</p>
+      <button onClick={handleIncrement}>Increment</button>
+    </div>
+  );
+}
+
+export default Counter;
+```
+
+### Component with Data Fetching
+
+```tsx
+import { useQuery } from '@tanstack/react-query';
+import { userService } from '@/services/userService';
+import { Skeleton } from '@/components/ui/skeleton';
+
+function UserList() {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['users'],
+    queryFn: async () => {
+      const response = await userService.getAll();
+      return response.data.data;
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-20 w-full" />
+        <Skeleton className="h-20 w-full" />
+        <Skeleton className="h-20 w-full" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-destructive">
+        Có lỗi xảy ra khi tải dữ liệu
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {data?.map(user => (
+        <UserCard key={user.id} user={user} />
+      ))}
+    </div>
+  );
+}
+
+export default UserList;
+```
+
+## ShadCN/Radix UI Components
+
+### Available Components
+The project uses ShadCN components from `/src/components/ui/`:
+- Form components: `form`, `input`, `textarea`, `select`, `checkbox`, `switch`
+- Layout: `card`, `sheet`, `dialog`, `separator`, `tabs`
+- Navigation: `dropdown-menu`, `navigation-menu`, `breadcrumb`
+- Feedback: `alert`, `alert-dialog`, `skeleton`, `progress`, `badge`
+- Data: `table`, `pagination`, `accordion`, `collapsible`
+- Others: `button`, `avatar`, `tooltip`, `popover`, `calendar`
+
+### Using ShadCN Components
+
+**Button**:
+```tsx
+import { Button } from '@/components/ui/button';
+
+<Button variant="primary" size="lg">
+  Click me
+</Button>
+
+{/* Available variants: default, primary, destructive, outline, ghost, link */}
+{/* Available sizes: sm, default, lg, icon */}
+```
+
+**Card**:
+```tsx
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
+
+<Card>
+  <CardHeader>
+    <CardTitle>Title</CardTitle>
+    <CardDescription>Description</CardDescription>
+  </CardHeader>
+  <CardContent>
+    {/* Content */}
+  </CardContent>
+  <CardFooter>
+    {/* Footer actions */}
+  </CardFooter>
+</Card>
+```
+
+**Dialog/Modal**:
+```tsx
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+
+<Dialog>
+  <DialogTrigger asChild>
+    <Button>Open Dialog</Button>
+  </DialogTrigger>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>Dialog Title</DialogTitle>
+    </DialogHeader>
+    {/* Content */}
+  </DialogContent>
+</Dialog>
+```
+
+**Sheet (Sidebar)**:
+```tsx
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+
+<Sheet>
+  <SheetTrigger asChild>
+    <Button>Open Sheet</Button>
+  </SheetTrigger>
+  <SheetContent side="right">
+    <SheetHeader>
+      <SheetTitle>Sheet Title</SheetTitle>
+    </SheetHeader>
+    {/* Content */}
+  </SheetContent>
+</Sheet>
+```
+
+**Table**:
+```tsx
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+
+<Table>
+  <TableHeader>
+    <TableRow>
+      <TableHead>Name</TableHead>
+      <TableHead>Email</TableHead>
+    </TableRow>
+  </TableHeader>
+  <TableBody>
+    {data.map(item => (
+      <TableRow key={item.id}>
+        <TableCell>{item.name}</TableCell>
+        <TableCell>{item.email}</TableCell>
+      </TableRow>
+    ))}
+  </TableBody>
+</Table>
+```
+
+**Dropdown Menu**:
+```tsx
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+
+<DropdownMenu>
+  <DropdownMenuTrigger asChild>
+    <Button variant="ghost">Actions</Button>
+  </DropdownMenuTrigger>
+  <DropdownMenuContent>
+    <DropdownMenuItem onClick={handleEdit}>Sửa</DropdownMenuItem>
+    <DropdownMenuItem onClick={handleDelete}>Xóa</DropdownMenuItem>
+  </DropdownMenuContent>
+</DropdownMenu>
+```
+
+**Badge**:
+```tsx
+import { Badge } from '@/components/ui/badge';
+
+<Badge variant="success">Active</Badge>
+<Badge variant="warning">Pending</Badge>
+<Badge variant="destructive">Inactive</Badge>
+```
+
+## Component Composition Patterns
+
+### Stats Card Component
+```tsx
+import { Card } from '@/components/ui/card';
+import { LucideIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+interface StatsCardProps {
+  title: string;
+  value: string | number;
+  icon: LucideIcon;
+  description?: string;
+  variant?: 'default' | 'primary' | 'success' | 'warning';
+  trend?: {
+    value: number;
+    isPositive: boolean;
+  };
+}
+
+function StatsCard({ title, value, icon: Icon, description, variant = 'default', trend }: StatsCardProps) {
+  const variantClasses = {
+    default: 'bg-card',
+    primary: 'bg-primary/10',
+    success: 'bg-emerald-500/10',
+    warning: 'bg-orange-500/10',
+  };
+
+  return (
+    <Card className={cn(variantClasses[variant], 'p-6')}>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-muted-foreground">{title}</p>
+          <h3 className="text-3xl font-bold mt-2">{value}</h3>
+          {description && (
+            <p className="text-sm text-muted-foreground mt-1">{description}</p>
+          )}
+        </div>
+        <div className="p-4 bg-primary/20 rounded-full">
+          <Icon className="size-6 text-primary" />
+        </div>
+      </div>
+      {trend && (
+        <div className={cn(
+          'text-sm mt-2',
+          trend.isPositive ? 'text-emerald-600' : 'text-red-600'
+        )}>
+          {trend.isPositive ? '↑' : '↓'} {Math.abs(trend.value)}%
+        </div>
+      )}
+    </Card>
+  );
+}
+
+export default StatsCard;
+```
+
+### Data Table with Actions
+```tsx
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
+import { MoreVertical } from 'lucide-react';
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
+interface UserTableProps {
+  users: User[];
+  onEdit: (user: User) => void;
+  onDelete: (user: User) => void;
+}
+
+function UserTable({ users, onEdit, onDelete }: UserTableProps) {
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Tên</TableHead>
+          <TableHead>Email</TableHead>
+          <TableHead>Vai trò</TableHead>
+          <TableHead className="text-right">Hành động</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {users.map((user) => (
+          <TableRow key={user.id}>
+            <TableCell className="font-medium">{user.name}</TableCell>
+            <TableCell>{user.email}</TableCell>
+            <TableCell>{user.role}</TableCell>
+            <TableCell className="text-right">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <MoreVertical className="size-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => onEdit(user)}>
+                    Chỉnh sửa
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => onDelete(user)}
+                    className="text-destructive"
+                  >
+                    Xóa
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
+
+export default UserTable;
+```
+
+## Loading and Error States
+
+### Loading Skeleton
+```tsx
+import { Skeleton } from '@/components/ui/skeleton';
+
+function LoadingState() {
+  return (
+    <div className="space-y-4">
+      <Skeleton className="h-12 w-full" />
+      <Skeleton className="h-12 w-full" />
+      <Skeleton className="h-12 w-full" />
+    </div>
+  );
+}
+```
+
+### Empty State
+```tsx
+function EmptyState({ message = 'Không có dữ liệu' }: { message?: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+      <p className="text-lg">{message}</p>
+    </div>
+  );
+}
+```
+
+### Error State
+```tsx
+import { AlertCircle } from 'lucide-react';
+
+function ErrorState({ message = 'Có lỗi xảy ra' }: { message?: string }) {
+  return (
+    <div className="flex items-center gap-2 p-4 bg-destructive/10 text-destructive rounded-lg">
+      <AlertCircle className="size-5" />
+      <p>{message}</p>
+    </div>
+  );
+}
+```
+
+## Component Props Best Practices
+
+### Props Interface
+```tsx
+// Good: Descriptive, typed props
+interface UserCardProps {
+  user: User;
+  onEdit?: (user: User) => void;
+  onDelete?: (user: User) => void;
+  showActions?: boolean;
+  className?: string;
+}
+
+// Avoid: Generic or unclear props
+interface Props {
+  data: any;
+  onClick: () => void;
+}
+```
+
+### Optional Props with Defaults
+```tsx
+interface ComponentProps {
+  title: string;
+  variant?: 'default' | 'primary';
+  showIcon?: boolean;
+}
+
+function Component({ 
+  title, 
+  variant = 'default', 
+  showIcon = true 
+}: ComponentProps) {
+  // ...
+}
+```
+
+### Children Prop
+```tsx
+interface ContainerProps {
+  className?: string;
+  children: React.ReactNode;
+}
+
+function Container({ className, children }: ContainerProps) {
+  return <div className={cn('container', className)}>{children}</div>;
+}
+```
+
+## Accessibility
+
+### ARIA Labels
+```tsx
+<button aria-label="Đóng">
+  <X className="size-4" />
+</button>
+
+<input 
+  aria-label="Tìm kiếm"
+  aria-describedby="search-help"
+  placeholder="Nhập từ khóa..."
+/>
+```
+
+### Keyboard Navigation
+```tsx
+<div
+  role="button"
+  tabIndex={0}
+  onKeyDown={(e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      handleClick();
+    }
+  }}
+  onClick={handleClick}
+>
+  Clickable div
+</div>
+```
+
+### Focus Management
+```tsx
+import { useRef, useEffect } from 'react';
+
+function Modal({ isOpen }: { isOpen: boolean }) {
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      closeButtonRef.current?.focus();
+    }
+  }, [isOpen]);
+
+  return (
+    <button ref={closeButtonRef}>Close</button>
+  );
+}
+```
+
+## Best Practices
+
+1. **Use ShadCN components** - Don't create custom versions
+2. **Accept className prop** - Allow styling customization
+3. **Use cn() utility** - For conditional className merging
+4. **Define TypeScript interfaces** - For all component props
+5. **Handle loading/error states** - Show appropriate UI feedback
+6. **Keep components focused** - Single responsibility principle
+7. **Extract reusable logic** - Into custom hooks
+8. **Use semantic HTML** - For better accessibility
+9. **Add ARIA attributes** - For screen readers
+10. **Vietnamese text** - All user-facing text in Vietnamese
+11. **Export as default** - For components
+12. **Co-locate sub-components** - In same file if tightly coupled

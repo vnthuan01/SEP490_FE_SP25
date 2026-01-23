@@ -2,8 +2,10 @@ import { useEffect, useCallback, useRef } from 'react';
 import goongjs, { type Map as GoongMap, type Marker } from '@goongmaps/goong-js';
 import { useGoongMap } from '@/hooks/useGoongMap';
 import { Card, CardContent } from '@/components/ui/card';
+import { toast } from 'sonner';
 import type { ReliefLocation, Team, Headquarters } from './types';
 import { getUrgencyColor, getStatusColor } from './utils';
+import { getAdministrativeBoundary } from '@/services/goongService';
 
 interface ReliefMapProps {
   locations: ReliefLocation[];
@@ -28,6 +30,10 @@ export function ReliefMap({
 }: ReliefMapProps) {
   const markersRef = useRef<Map<string, Marker>>(new Map());
   const headquartersMarkerRef = useRef<Marker | null>(null);
+  // const [highlightedArea, setHighlightedArea] = useState<{
+  //   name: string;
+  //   coordinates: number[][][];
+  // } | null>(null);
 
   const { map, mapRef, isLoading, error } = useGoongMap({
     center: headquarters.coordinates,
@@ -112,11 +118,182 @@ export function ReliefMap({
     [headquarters],
   );
 
+  // Draw area boundary polygon
+  const drawAreaBoundary = useCallback(
+    (mapInstance: GoongMap, coordinates: number[][][], areaName: string) => {
+      const sourceId = 'area-boundary';
+      const fillLayerId = 'area-boundary-fill';
+      const outlineLayerId = 'area-boundary-outline';
+
+      const geoJsonData = {
+        type: 'Feature',
+        properties: { name: areaName },
+        geometry: {
+          type: 'Polygon',
+          coordinates: coordinates,
+        },
+      };
+
+      // Check if source already exists
+      const source = (mapInstance as any).getSource(sourceId);
+
+      if (source) {
+        // Update existing source data
+        source.setData(geoJsonData);
+      } else {
+        // Add new source
+        (mapInstance as any).addSource(sourceId, {
+          type: 'geojson',
+          data: geoJsonData,
+        });
+      }
+
+      // Ensure layers exist
+      if (!(mapInstance as any).getLayer(fillLayerId)) {
+        (mapInstance as any).addLayer({
+          id: fillLayerId,
+          type: 'fill',
+          source: sourceId,
+          paint: {
+            'fill-color': '#3b82f6',
+            'fill-opacity': 0.2,
+          },
+        });
+      }
+
+      if (!(mapInstance as any).getLayer(outlineLayerId)) {
+        (mapInstance as any).addLayer({
+          id: outlineLayerId,
+          type: 'line',
+          source: sourceId,
+          paint: {
+            'line-color': '#2563eb',
+            'line-width': 2,
+            'line-dasharray': [2, 1],
+          },
+        });
+      }
+
+      // setHighlightedArea({ name: areaName, coordinates });
+    },
+    [],
+  );
+
+  // Clear area boundary
+  const clearAreaBoundary = useCallback((mapInstance: GoongMap) => {
+    const sourceId = 'area-boundary';
+    const source = (mapInstance as any).getSource(sourceId);
+
+    if (source) {
+      // Clear data but keep source/layers to avoid thrashing
+      source.setData({
+        type: 'FeatureCollection',
+        features: [],
+      });
+    }
+    // setHighlightedArea(null);
+  }, []);
+
+  // Highlight area function
+  const highlightLocationArea = useCallback(
+    async (lat: number, lng: number, fallbackName?: string) => {
+      // If map is not ready or API key is missing, skip
+      if (!map) return;
+
+      try {
+        const toastId = toast.loading('Đang tải boundary khu vực...');
+
+        // Try to get real administrative boundary from Goong API
+        const boundaryData = await getAdministrativeBoundary(lat, lng, apiKey);
+
+        if (boundaryData) {
+          // Use real boundary from API
+          console.log('✅ Got real boundary:', boundaryData.areaName);
+          drawAreaBoundary(map, boundaryData.coordinates, boundaryData.areaName);
+          toast.success(`Đã khoanh vùng: ${boundaryData.areaName}`, { id: toastId });
+        } else {
+          // Fallback: create approximate circular boundary
+          console.log('⚠️ No boundary from API, using fallback circle');
+          const areaName = fallbackName || `Khu vực (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+          const radius = 0.01; // ~1km
+          const points = 32;
+          const coordinates = [
+            Array.from({ length: points + 1 }, (_, i) => {
+              const angle = (i / points) * 2 * Math.PI;
+              return [lng + radius * Math.cos(angle), lat + radius * Math.sin(angle)];
+            }),
+          ];
+
+          drawAreaBoundary(map, coordinates, areaName);
+          toast.info(`Khoanh vùng xấp xỉ: ${areaName}`, { id: toastId });
+        }
+      } catch (error) {
+        console.error('Error highlighting area:', error);
+        toast.error('Có lỗi khi khoanh vùng', { id: 'boundary-loading' });
+      }
+    },
+    [apiKey, map, drawAreaBoundary],
+  );
+
+  // Handle map click to highlight administrative area
+  // const handleMapClick = useCallback(
+  //   (mapInstance: GoongMap, e: any) => {
+  //     const { lng, lat } = e.lngLat;
+  //     highlightLocationArea(lat, lng);
+  //   },
+  //   [highlightLocationArea],
+  // );
+
+  // Handle selectedLocationId changes - Center map AND highlight area
+  useEffect(() => {
+    if (map && selectedLocationId) {
+      const location = locations.find((l) => l.id === selectedLocationId);
+
+      if (location) {
+        console.log('📍 Selected location changed:', location.locationName);
+
+        // Center map on location
+        (map as any).flyTo({
+          center: [location.coordinates.lng, location.coordinates.lat],
+          zoom: 14,
+          speed: 1.2,
+        });
+
+        // Highlight area for the selected location
+        // Use a small timeout to ensure flyTo start and map state is stable
+        setTimeout(() => {
+          highlightLocationArea(
+            location.coordinates.lat,
+            location.coordinates.lng,
+            location.locationName,
+          );
+        }, 100);
+      }
+    }
+  }, [map, selectedLocationId, locations, highlightLocationArea]);
+
   // Create all markers when map loads
   useEffect(() => {
     if (map) {
       createHeadquartersMarker(map);
       createReliefMarkers(map);
+
+      // Add map click handler for area highlighting
+      // map.on('click', (e: any) => {
+      //   // const features = (map as any).queryRenderedFeatures(e.point);
+      //   // const clickedOnMarker = features.some((f: any) => f.layer.type === 'symbol');
+
+      //   // if (!clickedOnMarker) {
+      //   //   handleMapClick(map, e);
+      //   // }
+      // });
+
+      // Right-click to clear boundary
+      map.on('contextmenu', (e: any) => {
+        e.preventDefault();
+        clearAreaBoundary(map);
+        toast.info('Đã xóa khoanh vùng');
+      });
 
       if (locations.length > 0) {
         const bounds = new goongjs.LngLatBounds();
@@ -127,7 +304,14 @@ export function ReliefMap({
         map.fitBounds(bounds, { padding: 80 });
       }
     }
-  }, [map, createHeadquartersMarker, createReliefMarkers, locations, headquarters]);
+  }, [
+    map,
+    createHeadquartersMarker,
+    createReliefMarkers,
+    locations,
+    headquarters,
+    clearAreaBoundary,
+  ]);
 
   // Expose fitBounds method
   useEffect(() => {
@@ -142,22 +326,6 @@ export function ReliefMap({
       };
     }
   }, [map, locations, headquarters]);
-
-  // Handle selectedLocationId changes - Center map only
-  useEffect(() => {
-    if (map && selectedLocationId) {
-      const location = locations.find((l) => l.id === selectedLocationId);
-
-      if (location) {
-        // Center map on location
-        (map as any).flyTo({
-          center: [location.coordinates.lng, location.coordinates.lat],
-          zoom: 14,
-          speed: 1.2,
-        });
-      }
-    }
-  }, [map, selectedLocationId, locations]);
 
   return (
     <>

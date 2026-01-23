@@ -1,77 +1,371 @@
 ---
-description: Fetch API and React Querry
+description: Fetch API and React Query Flow
 globs: 
 alwaysApply: false
 ---
- # Fetch API and React Query Standards
+# Fetch API and React Query Standards
+
+## Complete Flow: Service → Hook → Page
+
+### Step 1: Define Service Layer (`/src/services/`)
+
+Create service file with typed API calls:
+
+```typescript
+// /src/services/userService.ts
+import { apiClient } from '@/lib/apiClients';
+import type { UserRoleType } from '@/enums/UserRole';
+
+// Response wrapper
+export interface ApiResponse<T> {
+  success: boolean;
+  statusCode: number;
+  message: string;
+  data: T;
+}
+
+// Entity
+export interface User {
+  id: string;
+  fullName: string;
+  email: string;
+  phoneNumber: string;
+  role: UserRoleType;
+  status: string;
+  avatarUrl?: string | null;
+}
+
+// Request payloads
+export interface CreateUserPayload {
+  fullName: string;
+  email: string;
+  phoneNumber: string;
+  role: UserRoleType;
+  password: string;
+}
+
+export interface UpdateUserPayload {
+  fullName?: string;
+  email?: string;
+  phoneNumber?: string;
+  avatarUrl?: string;
+}
+
+export interface UserFilterParams {
+  search?: string;
+  role?: UserRoleType;
+  status?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+// Service methods
+export const userService = {
+  getAll: (params?: UserFilterParams) =>
+    apiClient.get<ApiResponse<User[]>>('/User', { params }),
+
+  getById: (id: string) =>
+    apiClient.get<ApiResponse<User>>(`/User/${id}`),
+
+  create: (data: CreateUserPayload) =>
+    apiClient.post<ApiResponse<User>>('/User', data),
+
+  update: (id: string, data: UpdateUserPayload) =>
+    apiClient.put<ApiResponse<User>>(`/User/${id}`, data),
+
+  delete: (id: string) =>
+    apiClient.delete<ApiResponse<void>>(`/User/${id}`),
+};
+```
+
+### Step 2: Create Custom Hooks (`/src/hooks/`)
+
+Create hooks that call services and use React Query:
+
+```typescript
+// /src/hooks/useUsers.ts
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import type { AxiosResponse } from 'axios';
+import { toast } from 'sonner';
+import { userService } from '@/services/userService';
+import type {
+  User,
+  CreateUserPayload,
+  UpdateUserPayload,
+  UserFilterParams,
+  ApiResponse,
+} from '@/services/userService';
+
+// Query: Get all users
+export function useUsers(filters?: UserFilterParams) {
+  return useQuery<User[]>({
+    queryKey: ['users', filters],
+    queryFn: async () => {
+      const response: AxiosResponse<ApiResponse<User[]>> = await userService.getAll(filters);
+      return response.data.data;
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: 1,
+  });
+}
+
+// Query: Get single user
+export function useUser(id: string) {
+  return useQuery<User>({
+    queryKey: ['users', id],
+    queryFn: async () => {
+      const response: AxiosResponse<ApiResponse<User>> = await userService.getById(id);
+      return response.data.data;
+    },
+    enabled: !!id,
+  });
+}
+
+// Mutation: Create user
+export function useCreateUser() {
+  const queryClient = useQueryClient();
+
+  return useMutation<AxiosResponse<ApiResponse<User>>, unknown, CreateUserPayload>({
+    mutationFn: (data: CreateUserPayload) => userService.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      toast.success('Tạo người dùng thành công');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Có lỗi xảy ra khi tạo người dùng');
+    },
+  });
+}
+
+// Mutation: Update user
+export function useUpdateUser() {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    AxiosResponse<ApiResponse<User>>,
+    unknown,
+    { id: string; data: UpdateUserPayload }
+  >({
+    mutationFn: ({ id, data }) => userService.update(id, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['users', variables.id] });
+      toast.success('Cập nhật người dùng thành công');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Có lỗi xảy ra khi cập nhật người dùng');
+    },
+  });
+}
+
+// Mutation: Delete user
+export function useDeleteUser() {
+  const queryClient = useQueryClient();
+
+  return useMutation<AxiosResponse<ApiResponse<void>>, unknown, string>({
+    mutationFn: (id: string) => userService.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      toast.success('Xóa người dùng thành công');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Có lỗi xảy ra khi xóa người dùng');
+    },
+  });
+}
+```
+
+### Step 3: Use Hooks in Page Components
+
+Use the custom hooks in page components:
+
+```typescript
+// /src/pages/admin/UserManagementPage.tsx
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Plus } from 'lucide-react';
+import { useUsers, useCreateUser, useDeleteUser } from '@/hooks/useUsers';
+import type { User, UserFilterParams } from '@/services/userService';
+import UserTable from './components/UserTable';
+import UserModal from './components/UserModal';
+
+function UserManagementPage() {
+  // Local UI state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [filters, setFilters] = useState<UserFilterParams>({
+    search: '',
+    role: undefined,
+  });
+
+  // React Query hooks
+  const { data: users, isLoading, error } = useUsers(filters);
+  const createUser = useCreateUser();
+  const deleteUser = useDeleteUser();
+
+  // Handlers
+  const handleAdd = () => {
+    setEditingUser(null);
+    setIsModalOpen(true);
+  };
+
+  const handleEdit = (user: User) => {
+    setEditingUser(user);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (user: User) => {
+    if (confirm(`Bạn có chắc muốn xóa người dùng ${user.fullName}?`)) {
+      await deleteUser.mutateAsync(user.id);
+    }
+  };
+
+  const handleSubmit = async (data: CreateUserPayload) => {
+    await createUser.mutateAsync(data);
+    setIsModalOpen(false);
+  };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="p-6 space-y-4">
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-12 w-full" />
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="p-6 text-destructive">
+        Có lỗi xảy ra khi tải dữ liệu
+      </div>
+    );
+  }
+
+  // Render
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="border-b bg-surface px-6 py-4">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Quản lý người dùng</h1>
+          <Button onClick={handleAdd}>
+            <Plus className="size-4 mr-2" />
+            Thêm người dùng
+          </Button>
+        </div>
+      </header>
+
+      <main className="p-6">
+        <Card>
+          <UserTable
+            users={users || []}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+          />
+        </Card>
+      </main>
+
+      <UserModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        user={editingUser}
+        onSubmit={handleSubmit}
+      />
+    </div>
+  );
+}
+
+export default UserManagementPage;
+```
 
 ## Service Layer Architecture
-1. API Service Structure
-   - Use centralized apiService from `/lib/api/core` as base for all requests
-   - Organize services by domain in `/lib/api/services` directory
+
+1. **API Service Structure**
+   - Use centralized `apiClient` from `/src/lib/apiClients.ts`
+   - Organize services by domain in `/src/services/` directory
    - Export typed interfaces for all request/response objects
    - Document all service functions with JSDoc
 
-2. Service Function Patterns
+2. **Service Function Patterns**
    - Use descriptive function names (get*, create*, update*, delete*)
    - Return typed responses with proper error handling
    - Implement parameter conversion utilities for complex filters
    - Support pagination, sorting, and filtering parameters
-   - Maintain consistent response structure with {code, status, message, data}
+   - Maintain consistent response structure with {success, statusCode, message, data}
    - Use proper HTTP methods (GET, POST, PUT, DELETE)
 
-3. TypeScript Integration
+3. **TypeScript Integration**
    - Define comprehensive TypeScript interfaces for all API models
-   - Use enums for fixed value sets (e.g., PropertyStatus, PropertyType)
-   - Export all types and interfaces for use in components
+   - Use enums for fixed value sets (e.g., UserRole, Status)
+   - Export all types and interfaces for use in hooks and components
    - Maintain strict type checking for API parameters
 
-## React Query Implementation
-1. Hook Structure
-   - Create dedicated domain-specific hooks in `/hooks` directory
-   - Follow naming convention: use[Domain] and use[Domain][Action]
+## React Query Hook Patterns
+
+1. **Hook Structure**
+   - Create dedicated domain-specific hooks in `/src/hooks/` directory
+   - Follow naming convention: `use[Domain]` and `use[Action][Domain]`
    - Implement proper dependency arrays for query keys
-   - Enable conditional fetching with the enabled option
+   - Enable conditional fetching with the `enabled` option
    - Maintain consistent error handling patterns
 
-2. Query Management
-   - Use descriptive and consistent queryKey patterns: [domain, action, parameters]
-   - Serialize complex filter objects in queryKeys using JSON.stringify
+2. **Query Management**
+   - Use descriptive and consistent queryKey patterns: `['domain', 'action', parameters]`
+   - Serialize complex filter objects in queryKeys using JSON.stringify or spread
    - Implement proper query invalidation on mutations
-   - Use select option for data transformation
+   - Use `select` option for data transformation if needed
    - Leverage queryClient for cache management
 
-3. Mutation Patterns
+3. **Mutation Patterns**
    - Implement optimistic updates when appropriate
    - Handle success and error states consistently
    - Invalidate and refetch related queries on successful mutations
-   - Integrate with toast notifications for user feedback
+   - Integrate with toast notifications (Sonner) for user feedback
    - Preserve proper typing throughout mutation flow
 
-4. State Management Integration
-   - Integrate with global state (Zustand) for auth-related functionality
-   - Use React Query for server state, local hooks for UI state
+4. **State Management Integration**
+   - Use React Query for server state (API data)
+   - Use React hooks (useState) for local UI state
+   - Integrate with global state (useAuth) for auth-related functionality
    - Implement proper loading and error indicators
-   - Manage token storage in both store and cookies
    - Handle authentication state properly in query/mutation hooks
 
-5. Performance Optimization
-   - Implement staleTime and cacheTime configurations
-   - Use proper refetchOnWindowFocus and refetchOnReconnect settings
+5. **Performance Optimization**
+   - Implement `staleTime` and `gcTime` (formerly `cacheTime`) configurations
+   - Use proper `refetchOnWindowFocus` and `refetchOnReconnect` settings
    - Leverage query deduplication for identical requests
    - Implement retry logic for failed requests
    - Consider prefetching for critical data
 
 ## Error Handling
-1. Client-Side Errors
+
+1. **Client-Side Errors**
    - Implement consistent error state management
-   - Use toast notifications for user feedback
+   - Use toast notifications (Sonner) for user feedback
    - Provide clear error messages from API responses
    - Support retry functionality for failed requests
    - Log errors to console in development
 
-2. API Error Responses
-   - Follow consistent error format: {code, status: false, message}
+2. **API Error Responses**
+   - Follow consistent error format: `{success: false, statusCode, message}`
    - Include meaningful error messages
    - Use appropriate HTTP status codes
    - Handle network errors gracefully
+
+## Best Practices
+
+1. **Service Layer**: One service per domain/resource
+2. **Custom Hooks**: Extract all API calls into reusable hooks
+3. **Type Safety**: Always type responses and payloads
+4. **Error Messages**: Use Vietnamese for user-facing messages
+5. **Query Keys**: Use consistent, predictable patterns
+6. **Invalidation**: Invalidate related queries after mutations
+7. **Toast Feedback**: Always show success/error toast notifications
+8. **Loading States**: Handle loading, error, and empty states in components
+9. **Separation of Concerns**: Services → Hooks → Pages
+10. **DRY Principle**: Reuse hooks across multiple components

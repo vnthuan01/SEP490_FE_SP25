@@ -40,6 +40,45 @@ export interface DirectionsResponse {
   }>;
 }
 
+export interface GeocodeResult {
+  formatted_address: string;
+  place_id: string;
+  geometry: {
+    location: { lat: number; lng: number };
+    location_type: string;
+  };
+  address_components: Array<{
+    long_name: string;
+    short_name: string;
+    types: string[];
+  }>;
+  compound?: {
+    commune?: string;
+    district?: string;
+    province?: string;
+  };
+}
+
+export interface PlaceDetailResponse {
+  result: {
+    place_id: string;
+    name: string;
+    formatted_address: string;
+    geometry: {
+      location: { lat: number; lng: number };
+      boundary?: {
+        type: string;
+        coordinates: number[][][]; // GeoJSON polygon coordinates
+      };
+    };
+    address_components: Array<{
+      long_name: string;
+      short_name: string;
+      types: string[];
+    }>;
+  };
+}
+
 /**
  * Calculate distance and duration from headquarters to a location
  * @param origin - Headquarters coordinates
@@ -67,6 +106,130 @@ export async function getDirections(
     return data;
   } catch (error) {
     console.error('Error fetching directions:', error);
+    return null;
+  }
+}
+
+// Track if API key is invalid to avoid repeated failed requests
+let isApiKeyInvalid = false;
+
+/**
+ * Reverse geocode coordinates to get address and place information
+ * @param lat - Latitude
+ * @param lng - Longitude
+ * @param apiKey - Goong API Key
+ * @returns Geocoding result with address and place_id
+ */
+export async function reverseGeocode(
+  lat: number,
+  lng: number,
+  apiKey: string,
+): Promise<GeocodeResult | null> {
+  // Fail fast if we know the key is invalid
+  if (isApiKeyInvalid) {
+    console.warn('⚠️ API Key previously failed, skipping request');
+    return null;
+  }
+
+  try {
+    const url = `https://rsapi.goong.io/Geocode?latlng=${lat},${lng}&api_key=${apiKey}`;
+
+    // Add timeout to fetch to prevent long delays
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Geocode API error:', response.status, errorText);
+
+      // If unauthorized, mark key as invalid to prevent future requests
+      if (response.status === 401 || response.status === 403) {
+        isApiKeyInvalid = true;
+      }
+
+      return null;
+    }
+
+    const data = await response.json();
+    if (data.results && data.results.length > 0) {
+      return data.results[0];
+    }
+    return null;
+  } catch (error) {
+    console.error('Error fetching geocode:', error);
+    return null;
+  }
+}
+
+/**
+ * Get place details including boundary polygon if available
+ * @param placeId - Place ID from geocoding
+ * @param apiKey - Goong API Key
+ * @returns Place details with boundary coordinates (if available)
+ */
+export async function getPlaceDetail(
+  placeId: string,
+  apiKey: string,
+): Promise<PlaceDetailResponse | null> {
+  try {
+    const url = `https://rsapi.goong.io/Place/Detail?place_id=${placeId}&api_key=${apiKey}`;
+
+    const response = await fetch(url);
+    if (!response.ok) {
+      console.error('Place Detail API error:', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error fetching place detail:', error);
+    return null;
+  }
+}
+
+/**
+ * Get administrative boundary for a specific area
+ * @param lat - Latitude
+ * @param lng - Longitude
+ * @param apiKey - Goong API Key
+ * @returns GeoJSON polygon coordinates if available, null otherwise
+ */
+export async function getAdministrativeBoundary(
+  lat: number,
+  lng: number,
+  apiKey: string,
+): Promise<{ coordinates: number[][][]; areaName: string } | null> {
+  try {
+    // First, reverse geocode to get place_id and area name
+    const geocodeResult = await reverseGeocode(lat, lng, apiKey);
+    if (!geocodeResult) return null;
+
+    // Extract area name (commune/ward first, then district)
+    const commune = geocodeResult.address_components.find(
+      (comp) => comp.types.includes('commune') || comp.types.includes('sublocality'),
+    );
+    const district = geocodeResult.address_components.find((comp) =>
+      comp.types.includes('administrative_area_level_2'),
+    );
+    const areaName = commune?.long_name || district?.long_name || 'Khu vực';
+
+    // Try to get place details with boundary
+    const placeDetail = await getPlaceDetail(geocodeResult.place_id, apiKey);
+    if (placeDetail?.result?.geometry?.boundary) {
+      return {
+        coordinates: placeDetail.result.geometry.boundary.coordinates,
+        areaName,
+      };
+    }
+
+    // No boundary available from API
+    return null;
+  } catch (error) {
+    console.error('Error fetching administrative boundary:', error);
     return null;
   }
 }
