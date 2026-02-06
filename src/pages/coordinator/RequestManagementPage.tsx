@@ -26,6 +26,7 @@ interface Request {
   aiScore?: number;
   description: string;
   media?: RequestMedia[];
+  submittedAt: string;
 }
 
 const statusConfig: Record<RequestStatus, { label: string; className: string }> = {
@@ -152,6 +153,7 @@ const mockRequests: Request[] = [
         url: 'https://www.w3schools.com/html/mov_bbb.mp4',
       },
     ],
+    submittedAt: '2023-10-25T08:15:00', // 15 phút trước giả định
   },
   {
     id: '8292',
@@ -188,6 +190,7 @@ const mockRequests: Request[] = [
         url: 'https://tse2.mm.bing.net/th/id/OIP.bZvrW9XD1hLYdmNz7kS1PAHaE-?rs=1&pid=ImgDetMain&o=7&rm=3',
       },
     ],
+    submittedAt: '2023-10-25T07:48:00', // 42 phút trước giả định
   },
   {
     id: '8293',
@@ -223,6 +226,7 @@ const mockRequests: Request[] = [
         url: 'https://tse2.mm.bing.net/th/id/OIP.bZvrW9XD1hLYdmNz7kS1PAHaE-?rs=1&pid=ImgDetMain&o=7&rm=3',
       },
     ],
+    submittedAt: '2023-10-25T07:30:00', // 1 giờ trước giả định
   },
 
   {
@@ -236,6 +240,7 @@ const mockRequests: Request[] = [
     processStatus: 'completed',
     time: '2 giờ trước',
     description: 'Sạt lở đất, đã được cứu hộ an toàn.',
+    submittedAt: '2023-10-25T06:30:00', // 2 giờ trước giả định
   },
 ];
 
@@ -500,28 +505,11 @@ export default function CoordinatorRequestManagementPage() {
                     </div>
                   </div>
 
-                  <div className="flex gap-3">
-                    {actions?.secondary && (
-                      <Button
-                        variant="outline"
-                        className="border-red-500/30 text-red-500 hover:bg-red-500/10"
-                      >
-                        {actions.secondary}
-                      </Button>
-                    )}
-                    {actions?.primary && (
-                      <Button
-                        variant="primary"
-                        className={cn('dark:text-white flex items-center gap-2', actions.className)}
-                      >
-                        {actions.icon && (
-                          <span className="material-symbols-outlined text-[18px]">
-                            {actions.icon}
-                          </span>
-                        )}
-                        {actions.primary}
-                      </Button>
-                    )}
+                  <div className="flex flex-col items-start gap-2 text-text-sub-dark">
+                    <span className="text-sm">
+                      Gửi lúc: {new Date(selectedRequest.submittedAt).toLocaleString('vi-VN')}
+                    </span>
+                    <span className="text-sm">ID: #{selectedRequest.id}</span>
                   </div>
                 </div>
               </div>
@@ -821,6 +809,44 @@ export default function CoordinatorRequestManagementPage() {
                         cấp.
                       </p>
                     </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Sticky Footer */}
+              <div
+                className="sticky bottom-0 left-0 right-0 p-6 bg-card-dark/90
+                backdrop-blur-md border-t border-border-dark flex justify-between items-center z-20 shadow-2xl mt-auto"
+              >
+                <Button variant="outline" className="gap-2">
+                  <span className="material-symbols-outlined">history</span>
+                  Xem lịch sử
+                </Button>
+                <div className="flex gap-4">
+                  {actions?.secondary && (
+                    <Button
+                      variant="outline"
+                      className="gap-2 text-red-500 border-red-500/30 hover:bg-red-500/10 dark:text-red-500 dark:border-red-500/30 dark:hover:bg-red-500/10"
+                    >
+                      <span className="material-symbols-outlined">close</span>
+                      {actions.secondary}
+                    </Button>
+                  )}
+                  {actions?.primary && (
+                    <Button
+                      variant="primary"
+                      className={cn(
+                        'dark:text-white flex items-center gap-2 text-lg px-8',
+                        actions.className,
+                      )}
+                    >
+                      {actions.icon && (
+                        <span className="material-symbols-outlined text-[20px]">
+                          {actions.icon}
+                        </span>
+                      )}
+                      {actions.primary}
+                    </Button>
                   )}
                 </div>
               </div>
