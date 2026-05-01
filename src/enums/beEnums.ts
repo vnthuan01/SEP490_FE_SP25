@@ -452,9 +452,32 @@ export const TransactionReason = {
   CampaignAllocation: 4,
   Other: 5,
   Procurement: 6,
+  PackageAssemblyConsume: 7,
+  PackageAssemblyProduce: 8,
+  SupplyTransferReturn: 9,
 } as const;
 
 export type TransactionReason = (typeof TransactionReason)[keyof typeof TransactionReason];
+
+export const TransactionReasonLabel: Record<number, string> = {
+  [TransactionReason.Donation]: 'Nhận quà tặng',
+  [TransactionReason.SupplyTransferIn]: 'Nhập từ kho khác',
+  [TransactionReason.SupplyTransferOut]: 'Xuất để chuyển hàng đi kho khác',
+  [TransactionReason.CampaignAllocation]: 'Cấp phát cho chiến dịch',
+  [TransactionReason.Other]: 'Khác',
+  [TransactionReason.Procurement]: 'Mua hàng',
+  [TransactionReason.PackageAssemblyConsume]: 'Xuất vật tư để đóng gói',
+  [TransactionReason.PackageAssemblyProduce]: 'Nhập thành phẩm gói cứu trợ',
+  [TransactionReason.SupplyTransferReturn]: 'Hoàn kho do hủy điều phối',
+};
+
+export function getTransactionReasonLabel(
+  reason: number | string | null | undefined,
+  fallback?: string | null,
+) {
+  const parsed = parseEnumValue(reason);
+  return (parsed != null ? TransactionReasonLabel[parsed] : undefined) || fallback || 'Chưa rõ';
+}
 
 // ─── Campaign ──────────────────────────────────────────────────────────────────
 

@@ -49,6 +49,7 @@ export interface SearchCampaignParams {
   status?: number;
   type?: number;
   locationId?: string;
+  reliefStationId?: string;
   pageIndex?: number;
   pageSize?: number;
 }
@@ -186,6 +187,9 @@ export interface CampaignSummary {
   endDate: string;
   allowOverTarget: boolean;
   overallProgressPercent: number;
+  budgetTotal?: number;
+  budgetSpent?: number;
+  remainingBudget?: number;
 }
 
 export interface CampaignInventoryBalance {

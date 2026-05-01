@@ -25,6 +25,7 @@ import {
   TransactionReason,
   TransactionType,
   getSupplyCategoryLabel,
+  getTransactionReasonLabel,
 } from '@/enums/beEnums';
 import { formatNumberInputVN, formatNumberVN, normalizeNumberInput } from '@/lib/utils';
 
@@ -94,6 +95,13 @@ const getTransactionMeta = (type: number, reason: number) => {
   }
   if (type === TransactionType.Export && reason === TransactionReason.CampaignAllocation) {
     return { label: 'Xuất cho chiến dịch', icon: 'outbound', className: 'text-primary' };
+  }
+  if (type === TransactionType.Import && reason === TransactionReason.SupplyTransferReturn) {
+    return {
+      label: getTransactionReasonLabel(reason),
+      icon: 'undo',
+      className: 'text-amber-600 dark:text-amber-300',
+    };
   }
   if (type === TransactionType.Import) {
     return {

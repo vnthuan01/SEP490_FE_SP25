@@ -7,7 +7,7 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { formatNumberVN } from '@/lib/utils';
-import { TransactionReason } from '@/enums/beEnums';
+import { getTransactionReasonLabel, TransactionReason } from '@/enums/beEnums';
 import type { InventoryTransaction } from '@/services/inventoryService';
 import type { SupplyTransfer } from '@/services/supplyTransferService';
 
@@ -59,9 +59,11 @@ export function ImportHistoryBySupplyItemDialog({
               const lyDoTiengViet =
                 transaction.reason === TransactionReason.SupplyTransferIn
                   ? 'Nhập điều phối nội bộ'
-                  : transaction.reasonName === 'Other'
-                    ? 'Nhập kho trực tiếp'
-                    : transaction.reasonName || 'Chưa xác định';
+                  : transaction.reason === TransactionReason.SupplyTransferReturn
+                    ? getTransactionReasonLabel(transaction.reason, transaction.reasonName)
+                    : transaction.reasonName === 'Other'
+                      ? 'Nhập kho trực tiếp'
+                      : getTransactionReasonLabel(transaction.reason, transaction.reasonName);
               const nguonThamChieu = transaction.sourceReference?.trim()
                 ? transaction.sourceReference.trim()
                 : transaction.reason === TransactionReason.SupplyTransferIn

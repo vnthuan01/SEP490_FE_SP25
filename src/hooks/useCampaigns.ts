@@ -321,8 +321,20 @@ export function useAssignCampaignVehicle() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: CAMPAIGN_QUERY_KEYS.detail(variables.id) }),
         queryClient.invalidateQueries({ queryKey: CAMPAIGN_QUERY_KEYS.teams(variables.id) }),
-        queryClient.invalidateQueries({ queryKey: CAMPAIGN_QUERY_KEYS.vehicles(variables.id) }),
-        queryClient.invalidateQueries({ queryKey: ['vehicles', 'available-for-dispatch'] }),
+        queryClient.invalidateQueries({
+          predicate: (query) =>
+            Array.isArray(query.queryKey) &&
+            query.queryKey[0] === CAMPAIGN_QUERY_KEYS.all[0] &&
+            query.queryKey[1] === 'vehicles' &&
+            query.queryKey[2] === variables.id,
+        }),
+        queryClient.invalidateQueries({ queryKey: ['vehicles'] }),
+        queryClient.invalidateQueries({
+          predicate: (query) =>
+            Array.isArray(query.queryKey) &&
+            query.queryKey[0] === 'vehicles' &&
+            query.queryKey[1] === 'available-for-dispatch',
+        }),
       ]);
     },
     onError: (error: any) => {
@@ -349,8 +361,20 @@ export function useUpdateCampaignVehicleAssignment() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: CAMPAIGN_QUERY_KEYS.detail(variables.id) }),
         queryClient.invalidateQueries({ queryKey: CAMPAIGN_QUERY_KEYS.teams(variables.id) }),
-        queryClient.invalidateQueries({ queryKey: CAMPAIGN_QUERY_KEYS.vehicles(variables.id) }),
-        queryClient.invalidateQueries({ queryKey: ['vehicles', 'available-for-dispatch'] }),
+        queryClient.invalidateQueries({
+          predicate: (query) =>
+            Array.isArray(query.queryKey) &&
+            query.queryKey[0] === CAMPAIGN_QUERY_KEYS.all[0] &&
+            query.queryKey[1] === 'vehicles' &&
+            query.queryKey[2] === variables.id,
+        }),
+        queryClient.invalidateQueries({ queryKey: ['vehicles'] }),
+        queryClient.invalidateQueries({
+          predicate: (query) =>
+            Array.isArray(query.queryKey) &&
+            query.queryKey[0] === 'vehicles' &&
+            query.queryKey[1] === 'available-for-dispatch',
+        }),
       ]);
     },
     onError: (error: any) => {
@@ -370,8 +394,20 @@ export function useRemoveCampaignVehicleAssignment() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: CAMPAIGN_QUERY_KEYS.detail(variables.id) }),
         queryClient.invalidateQueries({ queryKey: CAMPAIGN_QUERY_KEYS.teams(variables.id) }),
-        queryClient.invalidateQueries({ queryKey: CAMPAIGN_QUERY_KEYS.vehicles(variables.id) }),
-        queryClient.invalidateQueries({ queryKey: ['vehicles', 'available-for-dispatch'] }),
+        queryClient.invalidateQueries({
+          predicate: (query) =>
+            Array.isArray(query.queryKey) &&
+            query.queryKey[0] === CAMPAIGN_QUERY_KEYS.all[0] &&
+            query.queryKey[1] === 'vehicles' &&
+            query.queryKey[2] === variables.id,
+        }),
+        queryClient.invalidateQueries({ queryKey: ['vehicles'] }),
+        queryClient.invalidateQueries({
+          predicate: (query) =>
+            Array.isArray(query.queryKey) &&
+            query.queryKey[0] === 'vehicles' &&
+            query.queryKey[1] === 'available-for-dispatch',
+        }),
       ]);
     },
     onError: (error: any) => {

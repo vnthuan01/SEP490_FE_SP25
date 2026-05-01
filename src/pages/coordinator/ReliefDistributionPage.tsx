@@ -58,6 +58,7 @@ import {
   useShortageRequests,
 } from '@/hooks/useReliefDistribution';
 import { CampaignStatus, CampaignType, DeliveryMode } from '@/enums/beEnums';
+import { CampaignResourceType } from '@/enums/beEnums';
 import {
   reliefDistributionService,
   type CampaignHouseholdResponse,
@@ -338,6 +339,52 @@ const isOutOfCampaignRange = (
 };
 
 const isBeforeNow = (targetDate: Date) => targetDate.getTime() < Date.now();
+
+const getCampaignMoneyGoalReceivedAmount = (summary?: {
+  goals?: Array<{
+    resourceType?: number | string | null;
+    receivedAmount?: number | string | null;
+    targetAmount?: number | string | null;
+  }>;
+}) => {
+  const moneyGoal = summary?.goals?.find(
+    (goal) => Number(goal?.resourceType) === CampaignResourceType.Money,
+  );
+  return Number(moneyGoal?.receivedAmount);
+};
+
+const getCampaignMoneyGoalTargetAmount = (summary?: {
+  goals?: Array<{
+    resourceType?: number | string | null;
+    targetAmount?: number | string | null;
+  }>;
+}) => {
+  const moneyGoal = summary?.goals?.find(
+    (goal) => Number(goal?.resourceType) === CampaignResourceType.Money,
+  );
+  return Number(moneyGoal?.targetAmount);
+};
+
+const getCampaignAvailableBudget = (summary?: {
+  totalMoneySpent?: number | string | null;
+  goals?: Array<{
+    resourceType?: number | string | null;
+    receivedAmount?: number | string | null;
+    targetAmount?: number | string | null;
+  }>;
+}) => {
+  const goalReceivedAmount = getCampaignMoneyGoalReceivedAmount(summary);
+  const totalMoneySpent = Number(summary?.totalMoneySpent);
+  if (Number.isFinite(goalReceivedAmount) && Number.isFinite(totalMoneySpent)) {
+    return Math.max(0, goalReceivedAmount - totalMoneySpent);
+  }
+
+  if (Number.isFinite(goalReceivedAmount)) {
+    return Math.max(0, goalReceivedAmount);
+  }
+
+  return null;
+};
 
 export default function ReliefDistributionPage() {
   const queryClient = useQueryClient();
@@ -4048,8 +4095,8 @@ export default function ReliefDistributionPage() {
                     {fundraisingCampaigns.map((campaign) => {
                       const summary = sourceSummaries[campaign.campaignId];
                       const isLoaded = !!summary;
-                      const remaining = summary?.remainingBudget ?? 0;
-                      const isAvailable = isLoaded && remaining > 0;
+                      const availableBudget = getCampaignAvailableBudget(summary);
+                      const isAvailable = availableBudget === null || availableBudget > 0;
                       return (
                         <option
                           key={campaign.campaignId}
@@ -4059,7 +4106,7 @@ export default function ReliefDistributionPage() {
                           {campaign.name}{' '}
                           {isLoaded
                             ? isAvailable
-                              ? `(Khả dụng: ${formatNumberVN(remaining)})`
+                              ? `(Khả dụng: ${formatNumberVN(availableBudget ?? 0)})`
                               : '(Không khả dụng)'
                             : '(Đang tải...)'}
                         </option>
@@ -4076,13 +4123,15 @@ export default function ReliefDistributionPage() {
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Tổng quỹ quyên góp:</span>
                         <span className="font-semibold text-primary">
-                          {formatNumberVN(sourceCampaignSummary.totalMoneyReceived)}
+                          {formatNumberVN(
+                            getCampaignMoneyGoalTargetAmount(sourceCampaignSummary) || 0,
+                          )}
                         </span>
                       </div>
                       <div className="flex justify-between mt-1">
                         <span className="text-muted-foreground">Ngân sách còn lại (khả dụng):</span>
                         <span className="font-semibold text-green-600 dark:text-green-400">
-                          {formatNumberVN(sourceCampaignSummary.remainingBudget)}
+                          {formatNumberVN(getCampaignAvailableBudget(sourceCampaignSummary) || 0)}
                         </span>
                       </div>
                     </div>
