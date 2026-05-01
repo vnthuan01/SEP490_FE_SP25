@@ -1,4 +1,3 @@
- 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +12,29 @@ import {
 import type { AnalyzeDisasterRiskResponse } from '@/services/disasterAnalysisService';
 
 type Theme = { color: string; light: string; cardClass: string; icon: string };
+
+const evaluateTemperatureVN = (tempC?: number | null) => {
+  const t = Number(tempC);
+  if (!Number.isFinite(t)) return { label: 'Chưa rõ', className: '#475569' };
+  if (t >= 37) return { label: 'Rất nóng', className: '#b91c1c' };
+  if (t >= 32) return { label: 'Nóng', className: '#ea580c' };
+  if (t >= 27) return { label: 'Khá', className: '#d97706' };
+  if (t >= 20) return { label: 'Mát', className: '#0284c7' };
+  return { label: 'Lạnh', className: '#1d4ed8' };
+};
+
+const getForecastTemperatureRange = (analysis: AnalyzeDisasterRiskResponse) => {
+  const days = analysis.forecast?.days || [];
+  if (days.length > 0) {
+    return {
+      highestTemp: Math.max(...days.map((day) => Number(day.tempMaxC || 0))),
+      lowestTemp: Math.min(...days.map((day) => Number(day.tempMinC || 0))),
+    };
+  }
+
+  const currentTemp = Number(analysis.weather?.temperatureC || 0);
+  return { highestTemp: currentTemp, lowestTemp: currentTemp };
+};
 
 type Props = {
   open: boolean;
@@ -84,6 +106,47 @@ export function LargeDisasterMapSheet(props: Props) {
                     </p>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    {(() => {
+                      const currentTemp = Number(selectedAnalysis.weather?.temperatureC);
+                      const safeCurrentTemp = Number.isFinite(currentTemp) ? currentTemp : null;
+                      const tempLevel = evaluateTemperatureVN(safeCurrentTemp);
+                      const { highestTemp, lowestTemp } =
+                        getForecastTemperatureRange(selectedAnalysis);
+
+                      return (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <div className="rounded-xl border border-current/20 bg-white/20 dark:bg-black/10 p-3 text-sm">
+                            <p className="text-xs opacity-70 flex items-center gap-1">
+                              <span className="material-symbols-outlined text-[14px] text-amber-600">
+                                arrow_upward
+                              </span>
+                              Nhiệt độ cao nhất
+                            </p>
+                            <p className="mt-1 font-semibold">{highestTemp.toFixed(1)}°C</p>
+                          </div>
+                          <div className="rounded-xl border border-current/20 bg-white/20 dark:bg-black/10 p-3 text-sm">
+                            <p className="text-xs opacity-70 flex items-center gap-1">
+                              <span className="material-symbols-outlined text-[14px] text-blue-700">
+                                arrow_downward
+                              </span>
+                              Nhiệt độ thấp nhất
+                            </p>
+                            <p className="mt-1 font-semibold">{lowestTemp.toFixed(1)}°C</p>
+                          </div>
+                          <div className="rounded-xl border border-current/20 bg-white/20 dark:bg-black/10 p-3 text-sm">
+                            <p className="text-xs opacity-70">Đánh giá nhiệt độ</p>
+                            <p
+                              className="mt-1 font-semibold"
+                              style={{ color: tempLevel.className }}
+                            >
+                              {tempLevel.label}
+                              {safeCurrentTemp !== null ? ` (${safeCurrentTemp.toFixed(1)}°C)` : ''}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
                     {selectedAnalysis.ai?.summary?.trim() ? (
                       <div className="rounded-xl border border-current/20 bg-white/30 dark:bg-black/10 p-4">
                         <p className="text-xs uppercase font-semibold opacity-70 mb-2">
