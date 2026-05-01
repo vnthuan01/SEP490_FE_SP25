@@ -416,6 +416,18 @@ export const SupplyTransferStatus = {
 
 export type SupplyTransferStatus = (typeof SupplyTransferStatus)[keyof typeof SupplyTransferStatus];
 
+export const SupplyTransferVehicleStatus = {
+  Assigned: 1,
+  InTransit: 2,
+  Arrived: 3,
+  Completed: 4,
+  Cancelled: 5,
+  Incident: 6,
+} as const;
+
+export type SupplyTransferVehicleStatus =
+  (typeof SupplyTransferVehicleStatus)[keyof typeof SupplyTransferVehicleStatus];
+
 export const ProcurementStatus = {
   Draft: 1,
   Approved: 2,
