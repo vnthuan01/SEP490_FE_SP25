@@ -1,16 +1,16 @@
 import { useMemo, useState } from 'react';
 import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
   Cell,
   Pie,
   PieChart,
   ResponsiveContainer,
   Tooltip as RechartsTooltip,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
+  CartesianGrid,
+  Legend,
 } from 'recharts';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Badge } from '@/components/ui/badge';
@@ -35,10 +35,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { CoordinatorListPagination } from './components/CoordinatorListPagination';
+import { RescueRequestLocationsMapCard } from './components/RescueRequestLocationsMapCard';
 import { coordinatorNavGroups } from './components/sidebarConfig';
 import { formatNumberVN, cn } from '@/lib/utils';
 import { useMyReliefStation } from '@/hooks/useReliefStation';
-import { useStationDashboard, type StationDashboardRange } from '@/hooks/useStationDashboard';
+import { useInventories } from '@/hooks/useInventory';
+import { useStationDashboard, type StationDashboardRange } from '../../hooks/useStationDashboard';
 import {
   useRescueRequestsReport,
   useTeamWorkloadReport,
@@ -53,6 +55,12 @@ import type {
   TeamWorkloadReportItem,
   VehicleUtilizationReportItem,
 } from '@/services/stationReportService';
+import type {
+  ActiveDispatchItem,
+  CriticalStockItem,
+  ActiveDispatchVehicle,
+  VehicleSummaryByTypeItem,
+} from '@/services/stationDashboardService';
 
 type PageSection = 'dashboard' | 'reports';
 type ReportTab =
@@ -72,27 +80,27 @@ const REPORT_TABS: Array<{ value: ReportTab; label: string }> = [
 
 const RESCUE_STATUS_OPTIONS = [
   { label: 'Tất cả', value: 'all' },
-  { label: 'Pending', value: 'Pending' },
-  { label: 'Verified', value: 'Verified' },
-  { label: 'Assigned', value: 'Assigned' },
-  { label: 'InProgress', value: 'InProgress' },
-  { label: 'Completed', value: 'Completed' },
-  { label: 'Cancelled', value: 'Cancelled' },
+  { label: 'Chờ xử lý', value: 'Pending' },
+  { label: 'Đã xác minh', value: 'Verified' },
+  { label: 'Đã gán', value: 'Assigned' },
+  { label: 'Đang xử lý', value: 'InProgress' },
+  { label: 'Hoàn thành', value: 'Completed' },
+  { label: 'Đã hủy', value: 'Cancelled' },
 ];
 
 const INVENTORY_STATUS_OPTIONS = [
   { label: 'Tất cả', value: 'all' },
-  { label: 'Critical', value: 'Critical' },
-  { label: 'NeedRestock', value: 'NeedRestock' },
-  { label: 'Safe', value: 'Safe' },
+  { label: 'Nguy cấp', value: 'Critical' },
+  { label: 'Cần bổ sung', value: 'NeedRestock' },
+  { label: 'An toàn', value: 'Safe' },
 ];
 
 const DELIVERY_STATUS_OPTIONS = [
   { label: 'Tất cả', value: 'all' },
-  { label: 'Pending', value: 'Pending' },
-  { label: 'Assigned', value: 'Assigned' },
-  { label: 'Completed', value: 'Completed' },
-  { label: 'Cancelled', value: 'Cancelled' },
+  { label: 'Chờ xử lý', value: 'Pending' },
+  { label: 'Đã gán', value: 'Assigned' },
+  { label: 'Hoàn thành', value: 'Completed' },
+  { label: 'Đã hủy', value: 'Cancelled' },
 ];
 
 const today = new Date();
@@ -133,6 +141,29 @@ const statusToneClass = (value?: string | null) => {
     return 'warning';
   }
   return 'info';
+};
+
+const translateRescueRequestType = (value?: string | null) => {
+  const normalized = String(value || '').toLowerCase();
+  if (normalized === 'normal') return 'Thường';
+  if (normalized === 'emergency') return 'Khẩn cấp';
+  return value || 'Chưa rõ';
+};
+
+const translateStatusLabel = (value?: string | null) => {
+  const normalized = String(value || '').toLowerCase();
+  if (normalized.includes('pending')) return 'Chờ xử lý';
+  if (normalized.includes('verified')) return 'Đã xác minh';
+  if (normalized.includes('assigned')) return 'Đã gán';
+  if (normalized.includes('inprogress')) return 'Đang xử lý';
+  if (normalized.includes('completed')) return 'Hoàn thành';
+  if (normalized.includes('cancel')) return 'Đã hủy';
+  if (normalized.includes('critical')) return 'Nguy cấp';
+  if (normalized.includes('needrestock')) return 'Cần bổ sung';
+  if (normalized.includes('safe')) return 'An toàn';
+  if (normalized.includes('busy')) return 'Đang bận';
+  if (normalized.includes('available')) return 'Sẵn sàng';
+  return value || 'Không rõ';
 };
 
 const chartColors = ['#2563eb', '#14b8a6', '#f59e0b', '#8b5cf6', '#ef4444', '#22c55e'];
@@ -204,6 +235,7 @@ function EmptyState({ title, description }: { title: string; description: string
 }
 
 function StatusChip({ value }: { value?: string | null }) {
+  const displayValue = translateStatusLabel(value);
   const tone = statusToneClass(value);
   const variant =
     tone === 'success'
@@ -215,7 +247,7 @@ function StatusChip({ value }: { value?: string | null }) {
           : 'info';
   return (
     <Badge variant={variant} appearance="outline" size="sm" className="gap-1.5">
-      {value || 'Không rõ'}
+      {displayValue}
     </Badge>
   );
 }
@@ -246,6 +278,10 @@ export default function CoordinatorDashboardPage() {
 
   const { station, isLoading: isLoadingStation, refetch: refetchStation } = useMyReliefStation();
   const stationKey = station?.reliefStationId ?? undefined;
+  const { data: inventoriesData, isLoading: isLoadingInventories } = useInventories(
+    { reliefStationId: stationKey, pageIndex: 1, pageSize: 100 },
+    { enabled: Boolean(stationKey) },
+  );
 
   const dashboardRange = useMemo<StationDashboardRange>(
     () => ({ from: toStartOfDayIso(fromDate), to: toEndOfDayIso(toDate), groupBy }),
@@ -253,6 +289,19 @@ export default function CoordinatorDashboardPage() {
   );
 
   const dashboard = useStationDashboard(dashboardRange, stationKey);
+
+  const inventoryOptions = useMemo(
+    () => [
+      { label: 'Tất cả inventories', value: 'all' },
+      ...(inventoriesData?.items || []).map((inventory) => ({
+        label:
+          [inventory.levelName, inventory.reliefStationName].filter(Boolean).join(' - ') ||
+          inventory.inventoryId,
+        value: inventory.inventoryId,
+      })),
+    ],
+    [inventoriesData],
+  );
 
   const reportRange = useMemo(
     () => ({ from: toStartOfDayIso(fromDate), to: toEndOfDayIso(toDate) }),
@@ -287,7 +336,7 @@ export default function CoordinatorDashboardPage() {
       pageIndex: inventoryPage,
       pageSize: 20,
     },
-    section === 'reports' && reportTab === 'inventory-stock' && Boolean(inventoryId),
+    section === 'reports' && reportTab === 'inventory-stock',
   );
 
   const reliefDeliveriesReport = useReliefDeliveriesReport(
@@ -303,28 +352,37 @@ export default function CoordinatorDashboardPage() {
 
   const overview = dashboard.overviewQuery.data;
   const rescueStatusSummary = dashboard.rescueStatusQuery.data;
+  const rescueTypeSummary = dashboard.rescueTypeSummaryQuery.data;
+  const rescueLocations = dashboard.rescueLocationsQuery.data || [];
   const teamPerformance = dashboard.teamPerformanceQuery.data || [];
   const vehicleSummary = dashboard.vehicleSummaryQuery.data;
   const alerts = dashboard.alertsQuery.data;
   const inventorySummary = dashboard.inventorySummaryQuery.data;
-  const rescueTrend = dashboard.rescueTrendQuery.data?.data || [];
   const activeDispatch = dashboard.activeDispatchQuery.data?.activeOperations || [];
 
   const rescueStatusChart = rescueStatusSummary
     ? [
-        { name: 'Pending', value: rescueStatusSummary.pending },
-        { name: 'Verified', value: rescueStatusSummary.verified },
-        { name: 'Assigned', value: rescueStatusSummary.assigned },
-        { name: 'InProgress', value: rescueStatusSummary.inProgress },
-        { name: 'Completed', value: rescueStatusSummary.completed },
-        { name: 'Cancelled', value: rescueStatusSummary.cancelled },
+        { name: 'Chờ xử lý', value: rescueStatusSummary.pending },
+        { name: 'Đã xác minh', value: rescueStatusSummary.verified },
+        { name: 'Đã gán', value: rescueStatusSummary.assigned },
+        { name: 'Đang xử lý', value: rescueStatusSummary.inProgress },
+        { name: 'Hoàn thành', value: rescueStatusSummary.completed },
+        { name: 'Đã hủy', value: rescueStatusSummary.cancelled },
       ].filter((item) => item.value > 0)
     : [];
 
-  const vehicleTypeChart = (vehicleSummary?.byType || []).map((item) => ({
+  const rescueTypeChart = rescueTypeSummary
+    ? [
+        { name: 'Cứu hộ thường', value: rescueTypeSummary.normal },
+        { name: 'Cứu hộ khẩn cấp', value: rescueTypeSummary.emergency },
+      ].filter((item) => item.value > 0)
+    : [];
+
+  const vehicleTypeChart = (vehicleSummary?.byType || []).map((item: VehicleSummaryByTypeItem) => ({
     name: item.vehicleTypeName,
     available: item.available,
     busy: item.busy,
+    total: item.total,
   }));
 
   const teamTable = [...teamPerformance].sort(
@@ -465,7 +523,7 @@ export default function CoordinatorDashboardPage() {
                   />
                 </div>
 
-                <div className="grid gap-6 xl:grid-cols-3">
+                <div className="grid gap-6 xl:grid-cols-4">
                   <Card className="border-border bg-card xl:col-span-1">
                     <CardHeader className="pb-3">
                       <CardTitle className="flex items-center gap-2 text-base font-bold">
@@ -523,68 +581,64 @@ export default function CoordinatorDashboardPage() {
                     </CardContent>
                   </Card>
 
-                  <Card className="border-border bg-card xl:col-span-2">
+                  <Card className="border-border bg-card xl:col-span-1">
                     <CardHeader className="pb-3">
                       <CardTitle className="flex items-center gap-2 text-base font-bold">
-                        <span className="material-symbols-outlined text-emerald-600">timeline</span>
-                        Xu hướng yêu cầu cứu hộ
+                        <span className="material-symbols-outlined text-emerald-600">category</span>
+                        Loại yêu cầu cứu hộ
                       </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                      {rescueTrend.length > 0 ? (
-                        <div className="h-[320px] w-full">
+                    <CardContent className="space-y-4">
+                      {rescueTypeChart.length > 0 ? (
+                        <div className="h-[260px]">
                           <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={rescueTrend}>
-                              <defs>
-                                <linearGradient id="trendCreated" x1="0" y1="0" x2="0" y2="1">
-                                  <stop offset="5%" stopColor="#2563eb" stopOpacity={0.32} />
-                                  <stop offset="95%" stopColor="#2563eb" stopOpacity={0.04} />
-                                </linearGradient>
-                                <linearGradient id="trendCompleted" x1="0" y1="0" x2="0" y2="1">
-                                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.32} />
-                                  <stop offset="95%" stopColor="#10b981" stopOpacity={0.04} />
-                                </linearGradient>
-                              </defs>
-                              <XAxis
-                                dataKey="label"
-                                tickLine={false}
-                                axisLine={false}
-                                fontSize={12}
-                              />
-                              <YAxis tickLine={false} axisLine={false} fontSize={12} />
+                            <PieChart>
+                              <Pie
+                                data={rescueTypeChart}
+                                dataKey="value"
+                                nameKey="name"
+                                innerRadius={62}
+                                outerRadius={96}
+                                paddingAngle={3}
+                              >
+                                {rescueTypeChart.map((entry, index) => (
+                                  <Cell
+                                    key={entry.name}
+                                    fill={chartColors[index % chartColors.length]}
+                                  />
+                                ))}
+                              </Pie>
                               <RechartsTooltip />
-                              <Area
-                                type="monotone"
-                                dataKey="created"
-                                stroke="#2563eb"
-                                fill="url(#trendCreated)"
-                                strokeWidth={2}
-                              />
-                              <Area
-                                type="monotone"
-                                dataKey="assigned"
-                                stroke="#f59e0b"
-                                fillOpacity={0}
-                                strokeWidth={2}
-                              />
-                              <Area
-                                type="monotone"
-                                dataKey="completed"
-                                stroke="#10b981"
-                                fill="url(#trendCompleted)"
-                                strokeWidth={2}
-                              />
-                            </AreaChart>
+                            </PieChart>
                           </ResponsiveContainer>
                         </div>
                       ) : (
                         <EmptyState
                           title="Chưa có dữ liệu"
-                          description="Chọn lại khoảng ngày hoặc chờ backend trả dữ liệu."
+                          description="Biểu đồ sẽ hiển thị khi API trả dữ liệu."
                         />
                       )}
+                      <div className="grid grid-cols-1 gap-2 text-xs">
+                        {rescueTypeChart.map((item, index) => (
+                          <div
+                            key={item.name}
+                            className="flex items-center gap-2 rounded-xl border border-border px-3 py-2"
+                          >
+                            <span
+                              className="size-3 rounded-full"
+                              style={{ backgroundColor: chartColors[index % chartColors.length] }}
+                            />
+                            <span className="text-muted-foreground">{item.name}</span>
+                            <span className="ml-auto font-semibold text-foreground">
+                              {formatNumberVN(item.value)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                     </CardContent>
                   </Card>
+
+                  <RescueRequestLocationsMapCard items={rescueLocations} isLoading={false} />
                 </div>
 
                 <div className="grid gap-6 xl:grid-cols-3">
@@ -594,31 +648,89 @@ export default function CoordinatorDashboardPage() {
                         <span className="material-symbols-outlined text-violet-600">
                           local_shipping
                         </span>
-                        Phương tiện theo loại
+                        Loại xe và số lượng
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
                       {vehicleTypeChart.length > 0 ? (
-                        <div className="h-[300px]">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={vehicleTypeChart}>
-                              <XAxis
-                                dataKey="name"
-                                tickLine={false}
-                                axisLine={false}
-                                fontSize={12}
-                              />
-                              <YAxis tickLine={false} axisLine={false} fontSize={12} />
-                              <RechartsTooltip />
-                              <Bar dataKey="available" fill="#22c55e" radius={[8, 8, 0, 0]} />
-                              <Bar dataKey="busy" fill="#ef4444" radius={[8, 8, 0, 0]} />
-                            </BarChart>
-                          </ResponsiveContainer>
+                        <div className="space-y-4">
+                          <div className="h-[320px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <BarChart
+                                data={vehicleTypeChart}
+                                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                              >
+                                <CartesianGrid
+                                  strokeDasharray="3 3"
+                                  vertical={false}
+                                  stroke="#e2e8f0"
+                                />
+                                <XAxis
+                                  dataKey="name"
+                                  tick={{ fontSize: 12, fill: '#64748b' }}
+                                  axisLine={false}
+                                  tickLine={false}
+                                />
+                                <YAxis
+                                  tick={{ fontSize: 12, fill: '#64748b' }}
+                                  axisLine={false}
+                                  tickLine={false}
+                                />
+                                <RechartsTooltip cursor={{ fill: '#f1f5f9' }} />
+                                <Legend
+                                  iconType="circle"
+                                  wrapperStyle={{ fontSize: 12, paddingTop: 10 }}
+                                />
+                                <Bar
+                                  dataKey="available"
+                                  name="Sẵn sàng"
+                                  fill="#14b8a6"
+                                  radius={[4, 4, 0, 0]}
+                                  maxBarSize={30}
+                                />
+                                <Bar
+                                  dataKey="busy"
+                                  name="Đang bận"
+                                  fill="#f59e0b"
+                                  radius={[4, 4, 0, 0]}
+                                  maxBarSize={30}
+                                />
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                          <div className="grid grid-cols-1 gap-2 text-xs">
+                            {vehicleTypeChart.map((item) => (
+                              <div
+                                key={item.name}
+                                className="flex items-center gap-2 rounded-xl border border-border px-3 py-2"
+                              >
+                                <span className="material-symbols-outlined text-sm text-muted-foreground">
+                                  directions_car
+                                </span>
+                                <span className="text-muted-foreground">
+                                  {item.name} - {formatNumberVN(item.total)} xe
+                                </span>
+                                <span className="ml-auto font-semibold text-foreground">
+                                  Sẵn sàng {formatNumberVN(item.available)} / Bận{' '}
+                                  {formatNumberVN(item.busy)}
+                                </span>
+                              </div>
+                            ))}
+                            <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/20 px-3 py-2">
+                              <span className="material-symbols-outlined text-sm text-muted-foreground">
+                                garage
+                              </span>
+                              <span className="text-muted-foreground">Tổng xe trong trạm</span>
+                              <span className="ml-auto font-semibold text-foreground">
+                                {formatNumberVN(vehicleSummary?.total || 0)}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       ) : (
                         <EmptyState
                           title="Chưa có dữ liệu"
-                          description="Không có phân bổ theo loại phương tiện."
+                          description="Không có dữ liệu loại xe trong trạm."
                         />
                       )}
                     </CardContent>
@@ -677,7 +789,7 @@ export default function CoordinatorDashboardPage() {
                           <p className="text-sm font-semibold text-foreground">
                             Mặt hàng cần restock
                           </p>
-                          {inventorySummary.topCriticalItems.map((item) => (
+                          {inventorySummary.topCriticalItems.map((item: CriticalStockItem) => (
                             <div
                               key={item.supplyItemId}
                               className="rounded-2xl border border-border bg-background p-4"
@@ -704,7 +816,7 @@ export default function CoordinatorDashboardPage() {
                     <CardContent>
                       {activeDispatch.length > 0 ? (
                         <div className="space-y-3 max-h-[320px] overflow-y-auto pr-1">
-                          {activeDispatch.map((item) => (
+                          {activeDispatch.map((item: ActiveDispatchItem) => (
                             <div
                               key={item.operationId}
                               className="rounded-2xl border border-border bg-muted/20 p-4 space-y-3"
@@ -719,7 +831,7 @@ export default function CoordinatorDashboardPage() {
                                 <StatusChip value={item.status} />
                               </div>
                               <div className="flex flex-wrap gap-2 text-xs">
-                                {item.vehicles.map((vehicle) => (
+                                {item.vehicles.map((vehicle: ActiveDispatchVehicle) => (
                                   <Badge
                                     key={vehicle.vehicleId}
                                     variant={vehicle.isPrimary ? 'primary' : 'outline'}
@@ -948,7 +1060,9 @@ export default function CoordinatorDashboardPage() {
                             {rescueRows.map((item) => (
                               <TableRow key={item.requestId}>
                                 <TableCell className="font-medium">{item.requestId}</TableCell>
-                                <TableCell>{item.rescueRequestType}</TableCell>
+                                <TableCell>
+                                  {translateRescueRequestType(item.rescueRequestType)}
+                                </TableCell>
                                 <TableCell>
                                   <StatusChip value={item.status} />
                                 </TableCell>
@@ -1071,12 +1185,30 @@ export default function CoordinatorDashboardPage() {
                   <TabsContent value="inventory-stock" className="space-y-4">
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                       <div className="space-y-2">
-                        <p className="text-sm font-semibold text-foreground">Inventory ID</p>
-                        <Input
-                          value={inventoryId}
-                          onChange={(event) => setInventoryId(event.target.value)}
-                          placeholder="Nhập inventoryId"
-                        />
+                        <p className="text-sm font-semibold text-foreground">Inventory</p>
+                        <Select
+                          value={inventoryId || 'all'}
+                          onValueChange={(value) =>
+                            resetPageState(value === 'all' ? '' : value, setInventoryId, [
+                              () => setInventoryPage(1),
+                            ])
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Chọn kho" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {isLoadingInventories ? (
+                              <SelectItem value="all">Đang tải danh sách kho...</SelectItem>
+                            ) : (
+                              inventoryOptions.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>
+                                  {option.label}
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div className="space-y-2">
                         <p className="text-sm font-semibold text-foreground">Trạng thái kho</p>
@@ -1102,17 +1234,12 @@ export default function CoordinatorDashboardPage() {
                       </div>
                     </div>
 
-                    {!inventoryId ? (
-                      <EmptyState
-                        title="Cần inventoryId"
-                        description="Nhập mã kho để tải báo cáo tồn kho chi tiết."
-                      />
-                    ) : inventoryStockReport.isLoading ? (
+                    {inventoryStockReport.isLoading ? (
                       <LoadingGrid count={1} />
                     ) : inventoryStockReport.isError ? (
                       <EmptyState
                         title="Không tải được báo cáo tồn kho"
-                        description="Kiểm tra inventoryId hoặc quyền truy cập API."
+                        description="Kiểm tra bộ lọc kho hoặc quyền truy cập API."
                       />
                     ) : stockRows.length > 0 ? (
                       <>
@@ -1233,7 +1360,7 @@ export default function CoordinatorDashboardPage() {
                                 <TableCell>{item.headOfHouseholdName}</TableCell>
                                 <TableCell>{item.address}</TableCell>
                                 <TableCell>{item.teamName || 'Chưa gán'}</TableCell>
-                                <TableCell>{item.deliveryMode}</TableCell>
+                                <TableCell>{translateStatusLabel(item.deliveryMode)}</TableCell>
                                 <TableCell>
                                   <StatusChip value={item.fulfillmentStatus} />
                                 </TableCell>
