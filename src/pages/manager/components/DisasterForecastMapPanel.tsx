@@ -1,4 +1,3 @@
- 
 import { useEffect, useMemo, useRef } from 'react';
 import goongjs from '@goongmaps/goong-js';
 import { Badge } from '@/components/ui/badge';
@@ -35,6 +34,29 @@ const weatherIcon = (condition?: string | null) => {
   if (normalized.includes('rain') || normalized.includes('drizzle')) return 'rainy';
   if (normalized.includes('storm') || normalized.includes('thunder')) return 'thunderstorm';
   return 'cloud';
+};
+
+const evaluateTemperatureVN = (tempC?: number | null) => {
+  const t = Number(tempC);
+  if (!Number.isFinite(t)) return { label: 'Chưa rõ', className: '#475569' };
+  if (t >= 37) return { label: 'Rất nóng', className: '#b91c1c' };
+  if (t >= 32) return { label: 'Nóng', className: '#ea580c' };
+  if (t >= 27) return { label: 'Khá', className: '#d97706' };
+  if (t >= 20) return { label: 'Mát', className: '#0284c7' };
+  return { label: 'Lạnh', className: '#1d4ed8' };
+};
+
+const getForecastTemperatureRange = (analysis: AnalyzeDisasterRiskResponse) => {
+  const days = analysis.forecast?.days || [];
+  if (days.length > 0) {
+    return {
+      highestTemp: Math.max(...days.map((day) => Number(day.tempMaxC || 0))),
+      lowestTemp: Math.min(...days.map((day) => Number(day.tempMinC || 0))),
+    };
+  }
+
+  const currentTemp = Number(analysis.weather?.temperatureC || 0);
+  return { highestTemp: currentTemp, lowestTemp: currentTemp };
 };
 
 export function DisasterForecastMapPanel(props: {
@@ -136,12 +158,24 @@ export function DisasterForecastMapPanel(props: {
       const theme = getDisasterTheme(getEffectiveDisasterType(analysis));
       const icon = weatherIcon(analysis.weather?.condition);
       const probability = Math.round(Number(analysis.heuristic?.overallRiskScore || 0));
+      const currentTemp = Number(analysis.weather?.temperatureC);
+      const safeCurrentTemp = Number.isFinite(currentTemp) ? currentTemp : null;
+      const forecastDays = analysis.forecast?.days || [];
+      const highestTemp =
+        forecastDays.length > 0
+          ? Math.max(...forecastDays.map((day) => Number(day.tempMaxC || 0)))
+          : Number(analysis.weather?.temperatureC || 0);
+      const lowestTemp =
+        forecastDays.length > 0
+          ? Math.min(...forecastDays.map((day) => Number(day.tempMinC || 0)))
+          : Number(analysis.weather?.temperatureC || 0);
+      const tempLevel = evaluateTemperatureVN(safeCurrentTemp);
       const el = document.createElement('button');
       el.type = 'button';
       el.className = 'bg-transparent border-0 p-0 cursor-pointer';
       const isSelected = analysis.analysisLogId === selectedAnalysis?.analysisLogId;
       const isHighlighted = analysis.analysisLogId === highlightedAnalysisId;
-      el.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;"><span style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;background:${theme.color};border:2px solid #fff;border-radius:999px;box-shadow:0 0 0 ${isHighlighted ? 13 : isSelected ? 9 : 5}px ${theme.light};animation:${isHighlighted ? 'managerRiskPulseStrong 1.2s cubic-bezier(0.22,1,0.36,1) infinite' : isSelected ? 'managerRiskBreathing 1.8s ease-in-out infinite' : 'none'};will-change:transform;"><span class="material-symbols-outlined" style="font-size:16px;color:#fff;">${icon}</span></span><div style="display:flex;flex-direction:column;align-items:center;background:#fff;border:1px solid ${theme.color};border-radius:8px;padding:4px 6px;box-shadow:0 6px 16px rgba(15,23,42,0.16);min-width:86px;"><span style="font-size:12px;line-height:1.1;font-weight:800;color:${theme.color};">${probability}%</span><span style="font-size:10px;line-height:1.1;color:#334155;white-space:nowrap;">Bão lũ dự báo</span></div></div>`;
+      el.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;"><span style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;background:${theme.color};border:2px solid #fff;border-radius:999px;box-shadow:0 0 0 ${isHighlighted ? 13 : isSelected ? 9 : 5}px ${theme.light};animation:${isHighlighted ? 'managerRiskPulseStrong 1.2s cubic-bezier(0.22,1,0.36,1) infinite' : isSelected ? 'managerRiskBreathing 1.8s ease-in-out infinite' : 'none'};will-change:transform;"><span class="material-symbols-outlined" style="font-size:16px;color:#fff;">${icon}</span></span><div style="display:flex;flex-direction:column;align-items:center;background:#fff;border:1px solid ${theme.color};border-radius:8px;padding:4px 6px;box-shadow:0 6px 16px rgba(15,23,42,0.16);min-width:106px;"><span style="font-size:12px;line-height:1.1;font-weight:800;color:${theme.color};">${probability}%</span><span style="font-size:10px;line-height:1.1;color:#334155;white-space:nowrap;">Bão lũ dự báo</span><span style="margin-top:2px;font-size:10px;line-height:1.1;color:#b45309;white-space:nowrap;display:flex;align-items:center;gap:2px;"><span class="material-symbols-outlined" style="font-size:12px;">arrow_upward</span>${highestTemp.toFixed(1)}°C</span><span style="font-size:10px;line-height:1.1;color:#1d4ed8;white-space:nowrap;display:flex;align-items:center;gap:2px;"><span class="material-symbols-outlined" style="font-size:12px;">arrow_downward</span>${lowestTemp.toFixed(1)}°C</span><span style="font-size:10px;line-height:1.1;font-weight:700;color:${tempLevel.className};white-space:nowrap;">${tempLevel.label}${safeCurrentTemp !== null ? ` (${safeCurrentTemp.toFixed(1)}°C)` : ''}</span></div></div>`;
       el.addEventListener('click', () => {
         setSelectedAnalysis(analysis);
         (mapImpl as any).flyTo({
@@ -256,41 +290,76 @@ export function DisasterForecastMapPanel(props: {
           <div
             className={`rounded-2xl border p-4 ${getDisasterTheme(getEffectiveDisasterType(selectedAnalysis)).cardClass}`}
           >
-            <div className="flex items-center justify-between gap-2">
-              <div className="font-bold">{selectedAnalysis.locationName}</div>
-              <Badge variant="outline" appearance="outline" size="xs">
-                {Math.round(Number(selectedAnalysis.heuristic?.overallRiskScore || 0))}%
-              </Badge>
-            </div>
-            <div className="mt-2 text-sm">
-              Thời tiết: {parseWeatherConditionVN(selectedAnalysis.weather?.condition)}
-            </div>
-            <div
-              className={`mt-1 text-sm font-semibold ${parseRiskLevelVN(selectedAnalysis.heuristic?.riskLevel).class}`}
-            >
-              {parseRiskLevelVN(selectedAnalysis.heuristic?.riskLevel).label}
-            </div>
-            {selectedAnalysis.ai?.summary?.trim() ? (
-              <div className="mt-2 text-sm">{selectedAnalysis.ai.summary}</div>
-            ) : (
-              <ul className="mt-2 space-y-1 text-sm list-disc pl-5">
-                <li>
-                  Điểm rủi ro hiện tại: {Number(selectedAnalysis.heuristic?.overallRiskScore ?? 0)}
-                  /100
-                </li>
-                <li>
-                  Mưa cao nhất dự báo:{' '}
-                  {selectedAnalysis.forecast?.maxDailyPrecipMm?.toFixed(1) ?? '0.0'} mm vào{' '}
-                  {selectedAnalysis.forecast?.peakRainDate
-                    ? new Date(selectedAnalysis.forecast.peakRainDate).toLocaleDateString('vi-VN')
-                    : '--/--'}
-                </li>
-                <li>
-                  Điều kiện hiện tại: {parseWeatherConditionVN(selectedAnalysis.weather?.condition)}
-                  , {selectedAnalysis.weather?.temperatureC?.toFixed(1) ?? '0.0'}°C
-                </li>
-              </ul>
-            )}
+            {(() => {
+              const currentTemp = Number(selectedAnalysis.weather?.temperatureC);
+              const safeCurrentTemp = Number.isFinite(currentTemp) ? currentTemp : null;
+              const tempLevel = evaluateTemperatureVN(safeCurrentTemp);
+              const { highestTemp, lowestTemp } = getForecastTemperatureRange(selectedAnalysis);
+
+              return (
+                <>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-bold">{selectedAnalysis.locationName}</div>
+                    <Badge variant="outline" appearance="outline" size="xs">
+                      {Math.round(Number(selectedAnalysis.heuristic?.overallRiskScore || 0))}%
+                    </Badge>
+                  </div>
+                  <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                    <div className="rounded-lg border border-border/60 bg-background/60 px-2.5 py-2 flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[14px] text-amber-600">
+                        arrow_upward
+                      </span>
+                      <span>Nhiệt độ cao nhất: {highestTemp.toFixed(1)}°C</span>
+                    </div>
+                    <div className="rounded-lg border border-border/60 bg-background/60 px-2.5 py-2 flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[14px] text-blue-700">
+                        arrow_downward
+                      </span>
+                      <span>Nhiệt độ thấp nhất: {lowestTemp.toFixed(1)}°C</span>
+                    </div>
+                    <div className="rounded-lg border border-border/60 bg-background/60 px-2.5 py-2">
+                      <span className="font-semibold" style={{ color: tempLevel.className }}>
+                        Đánh giá nhiệt độ: {tempLevel.label}
+                        {safeCurrentTemp !== null ? ` (${safeCurrentTemp.toFixed(1)}°C)` : ''}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mt-2 text-sm">
+                    Thời tiết: {parseWeatherConditionVN(selectedAnalysis.weather?.condition)}
+                  </div>
+                  <div
+                    className={`mt-1 text-sm font-semibold ${parseRiskLevelVN(selectedAnalysis.heuristic?.riskLevel).class}`}
+                  >
+                    {parseRiskLevelVN(selectedAnalysis.heuristic?.riskLevel).label}
+                  </div>
+                  {selectedAnalysis.ai?.summary?.trim() ? (
+                    <div className="mt-2 text-sm">{selectedAnalysis.ai.summary}</div>
+                  ) : (
+                    <ul className="mt-2 space-y-1 text-sm list-disc pl-5">
+                      <li>
+                        Điểm rủi ro hiện tại:{' '}
+                        {Number(selectedAnalysis.heuristic?.overallRiskScore ?? 0)}
+                        /100
+                      </li>
+                      <li>
+                        Mưa cao nhất dự báo:{' '}
+                        {selectedAnalysis.forecast?.maxDailyPrecipMm?.toFixed(1) ?? '0.0'} mm vào{' '}
+                        {selectedAnalysis.forecast?.peakRainDate
+                          ? new Date(selectedAnalysis.forecast.peakRainDate).toLocaleDateString(
+                              'vi-VN',
+                            )
+                          : '--/--'}
+                      </li>
+                      <li>
+                        Điều kiện hiện tại:{' '}
+                        {parseWeatherConditionVN(selectedAnalysis.weather?.condition)},{' '}
+                        {selectedAnalysis.weather?.temperatureC?.toFixed(1) ?? '0.0'}°C
+                      </li>
+                    </ul>
+                  )}
+                </>
+              );
+            })()}
           </div>
         )}
         {isLoadingDisaster && (
