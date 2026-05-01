@@ -1096,16 +1096,6 @@ export default function CoordinatorInventoryPage() {
     };
   }, [selectedTransfer]);
 
-  const availableStationVehicles = useMemo(() => {
-    const freeVehicleIds = new Set((freeVehicles || []).map((vehicle) => vehicle.vehicleId));
-
-    return (stationVehicles || []).filter(
-      (vehicle) =>
-        vehicle.reliefStationId === station?.reliefStationId &&
-        freeVehicleIds.has(vehicle.vehicleId),
-    );
-  }, [freeVehicles, station?.reliefStationId, stationVehicles]);
-
   const selectedTransferPreviewUrls = useMemo(() => {
     if (!selectedTransfer) return [] as string[];
 
@@ -1143,11 +1133,6 @@ export default function CoordinatorInventoryPage() {
   const selectedTransferVehicleLabel = useMemo(
     () => getVehicleDisplayLabel(selectedTransfer?.vehicleId),
     [selectedTransfer?.vehicleId, vehicleMap],
-  );
-
-  const shipTransferVehicleLabel = useMemo(
-    () => getVehicleDisplayLabel(shipTransferForm.vehicleId),
-    [shipTransferForm.vehicleId, vehicleMap],
   );
 
   const selectedTransferPreviewFiles = useMemo(() => {
@@ -1895,8 +1880,8 @@ export default function CoordinatorInventoryPage() {
   const handleShipTransfer = async () => {
     if (!selectedTransfer) return;
 
-    if (!shipTransferForm.vehicleId.trim()) {
-      toast.error('Vui lòng chọn phương tiện của trạm đang ở trạng thái sẵn sàng.');
+    if (!(selectedTransfer.vehicles || []).some((vehicle) => vehicle.status === 1)) {
+      toast.error('Vui lòng gán ít nhất một phương tiện trước khi xuất hàng.');
       return;
     }
 
@@ -1918,7 +1903,6 @@ export default function CoordinatorInventoryPage() {
     await shipTransfer({
       id: selectedTransfer.id,
       data: {
-        vehicleId: shipTransferForm.vehicleId.trim(),
         notes: shipTransferForm.notes.trim() || undefined,
         evidenceUrls,
       },
@@ -4252,32 +4236,38 @@ export default function CoordinatorInventoryPage() {
                   kho đích ở bước này.
                 </div>
 
-                <div className="space-y-2 rounded-2xl border border-border bg-muted/10 p-4">
-                  <label className="text-sm font-medium text-foreground">
-                    Phương tiện giao hàng
-                  </label>
-                  <Select
-                    value={shipTransferForm.vehicleId}
-                    onValueChange={(value) =>
-                      setShipTransferForm((prev) => ({ ...prev, vehicleId: value }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Chọn phương tiện đang sẵn sàng của trạm">
-                        {shipTransferForm.vehicleId ? shipTransferVehicleLabel : undefined}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableStationVehicles.map((vehicle) => (
-                        <SelectItem key={vehicle.vehicleId} value={vehicle.vehicleId}>
-                          {getVehicleDisplayLabel(vehicle.vehicleId)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {availableStationVehicles.length === 0 && (
+                <div className="space-y-3 rounded-2xl border border-border bg-muted/10 p-4">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Phương tiện đã gán</p>
                     <p className="text-xs text-muted-foreground">
-                      Hiện không có phương tiện nào của trạm ở trạng thái sẵn sàng.
+                      Flow mới dùng danh sách xe trong phiếu; không gửi vehicleId khi ship.
+                    </p>
+                  </div>
+                  {(selectedTransfer?.vehicles || []).length > 0 ? (
+                    <div className="space-y-2">
+                      {(selectedTransfer?.vehicles || []).map((vehicle) => (
+                        <div
+                          key={vehicle.supplyTransferVehicleId || vehicle.vehicleId}
+                          className="rounded-xl border border-border bg-background/80 p-3 text-sm"
+                        >
+                          <p className="font-semibold text-foreground">
+                            {vehicle.vehicleTypeName || 'Phương tiện'} •{' '}
+                            {vehicle.licensePlate || vehicle.vehicleId}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Trạng thái assignment: {vehicle.status} • Tài xế:{' '}
+                            {vehicle.driverName || vehicle.driverUserId || 'Chưa gán'}
+                          </p>
+                          {vehicle.note && (
+                            <p className="text-xs text-muted-foreground">Ghi chú: {vehicle.note}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-destructive">
+                      Phiếu chưa có xe. Hãy gán xe bằng endpoint PATCH /SupplyTransfer/{'{id}'}
+                      /vehicles trước khi xuất hàng.
                     </p>
                   )}
                 </div>

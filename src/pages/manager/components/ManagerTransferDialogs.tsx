@@ -358,6 +358,15 @@ export function ManagerTransferHistoryDialog({
     approvedByName?: string | null;
     vehicleId?: string | null;
     driverUserId?: string | null;
+    vehicles?: Array<{
+      supplyTransferVehicleId: string;
+      vehicleId: string;
+      licensePlate?: string;
+      vehicleTypeName?: string;
+      driverName?: string | null;
+      status: number;
+      note?: string | null;
+    }>;
     currentRequestPdfUrl?: string | null;
     currentConfirmedPdfUrl?: string | null;
     inventoryTransactionIds?: string[];
@@ -463,9 +472,8 @@ export function ManagerTransferHistoryDialog({
                             • Tổng số lượng: {formatNumberVN(transfer.totalRequestedQuantity || 0)}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            Người duyệt: {transfer.approvedByName || 'Chưa cập nhật'} • Phương tiện:{' '}
-                            {transfer.vehicleId || 'Chưa cập nhật'} • Người giao:{' '}
-                            {transfer.driverUserId || 'Chưa cập nhật'}
+                            Người duyệt: {transfer.approvedByName || 'Chưa cập nhật'} • Số xe:{' '}
+                            {transfer.vehicles?.length || 0}
                           </p>
                           {transfer.reason && (
                             <p className="text-sm text-muted-foreground">
@@ -534,6 +542,28 @@ export function ManagerTransferHistoryDialog({
                             </p>
                           ))}
                         </div>
+                      </div>
+
+                      <div className="rounded-xl border border-border bg-muted/20 p-4">
+                        <p className="mb-2 text-sm font-medium text-foreground">
+                          Phương tiện điều chuyển
+                        </p>
+                        {transfer.vehicles?.length ? (
+                          <div className="space-y-2 text-sm text-muted-foreground">
+                            {transfer.vehicles.map((vehicle) => (
+                              <p key={vehicle.supplyTransferVehicleId || vehicle.vehicleId}>
+                                {vehicle.vehicleTypeName || 'Phương tiện'} •{' '}
+                                {vehicle.licensePlate || vehicle.vehicleId} • Trạng thái:{' '}
+                                {vehicle.status} • Tài xế: {vehicle.driverName || 'Chưa gán'}
+                                {vehicle.note ? ` • Ghi chú: ${vehicle.note}` : ''}
+                              </p>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">
+                            Chưa có phương tiện được gán.
+                          </p>
+                        )}
                       </div>
 
                       {(transfer.currentRequestPdfUrl || transfer.currentConfirmedPdfUrl) && (

@@ -59,10 +59,27 @@ export interface SupplyTransfer {
   approvedByName?: string | null;
   vehicleId?: string | null;
   driverUserId?: string | null;
+  vehicles: SupplyTransferVehicle[];
   currentRequestPdfUrl?: string | null;
   currentConfirmedPdfUrl?: string | null;
   documents?: SupplyTransferDocument[];
   inventoryTransactionIds?: string[];
+}
+
+export interface SupplyTransferVehicle {
+  supplyTransferVehicleId: string;
+  vehicleId: string;
+  licensePlate: string;
+  vehicleTypeId: string;
+  vehicleTypeName: string;
+  driverUserId?: string | null;
+  driverName?: string | null;
+  status: number;
+  assignedAt: string;
+  departedAt?: string | null;
+  arrivedAt?: string | null;
+  completedAt?: string | null;
+  note?: string | null;
 }
 
 export interface SupplyTransferDocument {
@@ -117,6 +134,7 @@ type RawSupplyTransfer = {
   approvedByName?: string | null;
   vehicleId?: string | null;
   driverUserId?: string | null;
+  vehicles?: RawSupplyTransferVehicle[];
   totalRequestedItems?: number;
   totalRequestedQuantity?: number;
   currentRequestPdfUrl?: string | null;
@@ -125,6 +143,8 @@ type RawSupplyTransfer = {
   inventoryTransactionIds?: string[];
   items?: RawSupplyTransferItem[];
 };
+
+type RawSupplyTransferVehicle = Partial<SupplyTransferVehicle>;
 
 type RawSupplyTransferDocument = {
   supplyTransferDocumentId?: string;
@@ -146,9 +166,21 @@ type ApproveSupplyTransferPayload = {
 };
 
 export type ShipSupplyTransferPayload = {
-  vehicleId: string;
   notes?: string;
   evidenceUrls?: string[];
+};
+
+export type AssignSupplyTransferVehiclesPayload = {
+  vehicles: Array<{
+    vehicleId: string;
+    driverUserId?: string | null;
+    note?: string | null;
+  }>;
+};
+
+export type UpdateSupplyTransferVehicleStatusPayload = {
+  status: number;
+  note?: string | null;
 };
 
 export type ReceiveSupplyTransferPayload = {
@@ -190,6 +222,24 @@ function mapSupplyTransferDocument(raw: RawSupplyTransferDocument): SupplyTransf
     createdBy: raw.createdBy ?? null,
     createdAt: raw.createdAt || '',
     notes: raw.notes ?? null,
+  };
+}
+
+function mapSupplyTransferVehicle(raw: RawSupplyTransferVehicle): SupplyTransferVehicle {
+  return {
+    supplyTransferVehicleId: raw.supplyTransferVehicleId || '',
+    vehicleId: raw.vehicleId || '',
+    licensePlate: raw.licensePlate || '',
+    vehicleTypeId: raw.vehicleTypeId || '',
+    vehicleTypeName: raw.vehicleTypeName || '',
+    driverUserId: raw.driverUserId ?? null,
+    driverName: raw.driverName ?? null,
+    status: Number(raw.status || 0),
+    assignedAt: raw.assignedAt || '',
+    departedAt: raw.departedAt ?? null,
+    arrivedAt: raw.arrivedAt ?? null,
+    completedAt: raw.completedAt ?? null,
+    note: raw.note ?? null,
   };
 }
 
@@ -237,6 +287,7 @@ function mapSupplyTransfer(raw: RawSupplyTransfer): SupplyTransfer {
     approvedByName: raw.approvedByName ?? null,
     vehicleId: raw.vehicleId ?? null,
     driverUserId: raw.driverUserId ?? null,
+    vehicles: (raw.vehicles || []).map(mapSupplyTransferVehicle),
     currentRequestPdfUrl: raw.currentRequestPdfUrl ?? null,
     currentConfirmedPdfUrl: raw.currentConfirmedPdfUrl ?? null,
     documents: (raw.documents || []).map(mapSupplyTransferDocument),
@@ -293,7 +344,29 @@ export const supplyTransferService = {
     apiClient.patch(`/SupplyTransfer/${id}/approve`, data ?? {}),
 
   ship: (id: string, data?: ShipSupplyTransferPayload) =>
-    apiClient.patch(`/SupplyTransfer/${id}/ship`, data ?? {}),
+    apiClient
+      .patch<RawSupplyTransfer>(`/SupplyTransfer/${id}/ship`, data ?? {})
+      .then((response) => ({ ...response, data: mapSupplyTransfer(response.data) })),
+
+  assignVehicles: (id: string, data: AssignSupplyTransferVehiclesPayload) =>
+    apiClient
+      .patch<RawSupplyTransfer>(`/SupplyTransfer/${id}/vehicles`, data)
+      .then((response) => ({ ...response, data: mapSupplyTransfer(response.data) })),
+
+  removeVehicle: (id: string, supplyTransferVehicleId: string) =>
+    apiClient.delete(`/SupplyTransfer/${id}/vehicles/${supplyTransferVehicleId}`),
+
+  updateVehicleStatus: (
+    id: string,
+    supplyTransferVehicleId: string,
+    data: UpdateSupplyTransferVehicleStatusPayload,
+  ) =>
+    apiClient
+      .patch<RawSupplyTransfer>(
+        `/SupplyTransfer/${id}/vehicles/${supplyTransferVehicleId}/status`,
+        data,
+      )
+      .then((response) => ({ ...response, data: mapSupplyTransfer(response.data) })),
 
   receive: (id: string, data: ReceiveSupplyTransferPayload) =>
     apiClient.patch(`/SupplyTransfer/${id}/receive`, data),
