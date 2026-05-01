@@ -11,6 +11,10 @@ export const STATION_DASHBOARD_QUERY_KEYS = {
     [...STATION_DASHBOARD_QUERY_KEYS.all, 'overview', stationKey] as const,
   rescueStatus: (stationKey?: string, from?: string, to?: string) =>
     [...STATION_DASHBOARD_QUERY_KEYS.all, 'rescue-status', stationKey, from, to] as const,
+  rescueTypeSummary: (stationKey?: string, from?: string, to?: string) =>
+    [...STATION_DASHBOARD_QUERY_KEYS.all, 'rescue-type-summary', stationKey, from, to] as const,
+  rescueLocations: (stationKey?: string, from?: string, to?: string) =>
+    [...STATION_DASHBOARD_QUERY_KEYS.all, 'rescue-locations', stationKey, from, to] as const,
   teamPerformance: (stationKey?: string, from?: string, to?: string) =>
     [...STATION_DASHBOARD_QUERY_KEYS.all, 'team-performance', stationKey, from, to] as const,
   vehicleSummary: (stationKey?: string) =>
@@ -19,13 +23,6 @@ export const STATION_DASHBOARD_QUERY_KEYS = {
     [...STATION_DASHBOARD_QUERY_KEYS.all, 'alerts', stationKey] as const,
   inventorySummary: (stationKey?: string) =>
     [...STATION_DASHBOARD_QUERY_KEYS.all, 'inventory-summary', stationKey] as const,
-  rescueTrend: (
-    stationKey?: string,
-    from?: string,
-    to?: string,
-    groupBy?: StationDashboardGroupBy,
-  ) =>
-    [...STATION_DASHBOARD_QUERY_KEYS.all, 'rescue-trend', stationKey, from, to, groupBy] as const,
   activeDispatch: (stationKey?: string) =>
     [...STATION_DASHBOARD_QUERY_KEYS.all, 'active-dispatch', stationKey] as const,
 };
@@ -45,6 +42,16 @@ export function useStationDashboard(range: StationDashboardRange, stationKey?: s
   const rescueStatusQuery = useQuery({
     queryKey: STATION_DASHBOARD_QUERY_KEYS.rescueStatus(stationKey, range.from, range.to),
     queryFn: () => stationDashboardService.getRescueRequestStatus(range.from, range.to),
+  });
+
+  const rescueTypeSummaryQuery = useQuery({
+    queryKey: STATION_DASHBOARD_QUERY_KEYS.rescueTypeSummary(stationKey, range.from, range.to),
+    queryFn: () => stationDashboardService.getRescueRequestTypeSummary(range.from, range.to),
+  });
+
+  const rescueLocationsQuery = useQuery({
+    queryKey: STATION_DASHBOARD_QUERY_KEYS.rescueLocations(stationKey, range.from, range.to),
+    queryFn: () => stationDashboardService.getRescueRequestLocations(range.from, range.to),
   });
 
   const teamPerformanceQuery = useQuery({
@@ -67,17 +74,6 @@ export function useStationDashboard(range: StationDashboardRange, stationKey?: s
     queryFn: () => stationDashboardService.getInventorySummary(),
   });
 
-  const rescueTrendQuery = useQuery({
-    queryKey: STATION_DASHBOARD_QUERY_KEYS.rescueTrend(
-      stationKey,
-      range.from,
-      range.to,
-      range.groupBy,
-    ),
-    queryFn: () =>
-      stationDashboardService.getRescueRequestTrend(range.from, range.to, range.groupBy),
-  });
-
   const activeDispatchQuery = useQuery({
     queryKey: STATION_DASHBOARD_QUERY_KEYS.activeDispatch(stationKey),
     queryFn: () => stationDashboardService.getActiveDispatch(),
@@ -86,21 +82,23 @@ export function useStationDashboard(range: StationDashboardRange, stationKey?: s
   const isLoading =
     overviewQuery.isLoading ||
     rescueStatusQuery.isLoading ||
+    rescueTypeSummaryQuery.isLoading ||
+    rescueLocationsQuery.isLoading ||
     teamPerformanceQuery.isLoading ||
     vehicleSummaryQuery.isLoading ||
     alertsQuery.isLoading ||
     inventorySummaryQuery.isLoading ||
-    rescueTrendQuery.isLoading ||
     activeDispatchQuery.isLoading;
 
   const isError =
     overviewQuery.isError ||
     rescueStatusQuery.isError ||
+    rescueTypeSummaryQuery.isError ||
+    rescueLocationsQuery.isError ||
     teamPerformanceQuery.isError ||
     vehicleSummaryQuery.isError ||
     alertsQuery.isError ||
     inventorySummaryQuery.isError ||
-    rescueTrendQuery.isError ||
     activeDispatchQuery.isError;
 
   const refetchAll = useMemo(
@@ -108,22 +106,24 @@ export function useStationDashboard(range: StationDashboardRange, stationKey?: s
       await Promise.all([
         overviewQuery.refetch(),
         rescueStatusQuery.refetch(),
+        rescueTypeSummaryQuery.refetch(),
+        rescueLocationsQuery.refetch(),
         teamPerformanceQuery.refetch(),
         vehicleSummaryQuery.refetch(),
         alertsQuery.refetch(),
         inventorySummaryQuery.refetch(),
-        rescueTrendQuery.refetch(),
         activeDispatchQuery.refetch(),
       ]);
     },
     [
       overviewQuery,
       rescueStatusQuery,
+      rescueTypeSummaryQuery,
+      rescueLocationsQuery,
       teamPerformanceQuery,
       vehicleSummaryQuery,
       alertsQuery,
       inventorySummaryQuery,
-      rescueTrendQuery,
       activeDispatchQuery,
     ],
   );
@@ -131,11 +131,12 @@ export function useStationDashboard(range: StationDashboardRange, stationKey?: s
   return {
     overviewQuery,
     rescueStatusQuery,
+    rescueTypeSummaryQuery,
+    rescueLocationsQuery,
     teamPerformanceQuery,
     vehicleSummaryQuery,
     alertsQuery,
     inventorySummaryQuery,
-    rescueTrendQuery,
     activeDispatchQuery,
     isLoading,
     isError,

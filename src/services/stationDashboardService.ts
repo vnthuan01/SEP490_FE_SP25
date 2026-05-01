@@ -28,6 +28,22 @@ export interface RescueRequestStatusSummary {
   cancelled: number;
 }
 
+export interface RescueRequestTypeSummary {
+  total: number;
+  normal: number;
+  emergency: number;
+}
+
+export interface RescueRequestLocationItem {
+  requestId: string;
+  address?: string | null;
+  latitude: number;
+  longitude: number;
+  rescueRequestType: string;
+  rescueRequestStatus: string;
+  createdAt: string;
+}
+
 export interface TeamPerformanceItem {
   teamId: string;
   teamName: string;
@@ -131,6 +147,25 @@ export const stationDashboardService = {
       { params: toQueryParams(from, to) },
     );
     return unwrapData<RescueRequestStatusSummary>(response);
+  },
+
+  getRescueRequestTypeSummary: async (from?: string, to?: string) => {
+    const response = await apiClient.get<RescueRequestTypeSummary>(
+      '/station-dashboard/rescue-request-type-summary',
+      { params: toQueryParams(from, to) },
+    );
+    return unwrapData<RescueRequestTypeSummary>(response);
+  },
+
+  getRescueRequestLocations: async (from?: string, to?: string) => {
+    const response = await apiClient.get<{ items: RescueRequestLocationItem[] }>(
+      '/station-dashboard/rescue-request-locations',
+      { params: toQueryParams(from, to) },
+    );
+    const payload = unwrapData<
+      { items?: RescueRequestLocationItem[] } | RescueRequestLocationItem[]
+    >(response);
+    return Array.isArray(payload) ? payload : (payload?.items ?? []);
   },
 
   getTeamPerformance: async (from?: string, to?: string) => {
