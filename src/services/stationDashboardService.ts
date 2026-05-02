@@ -42,6 +42,15 @@ export interface RescueRequestLocationItem {
   rescueRequestType: string;
   rescueRequestStatus: string;
   createdAt: string;
+  weatherCondition?: string | null;
+  weatherTempC?: number | null;
+  weatherWindKph?: number | null;
+  weatherPrecipMm?: number | null;
+  weatherVisibilityKm?: number | null;
+  weatherHumidity?: number | null;
+  weatherRiskScore?: number | null;
+  weatherRiskLevel?: string | null;
+  weatherObservedAt?: string | null;
 }
 
 export interface TeamPerformanceItem {

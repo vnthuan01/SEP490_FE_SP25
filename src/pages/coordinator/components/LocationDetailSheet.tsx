@@ -77,6 +77,26 @@ const getTeamLockedVehicles = (
   return availableVehicles.filter((vehicle) => vehicle.currentUsingTeamId === teamId);
 };
 
+const weatherIcon = (condition?: string | null) => {
+  const value = String(condition || '').toLowerCase();
+  if (value.includes('storm') || value.includes('tornado')) return 'thunderstorm';
+  if (value.includes('rain') || value.includes('drizzle')) return 'rainy';
+  if (value.includes('cloud')) return 'cloud';
+  if (value.includes('clear') || value.includes('sun')) return 'sunny';
+  if (value.includes('mist') || value.includes('fog')) return 'foggy';
+  return 'partly_cloudy_day';
+};
+
+const weatherLabel = (condition?: string | null) => {
+  const value = String(condition || '').toLowerCase();
+  if (value.includes('storm') || value.includes('tornado')) return 'Giông bão';
+  if (value.includes('rain') || value.includes('drizzle')) return 'Mưa';
+  if (value.includes('cloud')) return 'Nhiều mây';
+  if (value.includes('clear') || value.includes('sun')) return 'Trời quang';
+  if (value.includes('mist') || value.includes('fog')) return 'Sương mù';
+  return condition || 'Chưa rõ';
+};
+
 interface LocationDetailSheetProps {
   location: ReliefLocation | null;
   isOpen: boolean;
@@ -331,6 +351,82 @@ export function LocationDetailSheet({
                     </div>
                   </div>
                 </div>
+
+                {location.weatherCondition ||
+                location.weatherTempC != null ||
+                location.weatherRiskLevel ? (
+                  <div className="bg-card text-card-foreground p-4 rounded-xl border border-border border-l-4 border-l-sky-500 shadow-sm flex flex-col gap-3">
+                    <div className="font-semibold text-[15px] flex items-center justify-between gap-3">
+                      <span>Thời tiết khu vực</span>
+                      {location.weatherObservedAt ? (
+                        <span className="text-xs font-normal text-muted-foreground">
+                          Cập nhật {new Date(location.weatherObservedAt).toLocaleString('vi-VN')}
+                        </span>
+                      ) : null}
+                    </div>
+
+                    <div className="flex items-center gap-3 rounded-2xl bg-sky-50/70 dark:bg-sky-950/25 p-3 border border-sky-100 dark:border-sky-900/40">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/80 text-sky-600 shadow-sm">
+                        <span className="material-symbols-outlined text-[2rem]">
+                          {weatherIcon(location.weatherCondition)}
+                        </span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-semibold text-foreground">
+                            {weatherLabel(location.weatherCondition)}
+                          </p>
+                          {location.weatherRiskLevel ? (
+                            <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-semibold text-sky-800 dark:bg-sky-900/40 dark:text-sky-100">
+                              {location.weatherRiskLevel}
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {location.weatherTempC != null
+                            ? `${location.weatherTempC}°C`
+                            : 'Nhiệt độ chưa rõ'}
+                          {location.weatherWindKph != null
+                            ? ` • Gió ${location.weatherWindKph} km/h`
+                            : ''}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                      <div className="rounded-xl border border-border bg-background px-3 py-2">
+                        <p className="text-[11px] uppercase tracking-wide">Mưa</p>
+                        <p className="font-semibold text-foreground">
+                          {location.weatherPrecipMm != null
+                            ? `${location.weatherPrecipMm} mm`
+                            : 'N/A'}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-border bg-background px-3 py-2">
+                        <p className="text-[11px] uppercase tracking-wide">Độ ẩm</p>
+                        <p className="font-semibold text-foreground">
+                          {location.weatherHumidity != null
+                            ? `${location.weatherHumidity}%`
+                            : 'N/A'}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-border bg-background px-3 py-2">
+                        <p className="text-[11px] uppercase tracking-wide">Tầm nhìn</p>
+                        <p className="font-semibold text-foreground">
+                          {location.weatherVisibilityKm != null
+                            ? `${location.weatherVisibilityKm} km`
+                            : 'N/A'}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-border bg-background px-3 py-2">
+                        <p className="text-[11px] uppercase tracking-wide">Điểm rủi ro</p>
+                        <p className="font-semibold text-foreground">
+                          {location.weatherRiskScore != null ? location.weatherRiskScore : 'N/A'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
 
                 {/* Description Card */}
                 {location.description && (

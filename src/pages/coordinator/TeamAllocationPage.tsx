@@ -86,6 +86,15 @@ function toReliefLocation(req: RescueRequestItem, hq: Headquarters): ReliefLocat
     description: req.description || undefined,
     contactPerson: req.reporterFullName || undefined,
     contactPhone: req.reporterPhone || undefined,
+    weatherCondition: req.weatherCondition ?? null,
+    weatherTempC: req.weatherTempC ?? null,
+    weatherWindKph: req.weatherWindKph ?? null,
+    weatherPrecipMm: req.weatherPrecipMm ?? null,
+    weatherVisibilityKm: req.weatherVisibilityKm ?? null,
+    weatherHumidity: req.weatherHumidity ?? null,
+    weatherRiskScore: req.weatherRiskScore ?? null,
+    weatherRiskLevel: req.weatherRiskLevel ?? null,
+    weatherObservedAt: req.weatherObservedAt ?? null,
   };
 
   // Calculate AI scores using existing utils

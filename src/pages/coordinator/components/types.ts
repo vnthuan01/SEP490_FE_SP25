@@ -21,6 +21,15 @@ export interface ReliefLocation {
   description?: string;
   contactPerson?: string;
   contactPhone?: string;
+  weatherCondition?: string | null;
+  weatherTempC?: number | null;
+  weatherWindKph?: number | null;
+  weatherPrecipMm?: number | null;
+  weatherVisibilityKm?: number | null;
+  weatherHumidity?: number | null;
+  weatherRiskScore?: number | null;
+  weatherRiskLevel?: string | null;
+  weatherObservedAt?: string | null;
 
   // AI-calculated fields
   dangerScore?: number; // 0-100

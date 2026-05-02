@@ -279,44 +279,65 @@ export default function CoordinatorRequestManagementPage() {
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
-    return requests.filter((r) => {
-      const status = getVerification(r)?.status;
-      const matchStatus =
-        verificationFilter === 'all'
-          ? true
-          : verificationFilter === 'pending'
-            ? status === 0 || status === '0' || status === 'Pending' || status == null
-            : verificationFilter === 'approved'
-              ? status === 1 || status === '1' || status === 'Approved'
-              : status === 2 || status === '2' || status === 'Rejected';
+    return [...requests]
+      .filter((r) => {
+        const status = getVerification(r)?.status;
+        const matchStatus =
+          verificationFilter === 'all'
+            ? true
+            : verificationFilter === 'pending'
+              ? status === 0 || status === '0' || status === 'Pending' || status == null
+              : verificationFilter === 'approved'
+                ? status === 1 || status === '1' || status === 'Approved'
+                : status === 2 || status === '2' || status === 'Rejected';
 
-      const matchSearch =
-        !term ||
-        (r.reporterFullName || '').toLowerCase().includes(term) ||
-        (r.reporterPhone || '').toLowerCase().includes(term) ||
-        (r.address || '').toLowerCase().includes(term) ||
-        (r.description || '').toLowerCase().includes(term) ||
-        (r.disasterType || '').toLowerCase().includes(term);
+        const matchSearch =
+          !term ||
+          (r.reporterFullName || '').toLowerCase().includes(term) ||
+          (r.reporterPhone || '').toLowerCase().includes(term) ||
+          (r.address || '').toLowerCase().includes(term) ||
+          (r.description || '').toLowerCase().includes(term) ||
+          (r.disasterType || '').toLowerCase().includes(term);
 
-      const matchRescueType =
-        rescueTypeFilter === 'all'
-          ? true
-          : rescueTypeFilter === 'emergency'
-            ? isEmergencyRescueRequest(r.rescueRequestType)
-            : isNormalRescueRequest(r.rescueRequestType);
+        const matchRescueType =
+          rescueTypeFilter === 'all'
+            ? true
+            : rescueTypeFilter === 'emergency'
+              ? isEmergencyRescueRequest(r.rescueRequestType)
+              : isNormalRescueRequest(r.rescueRequestType);
 
-      const matchCreatedDate = isWithinCreatedDateFilter(r.createdAt, createdDateFilter);
+        const matchCreatedDate = isWithinCreatedDateFilter(r.createdAt, createdDateFilter);
 
-      const priorityBucket = getPriorityBucket(r.priorityLevel);
-      const matchPriority =
-        priorityFilter === 'all'
-          ? true
-          : priorityFilter === 'critical'
-            ? priorityBucket === 'critical'
-            : priorityBucket === 'high';
+        const priorityBucket = getPriorityBucket(r.priorityLevel);
+        const matchPriority =
+          priorityFilter === 'all'
+            ? true
+            : priorityFilter === 'critical'
+              ? priorityBucket === 'critical'
+              : priorityBucket === 'high';
 
-      return matchStatus && matchSearch && matchRescueType && matchCreatedDate && matchPriority;
-    });
+        return matchStatus && matchSearch && matchRescueType && matchCreatedDate && matchPriority;
+      })
+      .sort((left, right) => {
+        const leftStatus = getVerification(left)?.status;
+        const rightStatus = getVerification(right)?.status;
+
+        const leftIsPending =
+          leftStatus === 0 || leftStatus === '0' || leftStatus === 'Pending' || leftStatus == null;
+        const rightIsPending =
+          rightStatus === 0 ||
+          rightStatus === '0' ||
+          rightStatus === 'Pending' ||
+          rightStatus == null;
+
+        if (leftIsPending !== rightIsPending) {
+          return leftIsPending ? -1 : 1;
+        }
+
+        const leftTime = new Date(left.createdAt || 0).getTime();
+        const rightTime = new Date(right.createdAt || 0).getTime();
+        return rightTime - leftTime;
+      });
   }, [requests, search, verificationFilter, rescueTypeFilter, createdDateFilter, priorityFilter]);
 
   const requestStats = useMemo(

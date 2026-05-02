@@ -7,6 +7,24 @@ import type { RescueRequestLocationItem } from '@/services/stationDashboardServi
 
 const DEFAULT_CENTER = { lat: 16.0544, lng: 108.2022 };
 
+const weatherIcon = (condition?: string | null) => {
+  const normalized = String(condition || '').toLowerCase();
+  if (normalized.includes('clear') || normalized.includes('sunny')) return 'wb_sunny';
+  if (normalized.includes('cloud')) return 'partly_cloudy_day';
+  if (normalized.includes('rain') || normalized.includes('drizzle')) return 'rainy';
+  if (normalized.includes('storm') || normalized.includes('thunder')) return 'thunderstorm';
+  return 'cloud';
+};
+
+const weatherLabel = (condition?: string | null) => {
+  const normalized = String(condition || '').toLowerCase();
+  if (normalized.includes('clear') || normalized.includes('sunny')) return 'Trời đẹp';
+  if (normalized.includes('cloud')) return 'Có mây';
+  if (normalized.includes('rain') || normalized.includes('drizzle')) return 'Có mưa';
+  if (normalized.includes('storm') || normalized.includes('thunder')) return 'Dông bão';
+  return condition || 'Không rõ';
+};
+
 const translateRescueRequestType = (value?: string | null) => {
   const normalized = String(value || '').toLowerCase();
   if (normalized === 'normal') return 'Cứu hộ thường';
@@ -35,6 +53,25 @@ const getMarkerColor = (item: RescueRequestLocationItem) => {
   return '#2563eb';
 };
 
+const hasWeatherData = (item: RescueRequestLocationItem) =>
+  item.weatherCondition != null ||
+  item.weatherTempC != null ||
+  item.weatherWindKph != null ||
+  item.weatherPrecipMm != null ||
+  item.weatherVisibilityKm != null ||
+  item.weatherHumidity != null ||
+  item.weatherRiskScore != null ||
+  item.weatherRiskLevel != null;
+
+const getWeatherAccent = (condition?: string | null) => {
+  const normalized = String(condition || '').toLowerCase();
+  if (normalized.includes('storm') || normalized.includes('thunder')) return '#7c3aed';
+  if (normalized.includes('rain') || normalized.includes('drizzle')) return '#0ea5e9';
+  if (normalized.includes('cloud')) return '#64748b';
+  if (normalized.includes('clear') || normalized.includes('sunny')) return '#f59e0b';
+  return '#22c55e';
+};
+
 export function RescueRequestLocationsMapCard({
   items,
   isLoading,
@@ -59,6 +96,21 @@ export function RescueRequestLocationsMapCard({
       lat: Number(validItems[0].latitude),
       lng: Number(validItems[0].longitude),
     };
+  }, [validItems]);
+
+  const weatherSummary = useMemo(() => {
+    const weatherItems = validItems.filter(hasWeatherData);
+    if (!weatherItems.length) return null;
+
+    return [...weatherItems].sort((left, right) => {
+      const leftScore = Number(left.weatherRiskScore ?? -1);
+      const rightScore = Number(right.weatherRiskScore ?? -1);
+      if (rightScore !== leftScore) return rightScore - leftScore;
+
+      const leftObserved = new Date(left.weatherObservedAt || left.createdAt || 0).getTime();
+      const rightObserved = new Date(right.weatherObservedAt || right.createdAt || 0).getTime();
+      return rightObserved - leftObserved;
+    })[0];
   }, [validItems]);
 
   const markerRefs = useRef<any[]>([]);
@@ -86,12 +138,23 @@ export function RescueRequestLocationsMapCard({
       bounds.extend([lng, lat]);
 
       const color = getMarkerColor(item);
+      const weatherAccent = getWeatherAccent(item.weatherCondition);
+      const showWeatherBadge = hasWeatherData(item);
       const el = document.createElement('button');
       el.type = 'button';
       el.className = 'bg-transparent border-0 p-0 cursor-pointer';
       el.innerHTML = `
-        <span style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;background:${color};border:2px solid #fff;border-radius:999px;box-shadow:0 10px 20px rgba(15,23,42,0.18);">
-          <span class="material-symbols-outlined" style="font-size:16px;color:#fff;">location_on</span>
+        <span style="position:relative;display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;">
+          <span style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;background:${color};border:2px solid #fff;border-radius:999px;box-shadow:0 10px 20px rgba(15,23,42,0.18);">
+            <span class="material-symbols-outlined" style="font-size:16px;color:#fff;">location_on</span>
+          </span>
+          ${
+            showWeatherBadge
+              ? `<span style="position:absolute;top:-5px;right:-5px;display:flex;align-items:center;justify-content:center;width:16px;height:16px;background:${weatherAccent};border:2px solid #fff;border-radius:999px;box-shadow:0 6px 14px rgba(15,23,42,0.16);">
+                  <span class="material-symbols-outlined" style="font-size:10px;color:#fff;line-height:1;">${weatherIcon(item.weatherCondition)}</span>
+                </span>`
+              : ''
+          }
         </span>
       `;
 
@@ -100,6 +163,22 @@ export function RescueRequestLocationsMapCard({
           <p style="font-weight:700;font-size:13px;margin:0 0 4px;color:${color}">${translateRescueRequestType(item.rescueRequestType)}</p>
           <p style="font-size:12px;color:#374151;margin:0 0 2px"><strong>Trạng thái:</strong> ${translateRescueRequestStatus(item.rescueRequestStatus)}</p>
           ${item.address ? `<p style="font-size:12px;color:#374151;margin:0 0 2px">${item.address}</p>` : ''}
+          ${
+            hasWeatherData(item)
+              ? `<div style="margin-top:8px;padding:8px;border-radius:10px;background:linear-gradient(135deg, rgba(37,99,235,0.08), rgba(20,184,166,0.08));border:1px solid rgba(148,163,184,0.4);">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+              <span class="material-symbols-outlined" style="font-size:18px;color:${color}">${weatherIcon(item.weatherCondition)}</span>
+              <span style="font-size:12px;font-weight:700;color:#0f172a;">${weatherLabel(item.weatherCondition)}</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 8px;font-size:11px;color:#334155;">
+              ${item.weatherTempC != null ? `<span>Nhiệt độ: <strong>${item.weatherTempC}°C</strong></span>` : ''}
+              ${item.weatherWindKph != null ? `<span>Gió: <strong>${item.weatherWindKph} km/h</strong></span>` : ''}
+              ${item.weatherHumidity != null ? `<span>Ẩm: <strong>${item.weatherHumidity}%</strong></span>` : ''}
+              ${item.weatherVisibilityKm != null ? `<span>Tầm nhìn: <strong>${item.weatherVisibilityKm} km</strong></span>` : ''}
+            </div>
+          </div>`
+              : ''
+          }
           <p style="font-size:11px;color:#6b7280;margin:4px 0 0">${item.createdAt ? new Date(item.createdAt).toLocaleString('vi-VN') : 'Chưa cập nhật'}</p>
         </div>`,
       );
@@ -170,8 +249,59 @@ export function RescueRequestLocationsMapCard({
             <p className="mt-2 text-sm text-muted-foreground">Đang lấy các điểm cứu hộ từ API.</p>
           </div>
         ) : validItems.length > 0 ? (
-          <div className="overflow-hidden rounded-2xl border border-border bg-muted/20">
+          <div className="relative overflow-hidden rounded-2xl border border-border bg-muted/20">
             <div ref={mapRef} className="h-[360px] w-full" />
+            {weatherSummary ? (
+              <div className="absolute left-4 top-4 z-10 max-w-[240px] rounded-2xl border border-border bg-background/95 p-3 shadow-lg backdrop-blur">
+                <div className="flex items-start gap-3">
+                  <div className="flex size-11 items-center justify-center rounded-2xl bg-sky-500/10 text-sky-600">
+                    <span className="material-symbols-outlined text-[22px]">
+                      {weatherIcon(weatherSummary.weatherCondition)}
+                    </span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Thời tiết khu vực
+                    </p>
+                    <p className="truncate text-sm font-bold text-foreground">
+                      {weatherLabel(weatherSummary.weatherCondition)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {weatherSummary.weatherTempC != null
+                        ? `${weatherSummary.weatherTempC}°C`
+                        : 'N/A'}{' '}
+                      - {weatherSummary.weatherRiskLevel || 'Không rõ nguy cơ'}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
+                  <div className="rounded-xl bg-muted/40 px-2 py-1.5">
+                    Gió:{' '}
+                    {weatherSummary.weatherWindKph != null
+                      ? `${weatherSummary.weatherWindKph} km/h`
+                      : '--'}
+                  </div>
+                  <div className="rounded-xl bg-muted/40 px-2 py-1.5">
+                    Ẩm:{' '}
+                    {weatherSummary.weatherHumidity != null
+                      ? `${weatherSummary.weatherHumidity}%`
+                      : '--'}
+                  </div>
+                  <div className="rounded-xl bg-muted/40 px-2 py-1.5">
+                    Mưa:{' '}
+                    {weatherSummary.weatherPrecipMm != null
+                      ? `${weatherSummary.weatherPrecipMm} mm`
+                      : '--'}
+                  </div>
+                  <div className="rounded-xl bg-muted/40 px-2 py-1.5">
+                    Tầm nhìn:{' '}
+                    {weatherSummary.weatherVisibilityKm != null
+                      ? `${weatherSummary.weatherVisibilityKm} km`
+                      : '--'}
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : (
           <div className="rounded-2xl border border-dashed border-border bg-muted/20 px-6 py-10 text-center">
