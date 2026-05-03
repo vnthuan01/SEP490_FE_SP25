@@ -49,6 +49,7 @@ export interface SearchCampaignParams {
   status?: number;
   type?: number;
   locationId?: string;
+  reliefStationId?: string;
   pageIndex?: number;
   pageSize?: number;
 }
@@ -93,6 +94,44 @@ export interface CampaignTeam {
   status: number;
   assignedAt: string;
   memberCount: number;
+  vehicles?: CampaignAssignedVehicle[];
+}
+
+export interface CampaignAssignedVehicle {
+  campaignVehicleId: string;
+  vehicleId: string;
+  licensePlate: string;
+  vehicleTypeId?: string;
+  vehicleTypeName: string;
+  campaignTeamId?: string | null;
+  campaignTeamName?: string | null;
+  assignedDriverId?: string | null;
+  driverName?: string | null;
+  reliefStationId?: string | null;
+  currentVehicleStatus?: number;
+  status: number;
+  startDate: string;
+  endDate?: string | null;
+  note?: string | null;
+}
+
+export interface AssignCampaignVehiclePayload {
+  vehicleId: string;
+  campaignTeamId: string;
+  assignedDriverId?: string | null;
+  startDate?: string;
+  endDate?: string | null;
+  status?: number;
+  note?: string | null;
+}
+
+export interface UpdateCampaignVehicleAssignmentPayload {
+  campaignTeamId?: string | null;
+  assignedDriverId?: string | null;
+  startDate?: string;
+  endDate?: string | null;
+  status?: number;
+  note?: string | null;
 }
 
 export interface Campaign {
@@ -148,6 +187,9 @@ export interface CampaignSummary {
   endDate: string;
   allowOverTarget: boolean;
   overallProgressPercent: number;
+  budgetTotal?: number;
+  budgetSpent?: number;
+  remainingBudget?: number;
 }
 
 export interface CampaignInventoryBalance {
@@ -186,8 +228,13 @@ export interface CampaignBudgetTransferResponse {
   targetCampaignId: string;
   amount: number;
   transferredByUserId?: string | null;
+  transferredByUserName?: string | null;
   transferredAt: string;
   note?: string | null;
+  isDeleted?: boolean;
+  cancelledAt?: string | null;
+  cancelledByUserId?: string | null;
+  cancelledByUserName?: string | null;
   sourceRemainingBudget: number;
   targetRemainingBudget: number;
 }
@@ -217,6 +264,12 @@ export const campaignService = {
   // Extract budget to relief campaign
   extractBudget: (id: string, data: ExtractCampaignBudgetRequest) =>
     apiClient.post<CampaignBudgetTransferResponse>(`/campaigns/${id}/extract-budget`, data),
+  getExtractBudgetHistory: (id: string, includeDeleted = true) =>
+    apiClient.get<CampaignBudgetTransferResponse[]>(`/campaigns/${id}/extract-budget`, {
+      params: includeDeleted ? { includeDeleted: true } : undefined,
+    }),
+  reverseExtractBudgetTransfer: (id: string, campaignBudgetTransferId: string) =>
+    apiClient.delete(`/campaigns/${id}/extract-budget/${campaignBudgetTransferId}`),
 
   // Update campaign status
   updateStatus: (id: string, data: UpdateStatusPayload) =>
@@ -243,4 +296,28 @@ export const campaignService = {
 
   // Remove team
   removeTeam: (id: string, teamId: string) => apiClient.delete(`/campaigns/${id}/teams/${teamId}`),
+
+  assignVehicleToTeam: (id: string, campaignTeamId: string, data: AssignCampaignVehiclePayload) =>
+    apiClient.post<CampaignAssignedVehicle>(
+      `/campaigns/${id}/teams/${campaignTeamId}/vehicles`,
+      data,
+    ),
+
+  getCampaignVehicles: (id: string, campaignTeamId?: string) =>
+    apiClient.get<CampaignAssignedVehicle[]>(`/campaigns/${id}/vehicles`, {
+      params: campaignTeamId ? { campaignTeamId } : undefined,
+    }),
+
+  updateCampaignVehicleAssignment: (
+    id: string,
+    campaignVehicleId: string,
+    data: UpdateCampaignVehicleAssignmentPayload,
+  ) =>
+    apiClient.patch<CampaignAssignedVehicle>(
+      `/campaigns/${id}/vehicles/${campaignVehicleId}`,
+      data,
+    ),
+
+  removeCampaignVehicleAssignment: (id: string, campaignVehicleId: string) =>
+    apiClient.delete(`/campaigns/${id}/vehicles/${campaignVehicleId}`),
 };

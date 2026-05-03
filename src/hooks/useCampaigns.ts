@@ -6,6 +6,7 @@ import type {
   CampaignSummary,
   CampaignTeam,
   CampaignInventoryBalance,
+  CampaignAssignedVehicle,
   PublicCampaignSummary,
   CreateCampaignPayload,
   ExtractCampaignBudgetRequest,
@@ -13,7 +14,9 @@ import type {
   SearchCampaignParams,
   AssignStationPayload,
   AssignTeamPayload,
+  AssignCampaignVehiclePayload,
   UpdateStatusPayload,
+  UpdateCampaignVehicleAssignmentPayload,
 } from '@/services/campaignService';
 import { toast } from 'sonner';
 import { handleHookError } from './hookErrorUtils';
@@ -25,7 +28,11 @@ export const CAMPAIGN_QUERY_KEYS = {
   detail: (id: string) => ['campaigns', 'detail', id] as const,
   summary: (id: string) => ['campaigns', 'summary', id] as const,
   inventoryBalance: (id: string) => ['campaigns', 'inventory-balance', id] as const,
+  extractBudgetHistory: (id: string, includeDeleted = true) =>
+    ['campaigns', 'extract-budget-history', id, includeDeleted] as const,
   teams: (id: string) => ['campaigns', 'teams', id] as const,
+  vehicles: (id: string, campaignTeamId?: string) =>
+    ['campaigns', 'vehicles', id, campaignTeamId] as const,
 };
 
 // --- Queries --- //
@@ -112,6 +119,22 @@ export function useCampaignInventoryBalance(id: string) {
   };
 }
 
+export function useExtractBudgetHistory(id: string, includeDeleted = true) {
+  const query = useQuery({
+    queryKey: CAMPAIGN_QUERY_KEYS.extractBudgetHistory(id, includeDeleted),
+    queryFn: async () => {
+      const response = await campaignService.getExtractBudgetHistory(id, includeDeleted);
+      return response.data as CampaignBudgetTransferResponse[];
+    },
+    enabled: !!id,
+  });
+
+  return {
+    ...query,
+    transfers: (query.data || []) as CampaignBudgetTransferResponse[],
+  };
+}
+
 export function useCampaignTeams(id: string) {
   const query = useQuery({
     queryKey: CAMPAIGN_QUERY_KEYS.teams(id),
@@ -125,6 +148,22 @@ export function useCampaignTeams(id: string) {
   return {
     ...query,
     teams: (query.data || []) as CampaignTeam[],
+  };
+}
+
+export function useCampaignVehicles(id: string, campaignTeamId?: string) {
+  const query = useQuery({
+    queryKey: CAMPAIGN_QUERY_KEYS.vehicles(id, campaignTeamId),
+    queryFn: async () => {
+      const response = await campaignService.getCampaignVehicles(id, campaignTeamId);
+      return response.data as CampaignAssignedVehicle[];
+    },
+    enabled: !!id,
+  });
+
+  return {
+    ...query,
+    vehicles: (query.data || []) as CampaignAssignedVehicle[],
   };
 }
 
@@ -264,6 +303,119 @@ export function useRemoveTeamFromCampaign() {
   });
 }
 
+export function useAssignCampaignVehicle() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      campaignTeamId,
+      data,
+    }: {
+      id: string;
+      campaignTeamId: string;
+      data: AssignCampaignVehiclePayload;
+    }) => campaignService.assignVehicleToTeam(id, campaignTeamId, data),
+    onSuccess: async (_, variables) => {
+      toast.success('Đã điều phối phương tiện cho đội');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: CAMPAIGN_QUERY_KEYS.detail(variables.id) }),
+        queryClient.invalidateQueries({ queryKey: CAMPAIGN_QUERY_KEYS.teams(variables.id) }),
+        queryClient.invalidateQueries({
+          predicate: (query) =>
+            Array.isArray(query.queryKey) &&
+            query.queryKey[0] === CAMPAIGN_QUERY_KEYS.all[0] &&
+            query.queryKey[1] === 'vehicles' &&
+            query.queryKey[2] === variables.id,
+        }),
+        queryClient.invalidateQueries({ queryKey: ['vehicles'] }),
+        queryClient.invalidateQueries({
+          predicate: (query) =>
+            Array.isArray(query.queryKey) &&
+            query.queryKey[0] === 'vehicles' &&
+            query.queryKey[1] === 'available-for-dispatch',
+        }),
+      ]);
+    },
+    onError: (error: any) => {
+      handleHookError(error, 'Không thể điều phối phương tiện cho đội');
+    },
+  });
+}
+
+export function useUpdateCampaignVehicleAssignment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      campaignVehicleId,
+      data,
+    }: {
+      id: string;
+      campaignVehicleId: string;
+      data: UpdateCampaignVehicleAssignmentPayload;
+    }) => campaignService.updateCampaignVehicleAssignment(id, campaignVehicleId, data),
+    onSuccess: async (_, variables) => {
+      toast.success('Đã cập nhật điều phối phương tiện');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: CAMPAIGN_QUERY_KEYS.detail(variables.id) }),
+        queryClient.invalidateQueries({ queryKey: CAMPAIGN_QUERY_KEYS.teams(variables.id) }),
+        queryClient.invalidateQueries({
+          predicate: (query) =>
+            Array.isArray(query.queryKey) &&
+            query.queryKey[0] === CAMPAIGN_QUERY_KEYS.all[0] &&
+            query.queryKey[1] === 'vehicles' &&
+            query.queryKey[2] === variables.id,
+        }),
+        queryClient.invalidateQueries({ queryKey: ['vehicles'] }),
+        queryClient.invalidateQueries({
+          predicate: (query) =>
+            Array.isArray(query.queryKey) &&
+            query.queryKey[0] === 'vehicles' &&
+            query.queryKey[1] === 'available-for-dispatch',
+        }),
+      ]);
+    },
+    onError: (error: any) => {
+      handleHookError(error, 'Không thể cập nhật điều phối phương tiện');
+    },
+  });
+}
+
+export function useRemoveCampaignVehicleAssignment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, campaignVehicleId }: { id: string; campaignVehicleId: string }) =>
+      campaignService.removeCampaignVehicleAssignment(id, campaignVehicleId),
+    onSuccess: async (_, variables) => {
+      toast.success('Đã gỡ điều phối phương tiện');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: CAMPAIGN_QUERY_KEYS.detail(variables.id) }),
+        queryClient.invalidateQueries({ queryKey: CAMPAIGN_QUERY_KEYS.teams(variables.id) }),
+        queryClient.invalidateQueries({
+          predicate: (query) =>
+            Array.isArray(query.queryKey) &&
+            query.queryKey[0] === CAMPAIGN_QUERY_KEYS.all[0] &&
+            query.queryKey[1] === 'vehicles' &&
+            query.queryKey[2] === variables.id,
+        }),
+        queryClient.invalidateQueries({ queryKey: ['vehicles'] }),
+        queryClient.invalidateQueries({
+          predicate: (query) =>
+            Array.isArray(query.queryKey) &&
+            query.queryKey[0] === 'vehicles' &&
+            query.queryKey[1] === 'available-for-dispatch',
+        }),
+      ]);
+    },
+    onError: (error: any) => {
+      handleHookError(error, 'Không thể gỡ điều phối phương tiện');
+    },
+  });
+}
+
 export function useExtractCampaignBudget() {
   const queryClient = useQueryClient();
 
@@ -289,6 +441,36 @@ export function useExtractCampaignBudget() {
     },
     onError: (error: any) => {
       handleHookError(error, 'Không thể trích ngân sách chiến dịch');
+    },
+  });
+}
+
+export function useReverseExtractCampaignBudgetTransfer() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      campaignBudgetTransferId,
+    }: {
+      id: string;
+      campaignBudgetTransferId: string;
+    }) => campaignService.reverseExtractBudgetTransfer(id, campaignBudgetTransferId),
+    onSuccess: async (_, variables) => {
+      toast.success('Đã huỷ giao dịch trích ngân sách');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: CAMPAIGN_QUERY_KEYS.all }),
+        queryClient.invalidateQueries({ queryKey: CAMPAIGN_QUERY_KEYS.detail(variables.id) }),
+        queryClient.invalidateQueries({
+          queryKey: CAMPAIGN_QUERY_KEYS.inventoryBalance(variables.id),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: CAMPAIGN_QUERY_KEYS.extractBudgetHistory(variables.id, true),
+        }),
+      ]);
+    },
+    onError: (error: any) => {
+      handleHookError(error, 'Không thể huỷ giao dịch trích ngân sách');
     },
   });
 }

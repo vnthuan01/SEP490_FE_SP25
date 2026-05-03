@@ -39,6 +39,7 @@ import { useTeamsInStation } from '@/hooks/useTeams';
 import { TeamStatus } from '@/enums/beEnums';
 import { coordinatorNavGroups } from './components/sidebarConfig';
 import { toast } from 'sonner';
+import { parseApiError } from '@/lib/apiErrors';
 
 type VehicleFormState = {
   vehicleId?: string;
@@ -148,8 +149,13 @@ export default function CoordinatorVehicleManagementPage() {
       return;
     }
 
-    await assignVehicleTeam({ id: assignVehicleId, teamId: assignTeamId });
-    setOpenAssignTeamModal(false);
+    try {
+      await assignVehicleTeam({ id: assignVehicleId, teamId: assignTeamId });
+      setOpenAssignTeamModal(false);
+    } catch (error) {
+      const parsed = parseApiError(error, 'Không thể gán đội cho phương tiện.');
+      toast.error(parsed.message);
+    }
   };
 
   return (
@@ -226,7 +232,8 @@ export default function CoordinatorVehicleManagementPage() {
                     <TableRow>
                       <TableHead>Biển số xe</TableHead>
                       <TableHead>Loại phương tiện</TableHead>
-                      <TableHead>Đội đang sử dụng</TableHead>
+                      <TableHead>Đội được gán</TableHead>
+                      <TableHead>Đội đang cứu hộ</TableHead>
                       <TableHead>Ngày thêm</TableHead>
                       <TableHead>Trạng thái</TableHead>
                       <TableHead className="text-right">Thao tác</TableHead>
@@ -245,9 +252,8 @@ export default function CoordinatorVehicleManagementPage() {
                           </p>
                         </TableCell>
                         <TableCell>{v.vehicleTypeName || '—'}</TableCell>
-                        <TableCell>
-                          {v.currentUsingTeamName || v.teamName || v.teamUsed || '—'}
-                        </TableCell>
+                        <TableCell>{v.teamName || v.teamUsed || '—'}</TableCell>
+                        <TableCell>{v.currentUsingTeamName || '—'}</TableCell>
                         <TableCell>
                           {v.createdAt ? new Date(v.createdAt).toLocaleDateString() : '—'}
                         </TableCell>
