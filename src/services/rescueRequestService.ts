@@ -294,7 +294,6 @@ export interface RescueBatchQueueResponseDto {
 
 export interface DispatchPreviewPayload {
   teamId: string;
-  allowPreempt: boolean;
   normalNearRouteThresholdKm: number;
   emergencyNearRouteThresholdKm: number;
 }
