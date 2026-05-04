@@ -17,24 +17,10 @@ export const STATION_DASHBOARD_QUERY_KEYS = {
     [...STATION_DASHBOARD_QUERY_KEYS.all, 'rescue-locations', stationKey, from, to] as const,
   teamPerformance: (stationKey?: string, from?: string, to?: string) =>
     [...STATION_DASHBOARD_QUERY_KEYS.all, 'team-performance', stationKey, from, to] as const,
-  reliefTeamMissions: (stationKey?: string, from?: string, to?: string, teamIds?: string[]) =>
-    [
-      ...STATION_DASHBOARD_QUERY_KEYS.all,
-      'relief-team-missions',
-      stationKey,
-      from,
-      to,
-      teamIds,
-    ] as const,
-  reliefTeamTaskSummary: (stationKey?: string, from?: string, to?: string, teamIds?: string[]) =>
-    [
-      ...STATION_DASHBOARD_QUERY_KEYS.all,
-      'relief-team-task-summary',
-      stationKey,
-      from,
-      to,
-      teamIds,
-    ] as const,
+  reliefTeamMissions: (stationKey?: string, teamIds?: string[]) =>
+    [...STATION_DASHBOARD_QUERY_KEYS.all, 'relief-team-missions', stationKey, teamIds] as const,
+  reliefTeamTaskSummary: (stationKey?: string, teamIds?: string[]) =>
+    [...STATION_DASHBOARD_QUERY_KEYS.all, 'relief-team-task-summary', stationKey, teamIds] as const,
   vehicleSummary: (stationKey?: string) =>
     [...STATION_DASHBOARD_QUERY_KEYS.all, 'vehicle-summary', stationKey] as const,
   alerts: (stationKey?: string) =>
@@ -84,25 +70,15 @@ export function useStationDashboard(range: StationDashboardRange, stationKey?: s
   });
 
   const reliefTeamMissionsQuery = useQuery({
-    queryKey: STATION_DASHBOARD_QUERY_KEYS.reliefTeamMissions(
-      stationKey,
-      range.from,
-      range.to,
-      normalizedTeamIds,
-    ),
+    queryKey: STATION_DASHBOARD_QUERY_KEYS.reliefTeamMissions(stationKey, normalizedTeamIds),
     queryFn: () =>
-      stationDashboardService.getReliefTeamMissions(range.from, range.to, normalizedTeamIds),
+      stationDashboardService.getReliefTeamMissions(undefined, undefined, normalizedTeamIds),
   });
 
   const reliefTeamTaskSummaryQuery = useQuery({
-    queryKey: STATION_DASHBOARD_QUERY_KEYS.reliefTeamTaskSummary(
-      stationKey,
-      range.from,
-      range.to,
-      normalizedTeamIds,
-    ),
+    queryKey: STATION_DASHBOARD_QUERY_KEYS.reliefTeamTaskSummary(stationKey, normalizedTeamIds),
     queryFn: () =>
-      stationDashboardService.getReliefTeamTaskSummary(range.from, range.to, normalizedTeamIds),
+      stationDashboardService.getReliefTeamTaskSummary(undefined, undefined, normalizedTeamIds),
   });
 
   const vehicleSummaryQuery = useQuery({

@@ -239,6 +239,37 @@ export interface CampaignBudgetTransferResponse {
   targetRemainingBudget: number;
 }
 
+export interface CampaignTaskSummaryItem {
+  campaignTaskId: string;
+  campaignId: string;
+  campaignTeamId: string;
+  campaignTeamName: string;
+  title: string;
+  description?: string | null;
+  startDate: string;
+  dueDate?: string | null;
+  status: number;
+  priority: number;
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface CampaignTaskDetailItem extends CampaignTaskSummaryItem {
+  memberTaskCount: number;
+  completedMemberTaskCount: number;
+  memberTasks: Array<{
+    memberTaskId: string;
+    campaignTaskId: string;
+    volunteerProfileId: string;
+    volunteerName: string;
+    subTaskTitle: string;
+    taskNote?: string | null;
+    assignedAt?: string | null;
+    completedAt?: string | null;
+    status: number;
+  }>;
+}
+
 export const campaignService = {
   // Create Campaign
   create: (data: CreateCampaignPayload) => apiClient.post<Campaign>('/campaigns', data),
@@ -307,6 +338,15 @@ export const campaignService = {
     apiClient.get<CampaignAssignedVehicle[]>(`/campaigns/${id}/vehicles`, {
       params: campaignTeamId ? { campaignTeamId } : undefined,
     }),
+
+  getCampaignTasks: (
+    id: string,
+    params?: { campaignTeamId?: string; pageIndex?: number; pageSize?: number },
+  ) =>
+    apiClient.get<PaginatedResponse<CampaignTaskSummaryItem>>(`/campaigns/${id}/tasks`, { params }),
+
+  getCampaignTaskDetail: (campaignTaskId: string) =>
+    apiClient.get<CampaignTaskDetailItem>(`/campaigns/tasks/${campaignTaskId}`),
 
   updateCampaignVehicleAssignment: (
     id: string,

@@ -9,15 +9,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
-type ReliefTeamTaskSummaryTask = {
-  status: string;
-  totalSubTasks: number;
-  completedSubTasks: number;
-  inProgressSubTasks: number;
-  lastUpdatedAt?: string | null;
-};
-
-type ReliefTeamTaskSummaryItem = {
+type ReliefTeamMissionSnapshotItem = {
   campaignTeamId: string;
   teamId: string;
   teamName: string;
@@ -25,12 +17,26 @@ type ReliefTeamTaskSummaryItem = {
   campaignName: string;
   campaignStatus: string;
   campaignTeamStatus: string;
+  totalTasks: number;
+  plannedTasks: number;
+  inProgressTasks: number;
+  blockedTasks: number;
+  completedTasks: number;
+  cancelledTasks: number;
+  totalSubTasks: number;
+  assignedSubTasks: number;
+  inProgressSubTasks: number;
+  completedSubTasks: number;
+  failedSubTasks: number;
+  cancelledSubTasks: number;
   householdCount: number;
   pendingHouseholdCount: number;
   deliveredHouseholdCount: number;
   totalDeliveryCount: number;
+  pendingDeliveryCount: number;
+  deliveredDeliveryCount: number;
   defaultReliefPackageName?: string | null;
-  tasks: ReliefTeamTaskSummaryTask[];
+  lastTaskUpdatedAt?: string | null;
 };
 
 function EmptyState({ title, description }: { title: string; description: string }) {
@@ -50,7 +56,7 @@ export function CoordinatorReliefTeamMissionsSection({
   renderStatusChip,
   renderEmphasisNumber,
 }: {
-  items: ReliefTeamTaskSummaryItem[];
+  items: ReliefTeamMissionSnapshotItem[];
   translateTeamTypeLabel: (value?: string | null) => string;
   formatNumberVN: (value: number) => string;
   formatDateTime: (value?: string | null) => string;
@@ -85,31 +91,6 @@ export function CoordinatorReliefTeamMissionsSection({
             </TableHeader>
             <TableBody>
               {items.map((item) => {
-                const completedTasks = item.tasks.filter((task) =>
-                  task.status.toLowerCase().includes('completed'),
-                ).length;
-                const inProgressTasks = item.tasks.filter((task) =>
-                  task.status.toLowerCase().includes('inprogress'),
-                ).length;
-                const blockedTasks = item.tasks.filter((task) =>
-                  task.status.toLowerCase().includes('blocked'),
-                ).length;
-                const totalSubTasks = item.tasks.reduce((sum, task) => sum + task.totalSubTasks, 0);
-                const completedSubTasks = item.tasks.reduce(
-                  (sum, task) => sum + task.completedSubTasks,
-                  0,
-                );
-                const inProgressSubTasks = item.tasks.reduce(
-                  (sum, task) => sum + task.inProgressSubTasks,
-                  0,
-                );
-                const lastUpdatedAt =
-                  item.tasks
-                    .map((task) => task.lastUpdatedAt)
-                    .filter(Boolean)
-                    .sort()
-                    .slice(-1)[0] || null;
-
                 return (
                   <TableRow key={`${item.campaignTeamId}-${item.teamId}`}>
                     <TableCell>
@@ -124,57 +105,86 @@ export function CoordinatorReliefTeamMissionsSection({
                       <div>
                         <div className="font-medium">{item.campaignName}</div>
                         <div className="text-xs text-muted-foreground">
-                          {formatNumberVN(item.tasks.length)} nhiệm vụ /{' '}
-                          {formatNumberVN(totalSubTasks)} công việc con
+                          {formatNumberVN(item.totalTasks)} nhiệm vụ /{' '}
+                          {formatNumberVN(item.totalSubTasks)} công việc con
                         </div>
-                        <div className="mt-1 text-xs text-muted-foreground">
-                          {formatNumberVN(item.householdCount)} hộ •{' '}
-                          {formatNumberVN(item.pendingHouseholdCount)} hộ chờ giao •{' '}
-                          {formatNumberVN(item.deliveredHouseholdCount)} hộ đã giao
-                        </div>
-                        <div className="mt-1 text-xs text-muted-foreground">
-                          {formatNumberVN(item.totalDeliveryCount)} lượt giao • Gói mặc định:{' '}
-                          {item.defaultReliefPackageName || 'Chưa cấu hình'}
-                        </div>
+                        {item.householdCount > 0 || item.totalDeliveryCount > 0 ? (
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            {item.householdCount > 0
+                              ? `${formatNumberVN(item.householdCount)} hộ`
+                              : null}
+                            {item.pendingHouseholdCount > 0
+                              ? ` • ${formatNumberVN(item.pendingHouseholdCount)} hộ chờ giao`
+                              : null}
+                            {item.deliveredHouseholdCount > 0
+                              ? ` • ${formatNumberVN(item.deliveredHouseholdCount)} hộ đã giao`
+                              : null}
+                            {item.totalDeliveryCount > 0
+                              ? ` • ${formatNumberVN(item.totalDeliveryCount)} lượt giao`
+                              : null}
+                          </div>
+                        ) : null}
+                        {item.defaultReliefPackageName ? (
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            Gói mặc định: {item.defaultReliefPackageName}
+                          </div>
+                        ) : null}
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex flex-wrap gap-2">
-                        {renderStatusChip(item.campaignStatus)}
-                        {renderStatusChip(item.campaignTeamStatus)}
+                      <div className="flex flex-wrap gap-2 [&>*]:whitespace-nowrap">
+                        <div className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground">
+                          <span className="font-semibold">Chiến dịch:</span>
+                          {renderStatusChip(item.campaignStatus)}
+                        </div>
+                        <div className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground">
+                          <span className="font-semibold">Đội:</span>
+                          {renderStatusChip(item.campaignTeamStatus)}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
                       {renderEmphasisNumber(
-                        `${formatNumberVN(completedTasks)} / ${formatNumberVN(item.tasks.length)}`,
+                        `${formatNumberVN(item.completedTasks)} / ${formatNumberVN(item.totalTasks)}`,
                         'success',
                       )}
                     </TableCell>
                     <TableCell className="text-right">
                       {renderEmphasisNumber(
-                        `${formatNumberVN(completedSubTasks)} / ${formatNumberVN(totalSubTasks)}`,
+                        `${formatNumberVN(item.completedSubTasks)} / ${formatNumberVN(item.totalSubTasks)}`,
                         'success',
                       )}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex flex-col items-end gap-1">
                         {renderEmphasisNumber(
-                          `${formatNumberVN(inProgressTasks)} nhiệm vụ`,
+                          `${formatNumberVN(item.inProgressTasks)} nhiệm vụ`,
                           'info',
                         )}
-                        <span className="text-xs text-muted-foreground">
-                          {formatNumberVN(inProgressSubTasks)} công việc con
-                        </span>
+                        {item.assignedSubTasks > 0 || item.inProgressSubTasks > 0 ? (
+                          <span className="text-xs text-muted-foreground">
+                            {item.assignedSubTasks > 0
+                              ? `${formatNumberVN(item.assignedSubTasks)} đã giao`
+                              : 'Chưa có phần việc ở trạng thái đã giao'}
+                            {item.inProgressSubTasks > 0
+                              ? ` • ${formatNumberVN(item.inProgressSubTasks)} công việc con đang được xử lý`
+                              : ''}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            Chưa có công việc con đang hoạt động
+                          </span>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
                       {renderEmphasisNumber(
-                        formatNumberVN(blockedTasks),
-                        blockedTasks > 0 ? 'warning' : 'info',
+                        formatNumberVN(item.blockedTasks),
+                        item.blockedTasks > 0 ? 'warning' : 'info',
                       )}
                     </TableCell>
                     <TableCell className="text-right text-muted-foreground">
-                      {formatDateTime(lastUpdatedAt)}
+                      {formatDateTime(item.lastTaskUpdatedAt)}
                     </TableCell>
                   </TableRow>
                 );

@@ -1,4 +1,5 @@
 import { useMemo, useState, type Dispatch, type SetStateAction } from 'react';
+import { useQueries } from '@tanstack/react-query';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -31,11 +32,20 @@ import { CoordinatorReliefMissionReportSection } from './components/dashboard/Co
 import { CoordinatorReliefPlanSummaryCard } from './components/relief-distribution/CoordinatorReliefPlanSummaryCard';
 import { coordinatorNavGroups } from './components/sidebarConfig';
 import { formatNumberVN, cn } from '@/lib/utils';
-import { CampaignStatus, CampaignType, getCampaignStatusLabel } from '@/enums/beEnums';
+import {
+  CampaignStatus,
+  CampaignStatusLabel,
+  CampaignTaskStatus,
+  CampaignTeamStatus,
+  CampaignTeamStatusLabel,
+  CampaignType,
+  MemberTaskStatus,
+  getCampaignStatusLabel,
+} from '@/enums/beEnums';
 import { useMyReliefStation } from '@/hooks/useReliefStation';
 import { useTeamsInStation } from '@/hooks/useTeams';
 import { useInventories } from '@/hooks/useInventory';
-import { useCampaigns } from '@/hooks/useCampaigns';
+import { CAMPAIGN_QUERY_KEYS, useCampaigns } from '@/hooks/useCampaigns';
 import { useReliefPlanSummary } from '@/hooks/useReliefDistribution';
 import { useStationDashboard, type StationDashboardRange } from '../../hooks/useStationDashboard';
 import {
@@ -57,6 +67,12 @@ import type {
   VehicleUtilizationReportResponse,
 } from '@/services/stationReportService';
 import type { VehicleSummaryByTypeItem } from '@/services/stationDashboardService';
+import {
+  campaignService,
+  type CampaignTeam,
+  type CampaignTaskDetailItem,
+  type CampaignTaskSummaryItem,
+} from '@/services/campaignService';
 
 type PageSection = 'dashboard' | 'reports';
 type ReportTab =
@@ -147,7 +163,22 @@ const translateRescueRequestType = (value?: string | null) => {
 };
 
 const translateStatusLabel = (value?: string | null) => {
+  const numericValue = Number(value);
+  if (Number.isFinite(numericValue)) {
+    if (numericValue in CampaignStatusLabel) {
+      return CampaignStatusLabel[numericValue as keyof typeof CampaignStatusLabel];
+    }
+    if (numericValue in CampaignTeamStatusLabel) {
+      return CampaignTeamStatusLabel[numericValue as keyof typeof CampaignTeamStatusLabel];
+    }
+  }
   const normalized = String(value || '').toLowerCase();
+  if (normalized === 'active') return 'Đang hoạt động';
+  if (normalized === 'accepted') return 'Đã chấp nhận';
+  if (normalized === 'invited') return 'Đã mời';
+  if (normalized === 'withdrawn') return 'Đã rút lui';
+  if (normalized === 'planned') return 'Kế hoạch';
+  if (normalized === 'blocked') return 'Bị chặn';
   if (normalized.includes('pending')) return 'Chờ xử lý';
   if (normalized.includes('verified')) return 'Đã xác minh';
   if (normalized.includes('assigned')) return 'Đã gán';
@@ -260,7 +291,12 @@ function StatusChip({ value }: { value?: string | null }) {
           ? 'destructive'
           : 'info';
   return (
-    <Badge variant={variant} appearance="outline" size="sm" className="gap-1.5">
+    <Badge
+      variant={variant}
+      appearance="outline"
+      size="sm"
+      className="inline-flex whitespace-nowrap gap-1.5 px-2.5 py-1"
+    >
       {displayValue}
     </Badge>
   );
@@ -437,6 +473,92 @@ export default function CoordinatorDashboardPage() {
   const { data: selectedReliefPlanSummary } = useReliefPlanSummary(
     effectiveSelectedReliefCampaignId,
   );
+  const stationTeamIds = useMemo(
+    () => (stationTeams || []).map((team) => team.teamId),
+    [stationTeams],
+  );
+  const campaignTeamQueries = useQueries({
+    queries: (stationReliefCampaigns || []).map((campaign) => ({
+      queryKey: [...CAMPAIGN_QUERY_KEYS.teams(campaign.campaignId), 'station-dashboard'] as const,
+      queryFn: async () => {
+        const response = await campaignService.getTeams(campaign.campaignId);
+        return (response.data || []) as CampaignTeam[];
+      },
+      enabled: section === 'dashboard' && (stationReliefCampaigns || []).length > 0,
+    })),
+  });
+  const allowedCampaignTeamsByCampaignId = useMemo(() => {
+    const map = new Map<string, CampaignTeam[]>();
+
+    (stationReliefCampaigns || []).forEach((campaign, index) => {
+      const campaignTeams = (campaignTeamQueries[index]?.data || []) as CampaignTeam[];
+      const allowedTeams = campaignTeams.filter((team) =>
+        selectedTeamIds.length > 0
+          ? selectedTeamIds.includes(team.teamId)
+          : stationTeamIds.includes(team.teamId),
+      );
+      map.set(campaign.campaignId, allowedTeams);
+    });
+
+    return map;
+  }, [campaignTeamQueries, selectedTeamIds, stationReliefCampaigns, stationTeamIds]);
+  const allowedCampaignIds = useMemo(
+    () =>
+      new Set(
+        Array.from(allowedCampaignTeamsByCampaignId.entries())
+          .filter(([, teams]) => teams.length > 0)
+          .map(([campaignId]) => campaignId),
+      ),
+    [allowedCampaignTeamsByCampaignId],
+  );
+  const allowedCampaignTeamIds = useMemo(
+    () =>
+      new Set(
+        Array.from(allowedCampaignTeamsByCampaignId.values())
+          .flat()
+          .map((team) => team.campaignTeamId),
+      ),
+    [allowedCampaignTeamsByCampaignId],
+  );
+
+  const rawReliefTaskQueries = useQueries({
+    queries: (stationReliefCampaigns || []).map((campaign) => ({
+      queryKey: [
+        ...CAMPAIGN_QUERY_KEYS.list(),
+        'raw-tasks',
+        campaign.campaignId,
+        selectedTeamIds,
+      ] as const,
+      queryFn: async () => {
+        const allowedCampaignTeams =
+          allowedCampaignTeamsByCampaignId.get(campaign.campaignId) || [];
+        const response = await campaignService.getCampaignTasks(campaign.campaignId, {
+          campaignTeamId:
+            allowedCampaignTeams.length === 1 ? allowedCampaignTeams[0].campaignTeamId : undefined,
+          pageIndex: 1,
+          pageSize: 100,
+        });
+        return response.data?.items || [];
+      },
+      enabled:
+        section === 'dashboard' &&
+        (stationReliefCampaigns || []).length > 0 &&
+        allowedCampaignIds.has(campaign.campaignId),
+    })),
+  });
+
+  const rawReliefTaskDetailQueries = useQueries({
+    queries: rawReliefTaskQueries
+      .flatMap((query) => (query.data || []) as CampaignTaskSummaryItem[])
+      .map((task) => ({
+        queryKey: [...CAMPAIGN_QUERY_KEYS.list(), 'raw-task-detail', task.campaignTaskId] as const,
+        queryFn: async () => {
+          const response = await campaignService.getCampaignTaskDetail(task.campaignTaskId);
+          return response.data as CampaignTaskDetailItem;
+        },
+        enabled: section === 'dashboard',
+      })),
+  });
 
   const overview = dashboard.overviewQuery.data;
   const rescueStatusSummary = dashboard.rescueStatusQuery.data;
@@ -445,7 +567,139 @@ export default function CoordinatorDashboardPage() {
   const vehicleSummary = dashboard.vehicleSummaryQuery.data;
   const activeDispatch = dashboard.activeDispatchQuery.data?.activeOperations || [];
   const rescueLocationItems = dashboard.rescueLocationsQuery.data || [];
-  const reliefTeamTaskSummary = dashboard.reliefTeamTaskSummaryQuery.data || [];
+  const reliefTeamMissions = dashboard.reliefTeamMissionsQuery.data || [];
+  const fallbackReliefTeamMissions = useMemo(() => {
+    const rawTasks = rawReliefTaskQueries.flatMap(
+      (query) => (query.data || []) as CampaignTaskSummaryItem[],
+    );
+    const rawTaskDetails = new Map(
+      rawReliefTaskDetailQueries
+        .map((query) => query.data as CampaignTaskDetailItem | undefined)
+        .filter(Boolean)
+        .map((detail) => [detail!.campaignTaskId, detail!]),
+    );
+    const allowedCampaignTeams = new Map(
+      Array.from(allowedCampaignTeamsByCampaignId.values())
+        .flat()
+        .map((team) => [team.campaignTeamId, team]),
+    );
+
+    const filteredTasks = rawTasks.filter(
+      (task) =>
+        allowedCampaignIds.has(task.campaignId) && allowedCampaignTeams.has(task.campaignTeamId),
+    );
+
+    const grouped = new Map<string, any>();
+
+    filteredTasks.forEach((task) => {
+      const detail = rawTaskDetails.get(task.campaignTaskId);
+      const campaignTeam = allowedCampaignTeams.get(task.campaignTeamId);
+      const key = task.campaignTeamId || task.campaignId;
+      const existing = grouped.get(key);
+      if (existing) {
+        existing.totalTasks += 1;
+        if (Number(task.status) === CampaignTaskStatus.Completed) {
+          existing.completedTasks += 1;
+        }
+        if (Number(task.status) === CampaignTaskStatus.InProgress) {
+          existing.inProgressTasks += 1;
+        }
+        if (Number(task.status) === CampaignTaskStatus.Blocked) {
+          existing.blockedTasks += 1;
+        }
+        if (Number(task.status) === CampaignTaskStatus.Cancelled) {
+          existing.cancelledTasks += 1;
+        }
+        if (Number(task.status) === CampaignTaskStatus.Planned) {
+          existing.plannedTasks += 1;
+        }
+        existing.totalSubTasks += detail?.memberTaskCount || 0;
+        existing.assignedSubTasks +=
+          detail?.memberTasks?.filter(
+            (memberTask) => memberTask.status === MemberTaskStatus.Assigned,
+          ).length || 0;
+        existing.completedSubTasks += detail?.completedMemberTaskCount || 0;
+        existing.inProgressSubTasks +=
+          detail?.memberTasks?.filter(
+            (memberTask) => memberTask.status === MemberTaskStatus.InProgress,
+          ).length || 0;
+        existing.failedSubTasks +=
+          detail?.memberTasks?.filter((memberTask) => memberTask.status === MemberTaskStatus.Failed)
+            .length || 0;
+        existing.cancelledSubTasks +=
+          detail?.memberTasks?.filter(
+            (memberTask) => memberTask.status === MemberTaskStatus.Cancelled,
+          ).length || 0;
+        return;
+      }
+
+      grouped.set(key, {
+        teamId: task.campaignTeamId,
+        campaignTeamId: task.campaignTeamId,
+        campaignId: task.campaignId,
+        teamName: campaignTeam?.teamName || task.campaignTeamName || 'Đội cứu trợ',
+        teamType: 'Cứu trợ',
+        campaignName:
+          stationReliefCampaigns.find((campaign) => campaign.campaignId === task.campaignId)
+            ?.name || 'Chiến dịch cứu trợ',
+        campaignStatus:
+          stationReliefCampaigns
+            .find((campaign) => campaign.campaignId === task.campaignId)
+            ?.status?.toString() || String(CampaignStatus.InProgress),
+        campaignTeamStatus: String(campaignTeam?.status ?? CampaignTeamStatus.Active),
+        totalTasks: 1,
+        plannedTasks: Number(task.status) === CampaignTaskStatus.Planned ? 1 : 0,
+        inProgressTasks: Number(task.status) === CampaignTaskStatus.InProgress ? 1 : 0,
+        blockedTasks: Number(task.status) === CampaignTaskStatus.Blocked ? 1 : 0,
+        completedTasks: Number(task.status) === CampaignTaskStatus.Completed ? 1 : 0,
+        cancelledTasks: Number(task.status) === CampaignTaskStatus.Cancelled ? 1 : 0,
+        totalSubTasks: detail?.memberTaskCount || 0,
+        assignedSubTasks:
+          detail?.memberTasks?.filter(
+            (memberTask) => memberTask.status === MemberTaskStatus.Assigned,
+          ).length || 0,
+        inProgressSubTasks:
+          detail?.memberTasks?.filter(
+            (memberTask) => memberTask.status === MemberTaskStatus.InProgress,
+          ).length || 0,
+        completedSubTasks: detail?.completedMemberTaskCount || 0,
+        failedSubTasks:
+          detail?.memberTasks?.filter((memberTask) => memberTask.status === MemberTaskStatus.Failed)
+            .length || 0,
+        cancelledSubTasks:
+          detail?.memberTasks?.filter(
+            (memberTask) => memberTask.status === MemberTaskStatus.Cancelled,
+          ).length || 0,
+        householdCount: 0,
+        pendingHouseholdCount: 0,
+        deliveredHouseholdCount: 0,
+        totalDeliveryCount: 0,
+        pendingDeliveryCount: 0,
+        deliveredDeliveryCount: 0,
+        defaultReliefPackageName: null,
+        lastTaskUpdatedAt: task.createdAt,
+      });
+    });
+
+    return Array.from(grouped.values());
+  }, [
+    allowedCampaignIds,
+    allowedCampaignTeamsByCampaignId,
+    rawReliefTaskDetailQueries,
+    rawReliefTaskQueries,
+    stationReliefCampaigns,
+  ]);
+  const filteredReliefTeamMissions = useMemo(
+    () =>
+      reliefTeamMissions.filter(
+        (item: any) =>
+          allowedCampaignIds.has(item.campaignId) &&
+          allowedCampaignTeamIds.has(item.campaignTeamId),
+      ),
+    [allowedCampaignIds, allowedCampaignTeamIds, reliefTeamMissions],
+  );
+  const effectiveReliefTeamMissions =
+    filteredReliefTeamMissions.length > 0 ? filteredReliefTeamMissions : fallbackReliefTeamMissions;
 
   const rescueStatusChart = rescueStatusSummary
     ? [
@@ -711,7 +965,7 @@ export default function CoordinatorDashboardPage() {
                 />
 
                 <CoordinatorReliefTeamMissionsSection
-                  items={reliefTeamTaskSummary as any}
+                  items={effectiveReliefTeamMissions as any}
                   translateTeamTypeLabel={translateTeamTypeLabel}
                   formatNumberVN={formatNumberVN}
                   formatDateTime={formatDateTime}

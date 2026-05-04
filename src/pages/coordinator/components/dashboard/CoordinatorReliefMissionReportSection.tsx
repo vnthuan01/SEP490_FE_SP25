@@ -105,7 +105,7 @@ export function CoordinatorReliefMissionReportSection({
                       </div>
                     </TableCell>
                     <TableCell className="py-4">
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-2 [&>*]:whitespace-nowrap">
                         {renderStatusChip(item.campaignTaskStatus)}
                         {renderStatusChip(item.campaignTeamStatus)}
                         {item.campaignTaskStatus.toLowerCase().includes('blocked') ? (
