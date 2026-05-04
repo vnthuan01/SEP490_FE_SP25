@@ -40,6 +40,8 @@ function LoginPage() {
     },
   });
 
+  const isSubmitting = form.formState.isSubmitting;
+
   const handleLogin = async (values: LoginFormValues) => {
     setRootError('');
 
@@ -171,7 +173,11 @@ function LoginPage() {
                   <FormItem>
                     <FormLabel>Số điện thoại / Email</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="Nhập số điện thoại hoặc email" />
+                      <Input
+                        {...field}
+                        placeholder="Nhập số điện thoại hoặc email"
+                        disabled={isSubmitting}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -193,6 +199,7 @@ function LoginPage() {
                           type={showPassword ? 'text' : 'password'}
                           placeholder="Nhập mật khẩu"
                           className="pr-10"
+                          disabled={isSubmitting}
                         />
                         {showPassword ? (
                           <EyeOffIcon
@@ -218,9 +225,26 @@ function LoginPage() {
               />
 
               {/* Submit */}
-              <Button type="submit" variant="primary" size="lg" className="mt-2">
-                <span>Đăng nhập</span>
-                <span className="material-symbols-outlined text-sm">arrow_forward</span>
+              <Button
+                type="submit"
+                variant="primary"
+                size="lg"
+                className="mt-2"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <span className="material-symbols-outlined animate-spin text-sm">
+                      progress_activity
+                    </span>
+                    <span>Đang đăng nhập...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Đăng nhập</span>
+                    <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                  </>
+                )}
               </Button>
 
               <Button type="button" variant="outline" size="lg" asChild>

@@ -64,6 +64,72 @@ export interface TeamPerformanceItem {
   lastTrackedAt?: string | null;
 }
 
+export interface ReliefTeamMissionSnapshotItem {
+  teamId: string;
+  campaignTeamId: string;
+  campaignId: string;
+  teamName: string;
+  teamType?: string | null;
+  campaignName: string;
+  campaignStatus: string;
+  campaignTeamStatus: string;
+  totalTasks: number;
+  plannedTasks: number;
+  inProgressTasks: number;
+  blockedTasks: number;
+  completedTasks: number;
+  cancelledTasks: number;
+  totalSubTasks: number;
+  assignedSubTasks: number;
+  inProgressSubTasks: number;
+  completedSubTasks: number;
+  failedSubTasks: number;
+  cancelledSubTasks: number;
+  householdCount: number;
+  pendingHouseholdCount: number;
+  deliveredHouseholdCount: number;
+  totalDeliveryCount: number;
+  pendingDeliveryCount: number;
+  deliveredDeliveryCount: number;
+  defaultReliefPackageName?: string | null;
+  lastTaskUpdatedAt?: string | null;
+}
+
+export interface ReliefTeamTaskSummaryTaskItem {
+  campaignTaskId: string;
+  title: string;
+  status: string;
+  startDate: string;
+  dueDate?: string | null;
+  totalSubTasks: number;
+  assignedSubTasks: number;
+  inProgressSubTasks: number;
+  completedSubTasks: number;
+  failedSubTasks: number;
+  cancelledSubTasks: number;
+  deliveryCount: number;
+  pendingDeliveryCount: number;
+  deliveredDeliveryCount: number;
+  lastUpdatedAt?: string | null;
+}
+
+export interface ReliefTeamTaskSummaryItem {
+  teamId: string;
+  teamName: string;
+  teamType?: string | null;
+  campaignId: string;
+  campaignName: string;
+  campaignStatus: string;
+  campaignTeamId: string;
+  campaignTeamStatus: string;
+  householdCount: number;
+  pendingHouseholdCount: number;
+  deliveredHouseholdCount: number;
+  totalDeliveryCount: number;
+  defaultReliefPackageName?: string | null;
+  tasks: ReliefTeamTaskSummaryTaskItem[];
+}
+
 export interface VehicleSummaryByTypeItem {
   vehicleTypeName: string;
   total: number;
@@ -76,6 +142,11 @@ export interface VehicleSummary {
   available: number;
   busy: number;
   byType: VehicleSummaryByTypeItem[];
+  currentPage: number;
+  pageSize: number;
+  totalPages: number;
+  hasPrevious: boolean;
+  hasNext: boolean;
 }
 
 export interface StationAlerts {
@@ -138,6 +209,9 @@ export interface ActiveDispatchSnapshot {
 
 const unwrapData = <T>(response: any): T => response?.data?.data ?? response?.data ?? response;
 
+const normalizeStringListParam = (values?: string[]) =>
+  values && values.length > 0 ? Array.from(new Set(values)).sort() : undefined;
+
 const toQueryParams = (from?: string, to?: string, groupBy?: StationDashboardGroupBy) => ({
   ...(from ? { from } : {}),
   ...(to ? { to } : {}),
@@ -183,6 +257,42 @@ export const stationDashboardService = {
       { params: toQueryParams(from, to) },
     );
     const payload = unwrapData<{ data?: TeamPerformanceItem[] } | TeamPerformanceItem[]>(response);
+    return Array.isArray(payload) ? payload : (payload?.data ?? []);
+  },
+
+  getReliefTeamMissions: async (from?: string, to?: string, teamIds?: string[]) => {
+    const response = await apiClient.get<{ data: ReliefTeamMissionSnapshotItem[] }>(
+      '/station-dashboard/relief-team-missions',
+      {
+        params: {
+          ...toQueryParams(from, to),
+          ...(normalizeStringListParam(teamIds)?.length
+            ? { teamIds: normalizeStringListParam(teamIds) }
+            : {}),
+        },
+      },
+    );
+    const payload = unwrapData<
+      { data?: ReliefTeamMissionSnapshotItem[] } | ReliefTeamMissionSnapshotItem[]
+    >(response);
+    return Array.isArray(payload) ? payload : (payload?.data ?? []);
+  },
+
+  getReliefTeamTaskSummary: async (from?: string, to?: string, teamIds?: string[]) => {
+    const response = await apiClient.get<{ data: ReliefTeamTaskSummaryItem[] }>(
+      '/station-dashboard/relief-team-task-summary',
+      {
+        params: {
+          ...toQueryParams(from, to),
+          ...(normalizeStringListParam(teamIds)?.length
+            ? { teamIds: normalizeStringListParam(teamIds) }
+            : {}),
+        },
+      },
+    );
+    const payload = unwrapData<
+      { data?: ReliefTeamTaskSummaryItem[] } | ReliefTeamTaskSummaryItem[]
+    >(response);
     return Array.isArray(payload) ? payload : (payload?.data ?? []);
   },
 

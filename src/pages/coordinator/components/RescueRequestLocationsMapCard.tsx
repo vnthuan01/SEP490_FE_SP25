@@ -79,6 +79,7 @@ export function RescueRequestLocationsMapCard({
   items: RescueRequestLocationItem[];
   isLoading?: boolean;
 }) {
+  const mapApiKey = import.meta.env.VITE_GOONG_MAP_KEY || '';
   const validItems = useMemo(
     () =>
       items.filter(
@@ -117,9 +118,38 @@ export function RescueRequestLocationsMapCard({
   const { map, mapRef, error } = useGoongMap({
     center: mapCenter,
     zoom: validItems.length > 1 ? 9 : 11,
-    apiKey: import.meta.env.VITE_GOONG_MAP_KEY || '',
-    enabled: true,
+    apiKey: mapApiKey,
+    enabled: validItems.length > 0,
   });
+
+  useEffect(() => {
+    if (!validItems.length) {
+      console.info('[RescueRequestLocationsMapCard] No valid rescue locations to render', {
+        totalItems: items.length,
+        validItems: validItems.length,
+      });
+    }
+  }, [items.length, validItems.length]);
+
+  useEffect(() => {
+    if (error) {
+      console.error('[RescueRequestLocationsMapCard] Map unavailable', {
+        error,
+        hasApiKey: Boolean(mapApiKey),
+        totalItems: items.length,
+        validItems: validItems.length,
+        center: mapCenter,
+      });
+    }
+  }, [error, items.length, mapApiKey, mapCenter, validItems.length]);
+
+  const mapStatus = !validItems.length
+    ? 'empty'
+    : !mapApiKey
+      ? 'missing-key'
+      : error
+        ? 'sdk-error'
+        : 'ready';
 
   useEffect(() => {
     const mapInstance = map;
@@ -222,9 +252,9 @@ export function RescueRequestLocationsMapCard({
   return (
     <Card className="border-border bg-card xl:col-span-2">
       <CardHeader className="pb-3">
-        <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-3 relative w-full">
           <div className="space-y-2">
-            <CardTitle className="flex items-center gap-2 text-base font-bold">
+            <CardTitle className="flex items-center gap-2 text-base font-bold py-2">
               <span className="material-symbols-outlined text-cyan-600">map</span>
               Bản đồ điểm cứu hộ
             </CardTitle>
@@ -232,23 +262,35 @@ export function RescueRequestLocationsMapCard({
               Hiển thị các vị trí cứu hộ đã phát sinh trong phạm vi trạm theo bộ lọc thời gian.
             </p>
           </div>
-          <Badge variant="info" appearance="outline" size="sm">
-            {validItems.length} điểm
-          </Badge>
+          <div className="flex justify-end absolute right-0 top-4">
+            <Badge variant="info" appearance="outline" size="sm">
+              {validItems.length} điểm
+            </Badge>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {error ? (
+        {mapStatus === 'missing-key' ? (
+          <div className="rounded-2xl border border-dashed border-amber-300 bg-amber-50/70 px-6 py-10 text-center">
+            <p className="font-semibold text-amber-900">Thiếu cấu hình Goong Map</p>
+            <p className="mt-2 text-sm text-amber-800">
+              Chưa tìm thấy <code>VITE_GOONG_MAP_KEY</code> nên không thể hiển thị bản đồ.
+            </p>
+          </div>
+        ) : mapStatus === 'sdk-error' ? (
           <div className="rounded-2xl border border-dashed border-border bg-muted/20 px-6 py-10 text-center">
             <p className="font-semibold text-foreground">Không tải được bản đồ</p>
-            <p className="mt-2 text-sm text-muted-foreground">Kiểm tra Goong Map API key.</p>
+            <p className="mt-2 text-sm text-muted-foreground">{error}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Đã log chi tiết lỗi Goong ra console để kiểm tra thêm.
+            </p>
           </div>
         ) : isLoading ? (
           <div className="rounded-2xl border border-dashed border-border bg-muted/20 px-6 py-10 text-center">
             <p className="font-semibold text-foreground">Đang tải bản đồ...</p>
             <p className="mt-2 text-sm text-muted-foreground">Đang lấy các điểm cứu hộ từ API.</p>
           </div>
-        ) : validItems.length > 0 ? (
+        ) : mapStatus === 'ready' ? (
           <div className="relative overflow-hidden rounded-2xl border border-border bg-muted/20">
             <div ref={mapRef} className="h-[360px] w-full" />
             {weatherSummary ? (
@@ -307,7 +349,10 @@ export function RescueRequestLocationsMapCard({
           <div className="rounded-2xl border border-dashed border-border bg-muted/20 px-6 py-10 text-center">
             <p className="font-semibold text-foreground">Chưa có điểm cứu hộ</p>
             <p className="mt-2 text-sm text-muted-foreground">
-              Bản đồ sẽ hiển thị khi API trả về các tọa độ hợp lệ.
+              Không có tọa độ hợp lệ trong dữ liệu hiện tại nên chưa thể dựng bản đồ.
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Tổng bản ghi: {items.length} - Điểm hợp lệ: {validItems.length}
             </p>
           </div>
         )}
