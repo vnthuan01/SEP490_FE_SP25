@@ -17,6 +17,24 @@ export const STATION_DASHBOARD_QUERY_KEYS = {
     [...STATION_DASHBOARD_QUERY_KEYS.all, 'rescue-locations', stationKey, from, to] as const,
   teamPerformance: (stationKey?: string, from?: string, to?: string) =>
     [...STATION_DASHBOARD_QUERY_KEYS.all, 'team-performance', stationKey, from, to] as const,
+  reliefTeamMissions: (stationKey?: string, from?: string, to?: string, teamIds?: string[]) =>
+    [
+      ...STATION_DASHBOARD_QUERY_KEYS.all,
+      'relief-team-missions',
+      stationKey,
+      from,
+      to,
+      teamIds,
+    ] as const,
+  reliefTeamTaskSummary: (stationKey?: string, from?: string, to?: string, teamIds?: string[]) =>
+    [
+      ...STATION_DASHBOARD_QUERY_KEYS.all,
+      'relief-team-task-summary',
+      stationKey,
+      from,
+      to,
+      teamIds,
+    ] as const,
   vehicleSummary: (stationKey?: string) =>
     [...STATION_DASHBOARD_QUERY_KEYS.all, 'vehicle-summary', stationKey] as const,
   alerts: (stationKey?: string) =>
@@ -31,9 +49,15 @@ export interface StationDashboardRange {
   from?: string;
   to?: string;
   groupBy?: StationDashboardGroupBy;
+  teamIds?: string[];
 }
 
+const normalizeTeamIds = (teamIds?: string[]) =>
+  teamIds && teamIds.length > 0 ? Array.from(new Set(teamIds)).sort() : undefined;
+
 export function useStationDashboard(range: StationDashboardRange, stationKey?: string) {
+  const normalizedTeamIds = normalizeTeamIds(range.teamIds);
+
   const overviewQuery = useQuery({
     queryKey: STATION_DASHBOARD_QUERY_KEYS.overview(stationKey),
     queryFn: () => stationDashboardService.getOverview(),
@@ -57,6 +81,28 @@ export function useStationDashboard(range: StationDashboardRange, stationKey?: s
   const teamPerformanceQuery = useQuery({
     queryKey: STATION_DASHBOARD_QUERY_KEYS.teamPerformance(stationKey, range.from, range.to),
     queryFn: () => stationDashboardService.getTeamPerformance(range.from, range.to),
+  });
+
+  const reliefTeamMissionsQuery = useQuery({
+    queryKey: STATION_DASHBOARD_QUERY_KEYS.reliefTeamMissions(
+      stationKey,
+      range.from,
+      range.to,
+      normalizedTeamIds,
+    ),
+    queryFn: () =>
+      stationDashboardService.getReliefTeamMissions(range.from, range.to, normalizedTeamIds),
+  });
+
+  const reliefTeamTaskSummaryQuery = useQuery({
+    queryKey: STATION_DASHBOARD_QUERY_KEYS.reliefTeamTaskSummary(
+      stationKey,
+      range.from,
+      range.to,
+      normalizedTeamIds,
+    ),
+    queryFn: () =>
+      stationDashboardService.getReliefTeamTaskSummary(range.from, range.to, normalizedTeamIds),
   });
 
   const vehicleSummaryQuery = useQuery({
@@ -85,6 +131,8 @@ export function useStationDashboard(range: StationDashboardRange, stationKey?: s
     rescueTypeSummaryQuery.isLoading ||
     rescueLocationsQuery.isLoading ||
     teamPerformanceQuery.isLoading ||
+    reliefTeamMissionsQuery.isLoading ||
+    reliefTeamTaskSummaryQuery.isLoading ||
     vehicleSummaryQuery.isLoading ||
     alertsQuery.isLoading ||
     inventorySummaryQuery.isLoading ||
@@ -96,6 +144,8 @@ export function useStationDashboard(range: StationDashboardRange, stationKey?: s
     rescueTypeSummaryQuery.isError ||
     rescueLocationsQuery.isError ||
     teamPerformanceQuery.isError ||
+    reliefTeamMissionsQuery.isError ||
+    reliefTeamTaskSummaryQuery.isError ||
     vehicleSummaryQuery.isError ||
     alertsQuery.isError ||
     inventorySummaryQuery.isError ||
@@ -109,6 +159,8 @@ export function useStationDashboard(range: StationDashboardRange, stationKey?: s
         rescueTypeSummaryQuery.refetch(),
         rescueLocationsQuery.refetch(),
         teamPerformanceQuery.refetch(),
+        reliefTeamMissionsQuery.refetch(),
+        reliefTeamTaskSummaryQuery.refetch(),
         vehicleSummaryQuery.refetch(),
         alertsQuery.refetch(),
         inventorySummaryQuery.refetch(),
@@ -121,6 +173,8 @@ export function useStationDashboard(range: StationDashboardRange, stationKey?: s
       rescueTypeSummaryQuery,
       rescueLocationsQuery,
       teamPerformanceQuery,
+      reliefTeamMissionsQuery,
+      reliefTeamTaskSummaryQuery,
       vehicleSummaryQuery,
       alertsQuery,
       inventorySummaryQuery,
@@ -134,6 +188,8 @@ export function useStationDashboard(range: StationDashboardRange, stationKey?: s
     rescueTypeSummaryQuery,
     rescueLocationsQuery,
     teamPerformanceQuery,
+    reliefTeamMissionsQuery,
+    reliefTeamTaskSummaryQuery,
     vehicleSummaryQuery,
     alertsQuery,
     inventorySummaryQuery,

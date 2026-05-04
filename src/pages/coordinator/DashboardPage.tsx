@@ -1,22 +1,9 @@
-import { useMemo, useState } from 'react';
-import {
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip as RechartsTooltip,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Legend,
-} from 'recharts';
+import { useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Select,
   SelectContent,
@@ -24,7 +11,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
@@ -35,14 +21,26 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { CoordinatorListPagination } from './components/CoordinatorListPagination';
-import { RescueRequestLocationsMapCard } from './components/RescueRequestLocationsMapCard';
+import { CoordinatorReliefTeamMissionsSection } from './components/dashboard/CoordinatorReliefTeamMissionsSection';
+import { CoordinatorTeamWorkloadSection } from './components/dashboard/CoordinatorTeamWorkloadSection';
+import { CoordinatorReliefDeliveriesSection } from './components/dashboard/CoordinatorReliefDeliveriesSection';
+import { CoordinatorDashboardOverviewSection } from './components/dashboard/CoordinatorDashboardOverviewSection';
+import { CoordinatorDashboardReportControls } from './components/dashboard/CoordinatorDashboardReportControls';
+import { CoordinatorReliefMissionCampaignSummarySection } from './components/dashboard/CoordinatorReliefMissionCampaignSummarySection';
+import { CoordinatorReliefMissionReportSection } from './components/dashboard/CoordinatorReliefMissionReportSection';
+import { CoordinatorReliefPlanSummaryCard } from './components/relief-distribution/CoordinatorReliefPlanSummaryCard';
 import { coordinatorNavGroups } from './components/sidebarConfig';
 import { formatNumberVN, cn } from '@/lib/utils';
+import { CampaignStatus, CampaignType, getCampaignStatusLabel } from '@/enums/beEnums';
 import { useMyReliefStation } from '@/hooks/useReliefStation';
+import { useTeamsInStation } from '@/hooks/useTeams';
 import { useInventories } from '@/hooks/useInventory';
+import { useCampaigns } from '@/hooks/useCampaigns';
+import { useReliefPlanSummary } from '@/hooks/useReliefDistribution';
 import { useStationDashboard, type StationDashboardRange } from '../../hooks/useStationDashboard';
 import {
   useRescueRequestsReport,
+  useReliefMissionReport,
   useTeamWorkloadReport,
   useVehicleUtilizationReport,
   useInventoryStockReport,
@@ -52,15 +50,13 @@ import type {
   InventoryStockReportItem,
   RescueRequestReportItem,
   ReliefDeliveryReportItem,
+  ReliefMissionCampaignSummaryItem,
+  ReliefMissionReportRowItem,
   TeamWorkloadReportItem,
   VehicleUtilizationReportItem,
+  VehicleUtilizationReportResponse,
 } from '@/services/stationReportService';
-import type {
-  ActiveDispatchItem,
-  CriticalStockItem,
-  ActiveDispatchVehicle,
-  VehicleSummaryByTypeItem,
-} from '@/services/stationDashboardService';
+import type { VehicleSummaryByTypeItem } from '@/services/stationDashboardService';
 
 type PageSection = 'dashboard' | 'reports';
 type ReportTab =
@@ -99,8 +95,8 @@ const DELIVERY_STATUS_OPTIONS = [
   { label: 'Tất cả', value: 'all' },
   { label: 'Chờ xử lý', value: 'Pending' },
   { label: 'Đã gán', value: 'Assigned' },
-  { label: 'Hoàn thành', value: 'Completed' },
-  { label: 'Đã hủy', value: 'Cancelled' },
+  { label: 'Đã giải quyết', value: 'Delivered' },
+  { label: 'Đã hủy', value: 'Canceled' },
 ];
 
 const today = new Date();
@@ -157,6 +153,9 @@ const translateStatusLabel = (value?: string | null) => {
   if (normalized.includes('assigned')) return 'Đã gán';
   if (normalized.includes('inprogress')) return 'Đang xử lý';
   if (normalized.includes('completed')) return 'Hoàn thành';
+  if (normalized.includes('delivered')) return 'Đã giao';
+  if (normalized.includes('deliveryfailed')) return 'Giao thất bại';
+  if (normalized.includes('failed')) return 'Thất bại';
   if (normalized.includes('cancel')) return 'Đã hủy';
   if (normalized.includes('critical')) return 'Nguy cấp';
   if (normalized.includes('needrestock')) return 'Cần bổ sung';
@@ -166,6 +165,21 @@ const translateStatusLabel = (value?: string | null) => {
   return value || 'Không rõ';
 };
 
+const translateDeliveryModeLabel = (value?: string | null) => {
+  const normalized = String(value || '').toLowerCase();
+  if (normalized.includes('doortodoor')) return 'Giao tận nơi';
+  if (normalized.includes('pickup')) return 'Nhận tại điểm phát';
+  if (normalized.includes('onsite')) return 'Phát tại chỗ';
+  return value || 'Không rõ';
+};
+
+const translateTeamTypeLabel = (value?: string | null) => {
+  const normalized = String(value || '').toLowerCase();
+  if (normalized.includes('rescue')) return 'Cứu hộ';
+  if (normalized.includes('relief')) return 'Cứu trợ';
+  if (normalized.includes('other')) return 'Khác';
+  return value || 'Không rõ';
+};
 const chartColors = ['#2563eb', '#14b8a6', '#f59e0b', '#8b5cf6', '#ef4444', '#22c55e'];
 
 function MetricCard({
@@ -191,8 +205,8 @@ function MetricCard({
           : 'bg-sky-500/15 text-sky-600';
 
   return (
-    <Card className="border-border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
-      <CardContent className="p-5 flex flex-col gap-3">
+    <Card className="h-full border-border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
+      <CardContent className="flex h-full min-h-[152px] flex-col justify-between gap-4 p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -209,7 +223,7 @@ function MetricCard({
             <span className="material-symbols-outlined text-[20px]">{icon}</span>
           </div>
         </div>
-        {note ? <p className="text-xs text-muted-foreground leading-relaxed">{note}</p> : null}
+        {note ? <p className="text-xs leading-relaxed text-muted-foreground">{note}</p> : null}
       </CardContent>
     </Card>
   );
@@ -252,9 +266,37 @@ function StatusChip({ value }: { value?: string | null }) {
   );
 }
 
+function EmphasisNumber({
+  value,
+  tone,
+}: {
+  value: string;
+  tone: 'success' | 'warning' | 'destructive' | 'info';
+}) {
+  const className =
+    tone === 'success'
+      ? 'bg-emerald-500/15 text-emerald-700 border-emerald-300/40'
+      : tone === 'warning'
+        ? 'bg-amber-500/15 text-amber-700 border-amber-300/40'
+        : tone === 'destructive'
+          ? 'bg-rose-500/15 text-rose-700 border-rose-300/40'
+          : 'bg-sky-500/15 text-sky-700 border-sky-300/40';
+
+  return (
+    <span
+      className={cn(
+        'inline-flex min-w-14 justify-center rounded-full border px-2.5 py-1 text-sm font-bold',
+        className,
+      )}
+    >
+      {value}
+    </span>
+  );
+}
+
 const resetPageState = (
   nextValue: string,
-  setValue: (value: string) => void,
+  setValue: Dispatch<SetStateAction<string>>,
   resetPages: Array<() => void>,
 ) => {
   setValue(nextValue);
@@ -270,11 +312,13 @@ export default function CoordinatorDashboardPage() {
   const [rescueStatus, setRescueStatus] = useState('');
   const [inventoryId, setInventoryId] = useState('');
   const [inventoryStatus, setInventoryStatus] = useState('');
-  const [campaignId, setCampaignId] = useState('');
+  const [selectedReliefCampaignId, setSelectedReliefCampaignId] = useState('');
   const [deliveryStatus, setDeliveryStatus] = useState('');
+  const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([]);
   const [rescuePage, setRescuePage] = useState(1);
   const [inventoryPage, setInventoryPage] = useState(1);
   const [deliveryPage, setDeliveryPage] = useState(1);
+  const [vehiclePage, setVehiclePage] = useState(1);
 
   const { station, isLoading: isLoadingStation, refetch: refetchStation } = useMyReliefStation();
   const stationKey = station?.reliefStationId ?? undefined;
@@ -282,10 +326,39 @@ export default function CoordinatorDashboardPage() {
     { reliefStationId: stationKey, pageIndex: 1, pageSize: 100 },
     { enabled: Boolean(stationKey) },
   );
+  const { teams: stationTeams, isLoading: isLoadingTeams } = useTeamsInStation(stationKey);
+  const { campaigns: stationReliefCampaigns, isLoading: isLoadingReliefCampaigns } = useCampaigns(
+    {
+      reliefStationId: stationKey,
+      type: CampaignType.Relief,
+      pageIndex: 1,
+      pageSize: 100,
+    },
+    { enabled: Boolean(stationKey) },
+  );
+
+  const activeReliefCampaigns = useMemo(
+    () =>
+      (stationReliefCampaigns || []).filter(
+        (campaign) =>
+          campaign.status === CampaignStatus.Active ||
+          campaign.status === CampaignStatus.InProgress,
+      ),
+    [stationReliefCampaigns],
+  );
+
+  const effectiveSelectedReliefCampaignId =
+    selectedReliefCampaignId ||
+    (activeReliefCampaigns.length === 1 ? activeReliefCampaigns[0].campaignId : '');
 
   const dashboardRange = useMemo<StationDashboardRange>(
-    () => ({ from: toStartOfDayIso(fromDate), to: toEndOfDayIso(toDate), groupBy }),
-    [fromDate, groupBy, toDate],
+    () => ({
+      from: toStartOfDayIso(fromDate),
+      to: toEndOfDayIso(toDate),
+      groupBy,
+      teamIds: selectedTeamIds,
+    }),
+    [fromDate, groupBy, selectedTeamIds, toDate],
   );
 
   const dashboard = useStationDashboard(dashboardRange, stationKey);
@@ -324,7 +397,11 @@ export default function CoordinatorDashboardPage() {
   );
 
   const vehicleUtilizationReport = useVehicleUtilizationReport(
-    reportRange,
+    {
+      ...reportRange,
+      pageIndex: vehiclePage,
+      pageSize: 10,
+    },
     section === 'reports' && reportTab === 'vehicle-utilization',
   );
 
@@ -342,23 +419,33 @@ export default function CoordinatorDashboardPage() {
   const reliefDeliveriesReport = useReliefDeliveriesReport(
     {
       ...reportRange,
-      campaignId: campaignId || undefined,
+      campaignId: effectiveSelectedReliefCampaignId || undefined,
       status: deliveryStatus || undefined,
       pageIndex: deliveryPage,
       pageSize: 20,
     },
-    section === 'reports' && reportTab === 'relief-deliveries' && Boolean(campaignId),
+    section === 'reports' && reportTab === 'relief-deliveries',
+  );
+
+  const reliefMissionReport = useReliefMissionReport(
+    {
+      ...reportRange,
+      teamIds: selectedTeamIds.length > 0 ? selectedTeamIds : undefined,
+    },
+    section === 'reports',
+  );
+  const { data: selectedReliefPlanSummary } = useReliefPlanSummary(
+    effectiveSelectedReliefCampaignId,
   );
 
   const overview = dashboard.overviewQuery.data;
   const rescueStatusSummary = dashboard.rescueStatusQuery.data;
   const rescueTypeSummary = dashboard.rescueTypeSummaryQuery.data;
-  const rescueLocations = dashboard.rescueLocationsQuery.data || [];
   const teamPerformance = dashboard.teamPerformanceQuery.data || [];
   const vehicleSummary = dashboard.vehicleSummaryQuery.data;
-  const alerts = dashboard.alertsQuery.data;
-  const inventorySummary = dashboard.inventorySummaryQuery.data;
   const activeDispatch = dashboard.activeDispatchQuery.data?.activeOperations || [];
+  const rescueLocationItems = dashboard.rescueLocationsQuery.data || [];
+  const reliefTeamTaskSummary = dashboard.reliefTeamTaskSummaryQuery.data || [];
 
   const rescueStatusChart = rescueStatusSummary
     ? [
@@ -391,9 +478,93 @@ export default function CoordinatorDashboardPage() {
 
   const rescueRows = (rescueRequestsReport.data?.items || []) as RescueRequestReportItem[];
   const workloadRows = (teamWorkloadReport.data || []) as TeamWorkloadReportItem[];
-  const utilizationRows = (vehicleUtilizationReport.data || []) as VehicleUtilizationReportItem[];
+  const utilizationData = (vehicleUtilizationReport.data ||
+    null) as VehicleUtilizationReportResponse | null;
+  const utilizationRows = (utilizationData?.items || []) as VehicleUtilizationReportItem[];
+  const reliefWorkloadRows = workloadRows.filter(
+    (item) =>
+      item.teamName.toLowerCase().includes('cứu trợ') ||
+      item.teamName.toLowerCase().includes('relief'),
+  );
+  const rescueWorkloadRows = workloadRows.filter((item) => !reliefWorkloadRows.includes(item));
   const stockRows = (inventoryStockReport.data?.items || []) as InventoryStockReportItem[];
   const deliveryRows = (reliefDeliveriesReport.data?.items || []) as ReliefDeliveryReportItem[];
+  const reliefMissionRows = useMemo(
+    () => (reliefMissionReport.data || []) as ReliefMissionReportRowItem[],
+    [reliefMissionReport.data],
+  );
+  const reliefMissionCampaignSummary = useMemo<ReliefMissionCampaignSummaryItem[]>(() => {
+    const summaryMap = new Map<string, ReliefMissionCampaignSummaryItem>();
+
+    for (const item of reliefMissionRows) {
+      const existing = summaryMap.get(item.campaignId);
+      if (existing) {
+        existing.teamIds.add(item.teamId);
+        existing.taskCount += 1;
+        existing.blockedTaskCount += item.campaignTaskStatus.toLowerCase().includes('blocked')
+          ? 1
+          : 0;
+        existing.totalSubTaskCount += item.totalSubTasks;
+        existing.completedSubTaskCount += item.completedSubTasks;
+        existing.inProgressSubTaskCount += item.inProgressSubTasks;
+        existing.failedSubTaskCount += item.failedSubTasks;
+        existing.cancelledSubTaskCount += item.cancelledSubTasks;
+      } else {
+        summaryMap.set(item.campaignId, {
+          campaignId: item.campaignId,
+          campaignName: item.campaignName,
+          campaignStatus: item.campaignStatus,
+          teamCount: 1,
+          taskCount: 1,
+          blockedTaskCount: item.campaignTaskStatus.toLowerCase().includes('blocked') ? 1 : 0,
+          totalSubTaskCount: item.totalSubTasks,
+          completedSubTaskCount: item.completedSubTasks,
+          inProgressSubTaskCount: item.inProgressSubTasks,
+          failedSubTaskCount: item.failedSubTasks,
+          cancelledSubTaskCount: item.cancelledSubTasks,
+          teamIds: new Set([item.teamId]),
+        });
+      }
+    }
+
+    return Array.from(summaryMap.values())
+      .map((item) => ({ ...item, teamCount: item.teamIds.size }))
+      .sort((a, b) => b.completedSubTaskCount - a.completedSubTaskCount);
+  }, [reliefMissionRows]);
+
+  const teamOptions = useMemo(
+    () =>
+      (stationTeams || []).map((team) => ({
+        label: team.name,
+        value: team.teamId,
+        note: team.teamTypeName || 'Chưa rõ',
+      })),
+    [stationTeams],
+  );
+
+  const reliefCampaignOptions = useMemo(
+    () =>
+      (stationReliefCampaigns || []).map((campaign) => ({
+        label: campaign.name,
+        value: campaign.campaignId,
+        note: getCampaignStatusLabel(campaign.status),
+      })),
+    [stationReliefCampaigns],
+  );
+
+  const selectedTeamLabel =
+    selectedTeamIds.length === 0
+      ? 'Tất cả đội trong trạm'
+      : selectedTeamIds.length === 1
+        ? teamOptions.find((option) => option.value === selectedTeamIds[0])?.label ||
+          '1 đội đã chọn'
+        : `${selectedTeamIds.length} đội đã chọn`;
+
+  const toggleTeamFilter = (teamId: string) => {
+    setSelectedTeamIds((current) =>
+      current.includes(teamId) ? current.filter((id) => id !== teamId) : [...current, teamId],
+    );
+  };
 
   const isDashboardLoading =
     isLoadingStation ||
@@ -478,439 +649,77 @@ export default function CoordinatorDashboardPage() {
               <LoadingGrid count={6} />
             ) : (
               <>
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
-                  <MetricCard
-                    title="Chờ cứu hộ"
-                    value={formatNumberVN(overview?.pendingRescueRequests || 0)}
-                    note="Yêu cầu chưa xử lý trong trạm"
-                    icon="local_police"
-                    tone="warning"
-                  />
-                  <MetricCard
-                    title="Đang cứu hộ"
-                    value={formatNumberVN(overview?.inProgressRescueRequests || 0)}
-                    note="Các yêu cầu đang được đội xử lý"
-                    icon="route"
-                    tone="info"
-                  />
-                  <MetricCard
-                    title="Đội hoạt động"
-                    value={formatNumberVN(overview?.activeTeams || 0)}
-                    note="Đội đang trực hoặc có batch hoạt động"
-                    icon="groups"
-                    tone="success"
-                  />
-                  <MetricCard
-                    title="Xe sẵn sàng"
-                    value={formatNumberVN(overview?.availableVehicles || 0)}
-                    note="Phương tiện có thể điều động ngay"
-                    icon="local_shipping"
-                    tone="success"
-                  />
-                  <MetricCard
-                    title="Thông báo chưa đọc"
-                    value={formatNumberVN(overview?.unreadNotifications || 0)}
-                    note="Tin nhắn và cảnh báo cần kiểm tra"
-                    icon="notifications"
-                    tone="warning"
-                  />
-                  <MetricCard
-                    title="Tồn kho thấp"
-                    value={formatNumberVN(overview?.lowStockItems || 0)}
-                    note="Số vật tư cần xem lại"
-                    icon="inventory_2"
-                    tone="destructive"
-                  />
-                </div>
+                <CoordinatorDashboardOverviewSection
+                  metricCards={[
+                    {
+                      title: 'Chờ cứu hộ',
+                      value: formatNumberVN(overview?.pendingRescueRequests || 0),
+                      note: 'Số yêu cầu cứu hộ đang chờ trạm tiếp nhận và xử lý.',
+                      icon: 'local_police',
+                      tone: 'warning',
+                    },
+                    {
+                      title: 'Đang cứu hộ',
+                      value: formatNumberVN(overview?.inProgressRescueRequests || 0),
+                      note: 'Các yêu cầu đang được đội cứu hộ của trạm xử lý.',
+                      icon: 'route',
+                      tone: 'info',
+                    },
+                    {
+                      title: 'Đội hoạt động',
+                      value: formatNumberVN(overview?.activeTeams || 0),
+                      note: 'Số đội đang trực hoặc đang tham gia nhiệm vụ hiện tại.',
+                      icon: 'groups',
+                      tone: 'success',
+                    },
+                    {
+                      title: 'Xe sẵn sàng',
+                      value: formatNumberVN(overview?.availableVehicles || 0),
+                      note: 'Phương tiện có thể điều động ngay cho nhiệm vụ cứu hộ, cứu trợ.',
+                      icon: 'local_shipping',
+                      tone: 'success',
+                    },
+                    {
+                      title: 'Thông báo chưa xem',
+                      value: formatNumberVN(overview?.unreadNotifications || 0),
+                      note: 'Thông báo, cảnh báo và cập nhật vận hành chưa được mở xem.',
+                      icon: 'notifications',
+                      tone: 'warning',
+                    },
+                    {
+                      title: 'Tồn kho thấp',
+                      value: formatNumberVN(overview?.lowStockItems || 0),
+                      note: 'Số vật tư đang ở mức thấp và cần theo dõi hoặc bổ sung thêm.',
+                      icon: 'inventory_2',
+                      tone: 'destructive',
+                    },
+                  ]}
+                  rescueStatusChart={rescueStatusChart}
+                  rescueTypeChart={rescueTypeChart}
+                  rescueLocationItems={rescueLocationItems}
+                  isRescueLocationsLoading={dashboard.rescueLocationsQuery.isLoading}
+                  vehicleTypeChart={vehicleTypeChart}
+                  totalVehicles={vehicleSummary?.total || 0}
+                  activeDispatch={activeDispatch}
+                  teamTable={teamTable}
+                  chartColors={chartColors}
+                  formatNumberVN={formatNumberVN}
+                  formatDateTime={formatDateTime}
+                  translateTeamTypeLabel={translateTeamTypeLabel}
+                  renderMetricCard={(props) => <MetricCard {...props} />}
+                  renderStatusChip={(value) => <StatusChip value={value} />}
+                />
 
-                <div className="grid gap-6 xl:grid-cols-4">
-                  <Card className="border-border bg-card xl:col-span-1">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="flex items-center gap-2 text-base font-bold">
-                        <span className="material-symbols-outlined text-sky-600">donut_small</span>
-                        Tình trạng yêu cầu cứu hộ
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      {rescueStatusChart.length > 0 ? (
-                        <div className="h-[260px]">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                              <Pie
-                                data={rescueStatusChart}
-                                dataKey="value"
-                                nameKey="name"
-                                innerRadius={62}
-                                outerRadius={96}
-                                paddingAngle={3}
-                              >
-                                {rescueStatusChart.map((entry, index) => (
-                                  <Cell
-                                    key={entry.name}
-                                    fill={chartColors[index % chartColors.length]}
-                                  />
-                                ))}
-                              </Pie>
-                              <RechartsTooltip />
-                            </PieChart>
-                          </ResponsiveContainer>
-                        </div>
-                      ) : (
-                        <EmptyState
-                          title="Chưa có dữ liệu"
-                          description="Biểu đồ sẽ hiển thị khi API trả dữ liệu."
-                        />
-                      )}
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        {rescueStatusChart.map((item, index) => (
-                          <div
-                            key={item.name}
-                            className="flex items-center gap-2 rounded-xl border border-border px-3 py-2"
-                          >
-                            <span
-                              className="size-3 rounded-full"
-                              style={{ backgroundColor: chartColors[index % chartColors.length] }}
-                            />
-                            <span className="text-muted-foreground">{item.name}</span>
-                            <span className="ml-auto font-semibold text-foreground">
-                              {formatNumberVN(item.value)}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="border-border bg-card xl:col-span-1">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="flex items-center gap-2 text-base font-bold">
-                        <span className="material-symbols-outlined text-emerald-600">category</span>
-                        Loại yêu cầu cứu hộ
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      {rescueTypeChart.length > 0 ? (
-                        <div className="h-[260px]">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                              <Pie
-                                data={rescueTypeChart}
-                                dataKey="value"
-                                nameKey="name"
-                                innerRadius={62}
-                                outerRadius={96}
-                                paddingAngle={3}
-                              >
-                                {rescueTypeChart.map((entry, index) => (
-                                  <Cell
-                                    key={entry.name}
-                                    fill={chartColors[index % chartColors.length]}
-                                  />
-                                ))}
-                              </Pie>
-                              <RechartsTooltip />
-                            </PieChart>
-                          </ResponsiveContainer>
-                        </div>
-                      ) : (
-                        <EmptyState
-                          title="Chưa có dữ liệu"
-                          description="Biểu đồ sẽ hiển thị khi API trả dữ liệu."
-                        />
-                      )}
-                      <div className="grid grid-cols-1 gap-2 text-xs">
-                        {rescueTypeChart.map((item, index) => (
-                          <div
-                            key={item.name}
-                            className="flex items-center gap-2 rounded-xl border border-border px-3 py-2"
-                          >
-                            <span
-                              className="size-3 rounded-full"
-                              style={{ backgroundColor: chartColors[index % chartColors.length] }}
-                            />
-                            <span className="text-muted-foreground">{item.name}</span>
-                            <span className="ml-auto font-semibold text-foreground">
-                              {formatNumberVN(item.value)}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <RescueRequestLocationsMapCard items={rescueLocations} isLoading={false} />
-                </div>
-
-                <div className="grid gap-6 xl:grid-cols-3">
-                  <Card className="border-border bg-card xl:col-span-1">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="flex items-center gap-2 text-base font-bold">
-                        <span className="material-symbols-outlined text-violet-600">
-                          local_shipping
-                        </span>
-                        Loại xe và số lượng
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      {vehicleTypeChart.length > 0 ? (
-                        <div className="space-y-4">
-                          <div className="h-[320px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                              <BarChart
-                                data={vehicleTypeChart}
-                                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-                              >
-                                <CartesianGrid
-                                  strokeDasharray="3 3"
-                                  vertical={false}
-                                  stroke="#e2e8f0"
-                                />
-                                <XAxis
-                                  dataKey="name"
-                                  tick={{ fontSize: 12, fill: '#64748b' }}
-                                  axisLine={false}
-                                  tickLine={false}
-                                />
-                                <YAxis
-                                  tick={{ fontSize: 12, fill: '#64748b' }}
-                                  axisLine={false}
-                                  tickLine={false}
-                                />
-                                <RechartsTooltip cursor={{ fill: '#f1f5f9' }} />
-                                <Legend
-                                  iconType="circle"
-                                  wrapperStyle={{ fontSize: 12, paddingTop: 10 }}
-                                />
-                                <Bar
-                                  dataKey="available"
-                                  name="Sẵn sàng"
-                                  fill="#14b8a6"
-                                  radius={[4, 4, 0, 0]}
-                                  maxBarSize={30}
-                                />
-                                <Bar
-                                  dataKey="busy"
-                                  name="Đang bận"
-                                  fill="#f59e0b"
-                                  radius={[4, 4, 0, 0]}
-                                  maxBarSize={30}
-                                />
-                              </BarChart>
-                            </ResponsiveContainer>
-                          </div>
-                          <div className="grid grid-cols-1 gap-2 text-xs">
-                            {vehicleTypeChart.map((item) => (
-                              <div
-                                key={item.name}
-                                className="flex items-center gap-2 rounded-xl border border-border px-3 py-2"
-                              >
-                                <span className="material-symbols-outlined text-sm text-muted-foreground">
-                                  directions_car
-                                </span>
-                                <span className="text-muted-foreground">
-                                  {item.name} - {formatNumberVN(item.total)} xe
-                                </span>
-                                <span className="ml-auto font-semibold text-foreground">
-                                  Sẵn sàng {formatNumberVN(item.available)} / Bận{' '}
-                                  {formatNumberVN(item.busy)}
-                                </span>
-                              </div>
-                            ))}
-                            <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/20 px-3 py-2">
-                              <span className="material-symbols-outlined text-sm text-muted-foreground">
-                                garage
-                              </span>
-                              <span className="text-muted-foreground">Tổng xe trong trạm</span>
-                              <span className="ml-auto font-semibold text-foreground">
-                                {formatNumberVN(vehicleSummary?.total || 0)}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <EmptyState
-                          title="Chưa có dữ liệu"
-                          description="Không có dữ liệu loại xe trong trạm."
-                        />
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  <Card className="border-border bg-card xl:col-span-1">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="flex items-center gap-2 text-base font-bold">
-                        <span className="material-symbols-outlined text-amber-600">warning</span>
-                        Cảnh báo trạm
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      {alerts ? (
-                        <>
-                          <div className="rounded-2xl border border-border bg-muted/20 p-4 flex items-start gap-3">
-                            <span className="material-symbols-outlined text-2xl text-sky-600">
-                              notifications
-                            </span>
-                            <div>
-                              <p className="font-semibold text-foreground">Thông báo chưa đọc</p>
-                              <p className="text-sm text-muted-foreground">
-                                {formatNumberVN(alerts.unreadNotifications)} tin chưa mở
-                              </p>
-                            </div>
-                          </div>
-                          <div className="rounded-2xl border border-border bg-muted/20 p-4 flex items-start gap-3">
-                            <span className="material-symbols-outlined text-2xl text-amber-600">
-                              group_add
-                            </span>
-                            <div>
-                              <p className="font-semibold text-foreground">
-                                Tình nguyện viên chờ duyệt
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                {formatNumberVN(alerts.pendingVolunteerApplications)} hồ sơ
-                              </p>
-                            </div>
-                          </div>
-                          <div className="rounded-2xl border border-border bg-muted/20 p-4 flex items-start gap-3">
-                            <span className="material-symbols-outlined text-2xl text-rose-600">
-                              inventory_2
-                            </span>
-                            <div>
-                              <p className="font-semibold text-foreground">Vật tư khẩn</p>
-                              <p className="text-sm text-muted-foreground">
-                                {formatNumberVN(alerts.criticalStockItems)} mục cần xử lý
-                              </p>
-                            </div>
-                          </div>
-                        </>
-                      ) : null}
-
-                      {inventorySummary?.topCriticalItems?.length ? (
-                        <div className="space-y-3 pt-2">
-                          <p className="text-sm font-semibold text-foreground">
-                            Mặt hàng cần restock
-                          </p>
-                          {inventorySummary.topCriticalItems.map((item: CriticalStockItem) => (
-                            <div
-                              key={item.supplyItemId}
-                              className="rounded-2xl border border-border bg-background p-4"
-                            >
-                              <p className="font-semibold text-foreground">{item.supplyItemName}</p>
-                              <p className="text-sm text-muted-foreground">
-                                Còn {formatNumberVN(item.currentQuantity)} / mức tối thiểu{' '}
-                                {formatNumberVN(item.minimumStockLevel)}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      ) : null}
-                    </CardContent>
-                  </Card>
-
-                  <Card className="border-border bg-card xl:col-span-1">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="flex items-center gap-2 text-base font-bold">
-                        <span className="material-symbols-outlined text-primary">route</span>
-                        Điều phối đang hoạt động
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      {activeDispatch.length > 0 ? (
-                        <div className="space-y-3 max-h-[320px] overflow-y-auto pr-1">
-                          {activeDispatch.map((item: ActiveDispatchItem) => (
-                            <div
-                              key={item.operationId}
-                              className="rounded-2xl border border-border bg-muted/20 p-4 space-y-3"
-                            >
-                              <div className="flex items-start justify-between gap-3">
-                                <div>
-                                  <p className="font-semibold text-foreground">{item.teamName}</p>
-                                  <p className="text-sm text-muted-foreground">
-                                    {item.address || 'Chưa có địa chỉ'}
-                                  </p>
-                                </div>
-                                <StatusChip value={item.status} />
-                              </div>
-                              <div className="flex flex-wrap gap-2 text-xs">
-                                {item.vehicles.map((vehicle: ActiveDispatchVehicle) => (
-                                  <Badge
-                                    key={vehicle.vehicleId}
-                                    variant={vehicle.isPrimary ? 'primary' : 'outline'}
-                                    appearance="outline"
-                                    size="sm"
-                                    className="gap-1.5"
-                                  >
-                                    <span className="material-symbols-outlined text-[11px]">
-                                      local_shipping
-                                    </span>
-                                    {vehicle.vehicleName || 'Xe'}
-                                  </Badge>
-                                ))}
-                              </div>
-                              <p className="text-xs text-muted-foreground">
-                                Cập nhật: {formatDateTime(item.lastTrackedAt)}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <EmptyState
-                          title="Không có chiến dịch đang hoạt động"
-                          description="Khi có điều phối thực tế, danh sách sẽ hiển thị tại đây."
-                        />
-                      )}
-                    </CardContent>
-                  </Card>
-                </div>
-
-                <Card className="border-border bg-card">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="flex items-center gap-2 text-base font-bold">
-                      <span className="material-symbols-outlined text-cyan-600">groups</span>
-                      Hiệu quả đội
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {teamTable.length > 0 ? (
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Đội</TableHead>
-                            <TableHead>Loại</TableHead>
-                            <TableHead className="text-right">Đã gán</TableHead>
-                            <TableHead className="text-right">Đang xử lý</TableHead>
-                            <TableHead className="text-right">Hoàn thành</TableHead>
-                            <TableHead className="text-right">Cập nhật cuối</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {teamTable.map((item) => (
-                            <TableRow key={item.teamId}>
-                              <TableCell className="font-medium">{item.teamName}</TableCell>
-                              <TableCell>{item.teamType || 'Chưa rõ'}</TableCell>
-                              <TableCell className="text-right">
-                                {formatNumberVN(item.assignedRequests)}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                {formatNumberVN(item.inProgressRequests)}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                {formatNumberVN(item.completedRequests)}
-                              </TableCell>
-                              <TableCell className="text-right text-muted-foreground">
-                                {formatDateTime(item.lastTrackedAt)}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    ) : (
-                      <EmptyState
-                        title="Chưa có đội nào"
-                        description="Bảng hiệu suất đội sẽ xuất hiện khi backend trả dữ liệu."
-                      />
-                    )}
-                  </CardContent>
-                </Card>
+                <CoordinatorReliefTeamMissionsSection
+                  items={reliefTeamTaskSummary as any}
+                  translateTeamTypeLabel={translateTeamTypeLabel}
+                  formatNumberVN={formatNumberVN}
+                  formatDateTime={formatDateTime}
+                  renderStatusChip={(value) => <StatusChip value={value} />}
+                  renderEmphasisNumber={(value, tone) => (
+                    <EmphasisNumber value={value} tone={tone} />
+                  )}
+                />
               </>
             )}
           </TabsContent>
@@ -918,78 +727,34 @@ export default function CoordinatorDashboardPage() {
           <TabsContent value="reports" className="space-y-6">
             <Card className="border-border bg-card">
               <CardContent className="p-4 md:p-5 space-y-4">
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Từ ngày
-                    </p>
-                    <Input
-                      type="date"
-                      value={fromDate}
-                      onChange={(event) =>
-                        resetPageState(event.target.value, setFromDate, [
-                          () => setRescuePage(1),
-                          () => setInventoryPage(1),
-                          () => setDeliveryPage(1),
-                        ])
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Đến ngày
-                    </p>
-                    <Input
-                      type="date"
-                      value={toDate}
-                      onChange={(event) =>
-                        resetPageState(event.target.value, setToDate, [
-                          () => setRescuePage(1),
-                          () => setInventoryPage(1),
-                          () => setDeliveryPage(1),
-                        ])
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Nhóm xu hướng
-                    </p>
-                    <Select
-                      value={groupBy}
-                      onValueChange={(value) =>
-                        setGroupBy(value as StationDashboardRange['groupBy'])
-                      }
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Chọn nhóm" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="day">Theo ngày</SelectItem>
-                        <SelectItem value="week">Theo tuần</SelectItem>
-                        <SelectItem value="month">Theo tháng</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex items-end gap-2">
-                    <Button
-                      variant="outline"
-                      className="gap-2"
-                      onClick={() => void dashboard.refetchAll()}
-                    >
-                      <span className="material-symbols-outlined text-sm">refresh</span>
-                      Làm mới dữ liệu
-                    </Button>
-                    <Button
-                      variant="primary"
-                      className="gap-2"
-                      onClick={() => setSection('dashboard')}
-                    >
-                      <span className="material-symbols-outlined text-sm">monitoring</span>
-                      Về tổng quan
-                    </Button>
-                  </div>
-                </div>
+                <CoordinatorDashboardReportControls
+                  fromDate={fromDate}
+                  toDate={toDate}
+                  groupBy={(groupBy || 'day') as 'day' | 'week' | 'month'}
+                  setGroupBy={(value) => setGroupBy(value)}
+                  setSection={setSection}
+                  onRefresh={() => void dashboard.refetchAll()}
+                  onChangeFromDate={(value) =>
+                    resetPageState(value, setFromDate, [
+                      () => setRescuePage(1),
+                      () => setInventoryPage(1),
+                      () => setDeliveryPage(1),
+                    ])
+                  }
+                  onChangeToDate={(value) =>
+                    resetPageState(value, setToDate, [
+                      () => setRescuePage(1),
+                      () => setInventoryPage(1),
+                      () => setDeliveryPage(1),
+                    ])
+                  }
+                  selectedTeamLabel={selectedTeamLabel}
+                  selectedTeamIds={selectedTeamIds}
+                  setSelectedTeamIds={setSelectedTeamIds}
+                  teamOptions={teamOptions}
+                  isLoadingTeams={isLoadingTeams}
+                  toggleTeamFilter={toggleTeamFilter}
+                />
 
                 <Tabs value={reportTab} onValueChange={(value) => setReportTab(value as ReportTab)}>
                   <TabsList
@@ -1006,7 +771,7 @@ export default function CoordinatorDashboardPage() {
 
                   <TabsContent value="rescue-requests" className="space-y-4">
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-                      <div className="space-y-2">
+                      <div className="min-w-0 space-y-2">
                         <p className="text-sm font-semibold text-foreground">Bộ lọc trạng thái</p>
                         <Select
                           value={rescueStatus || 'all'}
@@ -1016,7 +781,7 @@ export default function CoordinatorDashboardPage() {
                             ])
                           }
                         >
-                          <SelectTrigger className="w-[220px]">
+                          <SelectTrigger className="w-full min-w-0 md:w-[240px]">
                             <SelectValue placeholder="Chọn trạng thái" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1091,6 +856,37 @@ export default function CoordinatorDashboardPage() {
                   </TabsContent>
 
                   <TabsContent value="team-workload" className="space-y-4">
+                    {selectedReliefPlanSummary ? (
+                      <CoordinatorReliefPlanSummaryCard planSummary={selectedReliefPlanSummary} />
+                    ) : null}
+
+                    <CoordinatorReliefMissionCampaignSummarySection
+                      items={reliefMissionCampaignSummary}
+                      formatNumberVN={formatNumberVN}
+                      renderStatusChip={(value: string | null | undefined) => (
+                        <StatusChip value={value} />
+                      )}
+                      renderEmphasisNumber={(
+                        value: string,
+                        tone: 'success' | 'warning' | 'destructive' | 'info',
+                      ) => <EmphasisNumber value={value} tone={tone} />}
+                    />
+
+                    <CoordinatorReliefMissionReportSection
+                      isLoading={reliefMissionReport.isLoading}
+                      rows={reliefMissionRows}
+                      formatDate={formatDate}
+                      formatNumberVN={formatNumberVN}
+                      translateStatusLabel={translateStatusLabel}
+                      renderStatusChip={(value: string | null | undefined) => (
+                        <StatusChip value={value} />
+                      )}
+                      renderEmphasisNumber={(
+                        value: string,
+                        tone: 'success' | 'warning' | 'destructive' | 'info',
+                      ) => <EmphasisNumber value={value} tone={tone} />}
+                    />
+
                     {teamWorkloadReport.isLoading ? (
                       <LoadingGrid count={1} />
                     ) : teamWorkloadReport.isError ? (
@@ -1099,36 +895,11 @@ export default function CoordinatorDashboardPage() {
                         description="Thử làm mới hoặc kiểm tra lại API."
                       />
                     ) : workloadRows.length > 0 ? (
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Đội</TableHead>
-                            <TableHead className="text-right">Đã gán</TableHead>
-                            <TableHead className="text-right">Đã hoàn thành</TableHead>
-                            <TableHead className="text-right">Batch đang hoạt động</TableHead>
-                            <TableHead className="text-right">Thành viên</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {workloadRows.map((item) => (
-                            <TableRow key={item.teamId}>
-                              <TableCell className="font-medium">{item.teamName}</TableCell>
-                              <TableCell className="text-right">
-                                {formatNumberVN(item.assignedRequests)}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                {formatNumberVN(item.completedRequests)}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                {formatNumberVN(item.activeBatchCount)}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                {formatNumberVN(item.memberCount)}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
+                      <CoordinatorTeamWorkloadSection
+                        rescueRows={rescueWorkloadRows}
+                        reliefRows={reliefWorkloadRows}
+                        formatNumberVN={formatNumberVN}
+                      />
                     ) : (
                       <EmptyState
                         title="Không có dữ liệu"
@@ -1146,34 +917,44 @@ export default function CoordinatorDashboardPage() {
                         description="Kiểm tra quyền truy cập hoặc cấu hình API."
                       />
                     ) : utilizationRows.length > 0 ? (
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Phương tiện</TableHead>
-                            <TableHead>Biển số</TableHead>
-                            <TableHead className="text-right">Số lần bận</TableHead>
-                            <TableHead className="text-right">Sử dụng trong chiến dịch</TableHead>
-                            <TableHead>Trạng thái</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {utilizationRows.map((item) => (
-                            <TableRow key={item.vehicleId}>
-                              <TableCell className="font-medium">{item.vehicleName}</TableCell>
-                              <TableCell>{item.vehicleLicensePlate}</TableCell>
-                              <TableCell className="text-right">
-                                {formatNumberVN(item.busyCount)}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                {formatNumberVN(item.usedInOperations)}
-                              </TableCell>
-                              <TableCell>
-                                <StatusChip value={item.isCurrentlyBusy ? 'Busy' : 'Available'} />
-                              </TableCell>
+                      <>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Phương tiện</TableHead>
+                              <TableHead>Biển số</TableHead>
+                              <TableHead className="text-right">Số lần bận</TableHead>
+                              <TableHead className="text-right">Sử dụng trong chiến dịch</TableHead>
+                              <TableHead>Trạng thái</TableHead>
                             </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
+                          </TableHeader>
+                          <TableBody>
+                            {utilizationRows.map((item) => (
+                              <TableRow key={item.vehicleId}>
+                                <TableCell className="font-medium">{item.vehicleName}</TableCell>
+                                <TableCell>{item.vehicleLicensePlate}</TableCell>
+                                <TableCell className="text-right">
+                                  {formatNumberVN(item.busyCount)}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {formatNumberVN(item.usedInOperations)}
+                                </TableCell>
+                                <TableCell>
+                                  <StatusChip value={item.isCurrentlyBusy ? 'Busy' : 'Available'} />
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                        {utilizationData ? (
+                          <CoordinatorListPagination
+                            currentPage={utilizationData.currentPage}
+                            totalPages={utilizationData.totalPages}
+                            onPageChange={setVehiclePage}
+                            summary={`Hiển thị ${utilizationRows.length} / ${formatNumberVN(utilizationData.totalCount)} phương tiện`}
+                          />
+                        ) : null}
+                      </>
                     ) : (
                       <EmptyState
                         title="Không có dữ liệu"
@@ -1183,9 +964,9 @@ export default function CoordinatorDashboardPage() {
                   </TabsContent>
 
                   <TabsContent value="inventory-stock" className="space-y-4">
-                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                      <div className="space-y-2">
-                        <p className="text-sm font-semibold text-foreground">Inventory</p>
+                    <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                      <div className="min-w-0 space-y-2">
+                        <p className="text-sm font-semibold text-foreground">Kho vật tư</p>
                         <Select
                           value={inventoryId || 'all'}
                           onValueChange={(value) =>
@@ -1194,7 +975,7 @@ export default function CoordinatorDashboardPage() {
                             ])
                           }
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className="w-full min-w-0">
                             <SelectValue placeholder="Chọn kho" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1210,7 +991,7 @@ export default function CoordinatorDashboardPage() {
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="space-y-2">
+                      <div className="min-w-0 space-y-2">
                         <p className="text-sm font-semibold text-foreground">Trạng thái kho</p>
                         <Select
                           value={inventoryStatus || 'all'}
@@ -1220,7 +1001,7 @@ export default function CoordinatorDashboardPage() {
                             ])
                           }
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className="w-full min-w-0">
                             <SelectValue placeholder="Chọn trạng thái" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1291,20 +1072,39 @@ export default function CoordinatorDashboardPage() {
                   </TabsContent>
 
                   <TabsContent value="relief-deliveries" className="space-y-4">
-                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                      <div className="space-y-2">
-                        <p className="text-sm font-semibold text-foreground">Campaign ID</p>
-                        <Input
-                          value={campaignId}
-                          onChange={(event) =>
-                            resetPageState(event.target.value, setCampaignId, [
-                              () => setDeliveryPage(1),
-                            ])
+                    <div className="grid gap-3 md:grid-cols-[minmax(0,2fr)_minmax(220px,1fr)] xl:grid-cols-[minmax(0,2fr)_minmax(240px,1fr)]">
+                      <div className="min-w-0 space-y-2">
+                        <p className="text-sm font-semibold text-foreground">Chiến dịch cứu trợ</p>
+                        <Select
+                          value={effectiveSelectedReliefCampaignId || 'all'}
+                          onValueChange={(value) =>
+                            resetPageState(
+                              value === 'all' ? '' : value,
+                              setSelectedReliefCampaignId,
+                              [() => setDeliveryPage(1)],
+                            )
                           }
-                          placeholder="Nhập campaignId"
-                        />
+                        >
+                          <SelectTrigger className="w-full min-w-0">
+                            <SelectValue placeholder="Chọn chiến dịch cứu trợ" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Tất cả chiến dịch cứu trợ của trạm</SelectItem>
+                            {isLoadingReliefCampaigns ? (
+                              <SelectItem value="loading-campaigns" disabled>
+                                Đang tải danh sách chiến dịch...
+                              </SelectItem>
+                            ) : (
+                              reliefCampaignOptions.map((campaign) => (
+                                <SelectItem key={campaign.value} value={campaign.value}>
+                                  {campaign.label} - {campaign.note}
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
                       </div>
-                      <div className="space-y-2">
+                      <div className="min-w-0 space-y-2">
                         <p className="text-sm font-semibold text-foreground">Trạng thái</p>
                         <Select
                           value={deliveryStatus || 'all'}
@@ -1314,7 +1114,7 @@ export default function CoordinatorDashboardPage() {
                             ])
                           }
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className="w-full min-w-0">
                             <SelectValue placeholder="Chọn trạng thái" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1328,59 +1128,30 @@ export default function CoordinatorDashboardPage() {
                       </div>
                     </div>
 
-                    {!campaignId ? (
-                      <EmptyState
-                        title="Cần campaignId"
-                        description="Nhập mã chiến dịch để xem bảng giao cứu trợ."
-                      />
-                    ) : reliefDeliveriesReport.isLoading ? (
+                    {activeReliefCampaigns.length === 1 ? (
+                      <div className="rounded-2xl border border-emerald-200/60 bg-emerald-50/60 px-4 py-3 text-sm text-emerald-800">
+                        Đã tự động chọn chiến dịch cứu trợ đang hoạt động của trạm:{' '}
+                        <span className="font-semibold">{activeReliefCampaigns[0].name}</span>
+                      </div>
+                    ) : null}
+
+                    {reliefDeliveriesReport.isLoading ? (
                       <LoadingGrid count={1} />
                     ) : reliefDeliveriesReport.isError ? (
                       <EmptyState
                         title="Không tải được báo cáo giao cứu trợ"
-                        description="Kiểm tra campaignId hoặc quyền truy cập API."
+                        description="Kiểm tra bộ lọc chiến dịch hoặc quyền truy cập API."
                       />
-                    ) : deliveryRows.length > 0 ? (
-                      <>
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Mã hộ</TableHead>
-                              <TableHead>Chủ hộ</TableHead>
-                              <TableHead>Địa chỉ</TableHead>
-                              <TableHead>Đội</TableHead>
-                              <TableHead>Phương thức</TableHead>
-                              <TableHead>Trạng thái</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {deliveryRows.map((item) => (
-                              <TableRow key={`${item.householdCode}-${item.headOfHouseholdName}`}>
-                                <TableCell className="font-medium">{item.householdCode}</TableCell>
-                                <TableCell>{item.headOfHouseholdName}</TableCell>
-                                <TableCell>{item.address}</TableCell>
-                                <TableCell>{item.teamName || 'Chưa gán'}</TableCell>
-                                <TableCell>{translateStatusLabel(item.deliveryMode)}</TableCell>
-                                <TableCell>
-                                  <StatusChip value={item.fulfillmentStatus} />
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                        {reliefDeliveriesReport.data ? (
-                          <CoordinatorListPagination
-                            currentPage={reliefDeliveriesReport.data.currentPage}
-                            totalPages={reliefDeliveriesReport.data.totalPages}
-                            onPageChange={setDeliveryPage}
-                            summary={`Hiển thị ${deliveryRows.length} / ${formatNumberVN(reliefDeliveriesReport.data.totalCount)} bản ghi`}
-                          />
-                        ) : null}
-                      </>
                     ) : (
-                      <EmptyState
-                        title="Không có dữ liệu"
-                        description="Báo cáo giao cứu trợ sẽ hiển thị khi API có kết quả."
+                      <CoordinatorReliefDeliveriesSection
+                        rows={deliveryRows}
+                        pagination={reliefDeliveriesReport.data ?? null}
+                        onPageChange={setDeliveryPage}
+                        translateDeliveryModeLabel={translateDeliveryModeLabel}
+                        renderStatusChip={(value: string | null | undefined) => (
+                          <StatusChip value={value} />
+                        )}
+                        formatNumberVN={formatNumberVN}
                       />
                     )}
                   </TabsContent>
