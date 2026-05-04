@@ -404,8 +404,7 @@ export default function AdminDashboardPage() {
               <h1 className="mt-3 text-3xl font-black text-primary">Tổng quan điều hành</h1>
               <p className="text-muted-foreground mt-2 max-w-3xl">
                 Theo dõi chiến dịch, yêu cầu cứu hộ, dòng tiền, tồn kho, đội ứng cứu và hoạt động
-                vận hành của toàn hệ thống. Khi có report API riêng, chỉ cần sửa trong hook tổng hợp
-                là gần như xong toàn bộ dashboard.
+                vận hành của toàn hệ thống.
               </p>
             </div>
 
