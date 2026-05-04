@@ -1,5 +1,9 @@
 import { useQueries } from '@tanstack/react-query';
-import { campaignService, type CampaignSummary } from '@/services/campaignService';
+import {
+  campaignService,
+  type AdminTopTeamItem,
+  type CampaignSummary,
+} from '@/services/campaignService';
 import { fundService } from '@/services/fundService';
 import { rescueRequestService, type RescueRequestItem } from '@/services/rescueRequestService';
 import { teamService, type Team } from '@/services/teamService';
@@ -25,6 +29,20 @@ import { formatNumberVN } from '@/lib/utils';
 export type AdminDashboardTimeRange = '7d' | '30d' | '12m';
 export type ChartPoint = { name: string; value: number };
 export type VisitorPoint = { name: string; visits: number };
+export interface AdminDashboardTopTeamFilters {
+  campaignId?: string;
+  teamId?: string;
+}
+
+export interface AdminDashboardTeamFilterOption {
+  id: string;
+  name: string;
+}
+
+const TEAM_TYPE_BADGE_CLASS: Record<string, string> = {
+  Rescue: 'bg-red-100 text-red-700',
+  Relief: 'bg-emerald-100 text-emerald-700',
+};
 
 const ensureArray = <T>(value: unknown): T[] => {
   if (Array.isArray(value)) return value as T[];
@@ -306,7 +324,10 @@ function groupRequestsByTime(
   return buckets.map(({ name, visits }) => ({ name, visits }));
 }
 
-export function useAdminDashboardOverview(range: AdminDashboardTimeRange) {
+export function useAdminDashboardOverview(
+  range: AdminDashboardTimeRange,
+  filters: AdminDashboardTopTeamFilters = {},
+) {
   const overviewQueries = useQueries({
     queries: [
       {
@@ -403,33 +424,31 @@ export function useAdminDashboardOverview(range: AdminDashboardTimeRange) {
     supplyItemsQuery,
   ] = overviewQueries;
 
-  const activeCampaignTeamQueries = useQueries({
-    queries: ((campaignsQuery.data?.items || []) as CampaignSummary[])
-      .filter((campaign) =>
-        (
-          [
-            CampaignStatus.Active,
-            CampaignStatus.ReadyToExecute,
-            CampaignStatus.InProgress,
-            CampaignStatus.Closing,
-          ] as number[]
-        ).includes(parseEnumValue(campaign.status)),
-      )
-      .slice(0, 20)
-      .map((campaign) => ({
-        queryKey: ['admin-dashboard', 'campaign-teams', campaign.campaignId],
+  const adminTaskAggregateQuery = useQueries({
+    queries: [
+      {
+        queryKey: ['admin-dashboard', 'top-teams', range],
         queryFn: async () => {
-          try {
-            return (await campaignService.getTeams(campaign.campaignId)).data;
-          } catch {
-            // Some active campaigns do not expose team list yet; keep widget stable.
-            return [];
-          }
+          const now = new Date();
+          const from = new Date(now);
+          if (range === '7d') from.setDate(now.getDate() - 7);
+          else if (range === '30d') from.setDate(now.getDate() - 30);
+          else from.setFullYear(now.getFullYear() - 1);
+
+          return (
+            await campaignService.getAdminTopTeams({
+              from: from.toISOString(),
+              to: now.toISOString(),
+              campaignId: filters.campaignId,
+              teamId: filters.teamId,
+              top: 4,
+            })
+          ).data;
         },
         ...DEFAULT_QUERY_OPTIONS,
-        enabled: !!campaign.campaignId,
-      })),
-  });
+      },
+    ],
+  })[0];
 
   const isLoading = overviewQueries.some((query) => query.isLoading);
   const hasError = overviewQueries.some((query) => query.isError);
@@ -555,48 +574,52 @@ export function useAdminDashboardOverview(range: AdminDashboardTimeRange) {
 
   const requestByTime = groupRequestsByTime(rescueRequests, range);
 
-  const activeCampaignTeams = activeCampaignTeamQueries.flatMap((query) =>
-    ensureArray<any>(query.data),
-  );
-  const activeCampaignTeamMap = new Map<
-    string,
-    { campaignCount: number; teamName: string; memberCount: number }
-  >();
-  activeCampaignTeams.forEach((team: any) => {
-    const current = activeCampaignTeamMap.get(team.teamId);
-    if (current) {
-      current.campaignCount += 1;
-      current.memberCount = Math.max(current.memberCount, Number(team.memberCount || 0));
-      return;
-    }
-    activeCampaignTeamMap.set(team.teamId, {
-      campaignCount: 1,
-      teamName: team.teamName || 'Đội phản ứng',
-      memberCount: Number(team.memberCount || 0),
-    });
-  });
-
-  const topTeams = Array.from(activeCampaignTeamMap.entries())
-    .map(([teamId, summary]) => {
-      const matchedTeam = teams.find((team) => team.teamId === teamId);
-      return {
-        id: teamId,
-        name: summary.teamName,
-        role:
-          matchedTeam?.teamTypeName ||
-          matchedTeam?.leaderName ||
-          matchedTeam?.moderatorName ||
-          'Đội đang hoạt động trong chiến dịch',
-        statusLabel: `${summary.campaignCount} chiến dịch đang hoạt động`,
-        memberCount: summary.memberCount || Number(matchedTeam?.totalMembers || 0),
-        note: matchedTeam
-          ? `Cập nhật ${formatDateVN(matchedTeam.updatedAt || matchedTeam.createdAt)}`
+  const topTeams = ensureArray<AdminTopTeamItem>(adminTaskAggregateQuery.data).map((item) => ({
+    id: item.teamId,
+    name: item.teamName,
+    role: item.teamType === 'Rescue' ? 'Đội cứu hộ cơ động' : 'Đội cứu trợ chiến dịch',
+    badgeLabel:
+      item.teamType === 'Rescue'
+        ? 'Cứu hộ'
+        : item.teamType === 'Relief'
+          ? 'Cứu trợ'
+          : item.teamType,
+    badgeClassName: TEAM_TYPE_BADGE_CLASS[item.teamType] || 'bg-slate-100 text-slate-700',
+    statusLabel:
+      item.teamType === 'Rescue'
+        ? `${item.completedRescueRequestCount}/${item.assignedRescueRequestCount} yêu cầu cứu hộ hoàn tất`
+        : `${item.completedMemberTaskCount} việc hoàn tất • ${item.inProgressMemberTaskCount} việc đang chạy`,
+    memberCount: item.teamMemberCount,
+    campaignName: item.teamType === 'Relief' ? item.campaignName : undefined,
+    taskSummary:
+      item.teamType === 'Relief'
+        ? `${item.taskCount} nhiệm vụ chính • ${item.memberTaskCount} đầu việc được phân công`
+        : undefined,
+    rescueSummary:
+      item.teamType === 'Rescue' &&
+      (item.assignedRescueRequestCount > 0 || item.completedRescueRequestCount > 0)
+        ? `${item.completedRescueRequestCount}/${item.assignedRescueRequestCount} yêu cầu cứu hộ hoàn tất`
+        : undefined,
+    topContributor: item.topVolunteerName
+      ? `${item.topVolunteerName} • ${item.topVolunteerScore} điểm đóng góp`
+      : undefined,
+    note: item.topVolunteerName
+      ? `Nổi bật nhất: ${item.topVolunteerName} • ${item.topVolunteerScore} điểm đóng góp`
+      : item.completedRescueRequestCount > 0
+        ? `Đã xử lý ${item.completedRescueRequestCount} yêu cầu cứu hộ`
+        : item.latestTaskDate
+          ? `Cập nhật ${formatDateVN(item.latestTaskDate)}`
           : 'Đang tham gia chiến dịch cứu trợ',
-        tone: 'ready' as const,
-      };
-    })
-    .sort((a, b) => b.memberCount - a.memberCount)
-    .slice(0, 4);
+    tone: 'ready' as const,
+    impactScore: item.impactScore,
+  }));
+
+  const teamFilterOptions: AdminDashboardTeamFilterOption[] = teams
+    .map((team) => ({
+      id: team.teamId,
+      name: team.name || 'Đội phản ứng',
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
 
   const inventoryStats = [
     {
@@ -770,11 +793,11 @@ export function useAdminDashboardOverview(range: AdminDashboardTimeRange) {
       retry: () => rescueRequestsQuery.refetch(),
     },
     teamOverview: {
-      isLoading: teamsQuery.isLoading || activeCampaignTeamQueries.some((query) => query.isLoading),
-      isError: teamsQuery.isError || activeCampaignTeamQueries.some((query) => query.isError),
+      isLoading: teamsQuery.isLoading || adminTaskAggregateQuery.isLoading,
+      isError: teamsQuery.isError || adminTaskAggregateQuery.isError,
       retry: async () => {
         await teamsQuery.refetch();
-        await Promise.all(activeCampaignTeamQueries.map((query) => query.refetch()));
+        await adminTaskAggregateQuery.refetch();
       },
     },
     inventory: {
@@ -891,6 +914,7 @@ export function useAdminDashboardOverview(range: AdminDashboardTimeRange) {
     donationByRange,
     requestByTime,
     topTeams,
+    teamFilterOptions,
     inventoryStats,
     activityFeed,
     requestHighlights,

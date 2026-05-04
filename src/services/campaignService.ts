@@ -270,6 +270,65 @@ export interface CampaignTaskDetailItem extends CampaignTaskSummaryItem {
   }>;
 }
 
+export interface AdminCampaignTaskAggregateItem extends CampaignTaskDetailItem {
+  teamId: string;
+  teamName: string;
+  teamType: string;
+  teamMemberCount: number;
+  campaignName: string;
+  campaignStatus: string;
+}
+
+export interface AdminTopTeamItem {
+  teamId: string;
+  teamName: string;
+  teamType: string;
+  campaignId?: string | null;
+  campaignName: string;
+  teamMemberCount: number;
+  taskCount: number;
+  memberTaskCount: number;
+  completedMemberTaskCount: number;
+  inProgressMemberTaskCount: number;
+  failedMemberTaskCount: number;
+  topVolunteerName?: string | null;
+  topVolunteerScore: number;
+  latestTaskDate?: string | null;
+  assignedRescueRequestCount: number;
+  completedRescueRequestCount: number;
+  impactScore: number;
+}
+
+export interface AdminTopResponseTeamItem {
+  teamId: string;
+  teamName: string;
+  teamType: string;
+  campaignId: string;
+  campaignName: string;
+  campaignTeamId: string;
+  campaignCount: number;
+  memberCount: number;
+  totalTasks: number;
+  inProgressTasks: number;
+  completedTasks: number;
+  assignedSubTasks: number;
+  inProgressSubTasks: number;
+  completedSubTasks: number;
+  failedSubTasks: number;
+  cancelledSubTasks: number;
+  totalDeliveryCount: number;
+  deliveredDeliveryCount: number;
+  topVolunteerName?: string | null;
+  topVolunteerCompletedSubTasks: number;
+  topVolunteerInProgressSubTasks: number;
+  lastTaskUpdatedAt?: string | null;
+  impactScore: number;
+}
+
+export interface AdminTopResponseTeamsResponse {
+  data: AdminTopResponseTeamItem[];
+}
+
 export const campaignService = {
   // Create Campaign
   create: (data: CreateCampaignPayload) => apiClient.post<Campaign>('/campaigns', data),
@@ -347,6 +406,22 @@ export const campaignService = {
 
   getCampaignTaskDetail: (campaignTaskId: string) =>
     apiClient.get<CampaignTaskDetailItem>(`/campaigns/tasks/${campaignTaskId}`),
+
+  getAdminTaskAggregate: (params?: {
+    from?: string;
+    to?: string;
+    teamId?: string;
+    campaignId?: string;
+  }) =>
+    apiClient.get<AdminCampaignTaskAggregateItem[]>('/campaigns/admin/task-aggregate', { params }),
+
+  getAdminTopTeams: (params?: {
+    from?: string;
+    to?: string;
+    teamId?: string;
+    campaignId?: string;
+    top?: number;
+  }) => apiClient.get<AdminTopTeamItem[]>('/campaigns/admin/top-teams', { params }),
 
   updateCampaignVehicleAssignment: (
     id: string,
