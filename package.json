@@ -43,6 +43,7 @@
     "@tailwindcss/vite": "^4.2.2",
     "@tanstack/react-query": "^5.90.12",
     "@tanstack/react-query-devtools": "^5.91.1",
+    "@turf/turf": "^7.3.5",
     "@vercel/analytics": "^1.6.1",
     "axios": "^1.13.6",
     "centrifuge": "^5.5.3",
