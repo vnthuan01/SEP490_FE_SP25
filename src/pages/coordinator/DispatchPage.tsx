@@ -44,6 +44,7 @@ import {
   type RescueRequestPaging,
 } from '@/services/rescueRequestService';
 import { cn } from '@/lib/utils';
+import { buffer, lineString } from '@turf/turf';
 import {
   getPriorityLevelLabel,
   getRescueRequestTypeLabel,
@@ -118,20 +119,16 @@ function toCoordinate(lat?: number | null, lng?: number | null): Coordinate | nu
   return { lat: validLat, lng: validLng };
 }
 
-function buildRouteBufferPolygon(coords: Array<[number, number]>, radiusKm: number) {
-  if (coords.length < 2) return [];
+function buildRouteBufferGeometry(coords: Array<[number, number]>, radiusKm: number) {
+  if (coords.length < 2) return null;
 
-  const radiusDeg = radiusKm / 111;
-  const polygon: number[][] = [];
+  const routeLine = lineString(coords);
+  const buffered = buffer(routeLine, radiusKm, {
+    units: 'kilometers',
+    steps: 64,
+  });
 
-  for (const [lng, lat] of coords) polygon.push([lng - radiusDeg, lat + radiusDeg]);
-  for (let i = coords.length - 1; i >= 0; i--) {
-    const [lng, lat] = coords[i];
-    polygon.push([lng + radiusDeg, lat - radiusDeg]);
-  }
-
-  polygon.push(polygon[0]);
-  return polygon;
+  return buffered?.geometry ? buffered : null;
 }
 
 function requestBadgeClass(type?: string | number | null) {
@@ -961,16 +958,12 @@ export default function DispatchPage() {
               ? EMERGENCY_THRESHOLD_KM
               : NORMAL_THRESHOLD_KM;
 
-          const bufferPolygon = buildRouteBufferPolygon(routeCoords, thresholdKm);
+          const bufferGeometry = buildRouteBufferGeometry(routeCoords, thresholdKm);
 
-          if (bufferPolygon.length >= 4) {
+          if (bufferGeometry) {
             (map as any).addSource(BUFFER_SOURCE_ID, {
               type: 'geojson',
-              data: {
-                type: 'Feature',
-                properties: {},
-                geometry: { type: 'Polygon', coordinates: [bufferPolygon] },
-              },
+              data: bufferGeometry,
             });
 
             (map as any).addLayer({
@@ -1412,22 +1405,6 @@ export default function DispatchPage() {
                           </div>
                         ))}
                       </div>
-
-                      {preview.reasons?.length ? (
-                        <div className="rounded-2xl border border-border bg-background px-4 py-3">
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                            Lý do từ hệ thống
-                          </p>
-                          <ul className="mt-2 space-y-1 text-sm text-foreground">
-                            {preview.reasons.map((reason, index) => (
-                              <li key={`${reason}-${index}`} className="flex gap-2">
-                                <span className="mt-2 size-1.5 shrink-0 rounded-full bg-primary" />
-                                <span>{translateSystemReason(reason)}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ) : null}
                     </div>
                   )}
 
