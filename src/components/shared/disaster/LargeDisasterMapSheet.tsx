@@ -9,7 +9,10 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import type { AnalyzeDisasterRiskResponse } from '@/services/disasterAnalysisService';
+import {
+  getRiskHeadlineVN,
+  type AnalyzeDisasterRiskResponse,
+} from '@/services/disasterAnalysisService';
 
 type Theme = { color: string; light: string; cardClass: string; icon: string };
 
@@ -48,7 +51,6 @@ type Props = {
   parseWeatherConditionVN: (...args: [string | null | undefined]) => string;
   getEffectiveDisasterType: (...args: [AnalyzeDisasterRiskResponse]) => string;
   getDisasterTheme: (...args: [string | null | undefined]) => Theme;
-  getDisplayDisasterLabel: (...args: [AnalyzeDisasterRiskResponse]) => string;
   title?: string;
   description?: string;
 };
@@ -66,7 +68,6 @@ export function LargeDisasterMapSheet(props: Props) {
     parseWeatherConditionVN,
     getEffectiveDisasterType,
     getDisasterTheme,
-    getDisplayDisasterLabel,
     title = 'Dự báo thiên tai AI & Bản đồ trạm',
     description = 'Phân tích nguy cơ thiên tai do AI trong phạm vi tỉnh/thành mà trạm đang quản lý. Bấm vào marker trên bản đồ để chọn khu vực xem chi tiết.',
   } = props;
@@ -96,7 +97,7 @@ export function LargeDisasterMapSheet(props: Props) {
                       <span className="material-symbols-outlined">
                         {getDisasterTheme(getEffectiveDisasterType(selectedAnalysis)).icon}
                       </span>
-                      Chi tiết phân tích AI — {getDisplayDisasterLabel(selectedAnalysis)}
+                      Chi tiết đánh giá thời tiết & rủi ro AI
                     </CardTitle>
                     <p className="text-sm text-muted-foreground mt-1">
                       Điểm đang chọn:{' '}
@@ -104,8 +105,35 @@ export function LargeDisasterMapSheet(props: Props) {
                         {selectedAnalysis.locationName}
                       </span>
                     </p>
+                    <p className="text-xs font-semibold mt-2">
+                      {getRiskHeadlineVN(selectedAnalysis)}
+                    </p>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-xl border border-current/20 bg-white/20 dark:bg-black/10 p-3">
+                        <p className="text-xs opacity-70">Điểm rủi ro tổng hợp</p>
+                        <p className="mt-1 font-black text-xl">
+                          {Number(selectedAnalysis.heuristic?.overallRiskScore ?? 0)}/100
+                        </p>
+                        <p
+                          className={`text-xs font-semibold ${parseRiskLevelVN(selectedAnalysis.heuristic?.riskLevel).class}`}
+                        >
+                          {parseRiskLevelVN(selectedAnalysis.heuristic?.riskLevel).label}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-current/20 bg-white/20 dark:bg-black/10 p-3">
+                        <p className="text-xs opacity-70">Điều kiện thời tiết</p>
+                        <p className="mt-1 font-semibold">
+                          {parseWeatherConditionVN(selectedAnalysis.weather?.condition)}
+                        </p>
+                        <p className="text-xs opacity-70 mt-1">
+                          Độ ẩm: {selectedAnalysis.weather?.humidity}% • Gió:{' '}
+                          {selectedAnalysis.weather?.windKph?.toFixed(1)} km/h
+                        </p>
+                      </div>
+                    </div>
+
                     {(() => {
                       const currentTemp = Number(selectedAnalysis.weather?.temperatureC);
                       const safeCurrentTemp = Number.isFinite(currentTemp) ? currentTemp : null;
@@ -147,39 +175,41 @@ export function LargeDisasterMapSheet(props: Props) {
                       );
                     })()}
 
-                    {selectedAnalysis.ai?.summary?.trim() ? (
+                    <div className="rounded-xl border border-current/20 bg-white/30 dark:bg-black/10 p-4">
+                      <p className="text-xs uppercase font-semibold opacity-70 mb-2">
+                        Nhận định tạm thời từ dữ liệu
+                      </p>
+                      <ul className="space-y-1 text-sm list-disc pl-5">
+                        <li>
+                          Điểm rủi ro hiện tại:{' '}
+                          {Number(selectedAnalysis.heuristic?.overallRiskScore ?? 0)}/100
+                        </li>
+                        <li>
+                          Mưa cao nhất dự báo:{' '}
+                          {selectedAnalysis.forecast?.maxDailyPrecipMm?.toFixed(1) ?? '0.0'} mm vào{' '}
+                          {selectedAnalysis.forecast?.peakRainDate
+                            ? new Date(selectedAnalysis.forecast.peakRainDate).toLocaleDateString(
+                                'vi-VN',
+                              )
+                            : '--/--'}
+                        </li>
+                        <li>
+                          Điều kiện hiện tại:{' '}
+                          {parseWeatherConditionVN(selectedAnalysis.weather?.condition)},{' '}
+                          {selectedAnalysis.weather?.temperatureC?.toFixed(1) ?? '0.0'}°C
+                        </li>
+                      </ul>
+                    </div>
+                    {(selectedAnalysis.ai?.sections?.danhGiaTongQuan ||
+                      selectedAnalysis.ai?.summary?.trim()) && (
                       <div className="rounded-xl border border-current/20 bg-white/30 dark:bg-black/10 p-4">
                         <p className="text-xs uppercase font-semibold opacity-70 mb-2">
                           Tóm tắt từ AI
                         </p>
-                        <p className="text-sm leading-7">{selectedAnalysis.ai.summary}</p>
-                      </div>
-                    ) : (
-                      <div className="rounded-xl border border-current/20 bg-white/30 dark:bg-black/10 p-4">
-                        <p className="text-xs uppercase font-semibold opacity-70 mb-2">
-                          Nhận định tạm thời từ dữ liệu
+                        <p className="text-sm leading-7">
+                          {selectedAnalysis.ai.sections?.danhGiaTongQuan ||
+                            selectedAnalysis.ai.summary}
                         </p>
-                        <ul className="space-y-1 text-sm list-disc pl-5">
-                          <li>
-                            Điểm rủi ro hiện tại:{' '}
-                            {Number(selectedAnalysis.heuristic?.overallRiskScore ?? 0)}/100
-                          </li>
-                          <li>
-                            Mưa cao nhất dự báo:{' '}
-                            {selectedAnalysis.forecast?.maxDailyPrecipMm?.toFixed(1) ?? '0.0'} mm
-                            vào{' '}
-                            {selectedAnalysis.forecast?.peakRainDate
-                              ? new Date(selectedAnalysis.forecast.peakRainDate).toLocaleDateString(
-                                  'vi-VN',
-                                )
-                              : '--/--'}
-                          </li>
-                          <li>
-                            Điều kiện hiện tại:{' '}
-                            {parseWeatherConditionVN(selectedAnalysis.weather?.condition)},{' '}
-                            {selectedAnalysis.weather?.temperatureC?.toFixed(1) ?? '0.0'}°C
-                          </li>
-                        </ul>
                       </div>
                     )}
                     {selectedAnalysis.ai?.detailedAnalysis?.trim() && (
@@ -187,31 +217,101 @@ export function LargeDisasterMapSheet(props: Props) {
                         <p className="text-xs uppercase font-semibold opacity-70 mb-2">
                           Phân tích chi tiết
                         </p>
-                        <p className="text-sm leading-7">{selectedAnalysis.ai.detailedAnalysis}</p>
+                        <div className="space-y-3 text-sm leading-7">
+                          {selectedAnalysis.ai.sections?.hienTrangThoiTiet && (
+                            <div>
+                              <p className="font-semibold">Hiện trạng thời tiết</p>
+                              <p>{selectedAnalysis.ai.sections.hienTrangThoiTiet}</p>
+                            </div>
+                          )}
+                          {selectedAnalysis.ai.sections?.xuHuongNhieuNgay && (
+                            <div>
+                              <p className="font-semibold">Xu hướng nhiều ngày</p>
+                              <p>{selectedAnalysis.ai.sections.xuHuongNhieuNgay}</p>
+                            </div>
+                          )}
+                          {selectedAnalysis.ai.sections?.ngayTrongDiem && (
+                            <div>
+                              <p className="font-semibold">Ngày trọng điểm</p>
+                              <p>{selectedAnalysis.ai.sections.ngayTrongDiem}</p>
+                            </div>
+                          )}
+                          {selectedAnalysis.ai.sections?.yeuToRuiRo && (
+                            <div>
+                              <p className="font-semibold">Yếu tố làm tăng hoặc giảm rủi ro</p>
+                              <p>{selectedAnalysis.ai.sections.yeuToRuiRo}</p>
+                            </div>
+                          )}
+                          {selectedAnalysis.ai.sections?.tacDongVanHanh && (
+                            <div>
+                              <p className="font-semibold">Tác động vận hành</p>
+                              <p>{selectedAnalysis.ai.sections.tacDongVanHanh}</p>
+                            </div>
+                          )}
+                          {selectedAnalysis.ai.sections?.khuyenNghiTheoDoi && (
+                            <div>
+                              <p className="font-semibold">Khuyến nghị theo dõi</p>
+                              <p>{selectedAnalysis.ai.sections.khuyenNghiTheoDoi}</p>
+                            </div>
+                          )}
+                          {selectedAnalysis.ai.sections?.confidence && (
+                            <div>
+                              <p className="font-semibold">Độ tin cậy</p>
+                              <p>{selectedAnalysis.ai.sections.confidence}</p>
+                            </div>
+                          )}
+                          {!selectedAnalysis.ai.sections?.xuHuongNhieuNgay &&
+                            !selectedAnalysis.ai.sections?.ngayTrongDiem &&
+                            !selectedAnalysis.ai.sections?.khuyenNghiTheoDoi &&
+                            !selectedAnalysis.ai.sections?.confidence && (
+                              <p>{selectedAnalysis.ai.detailedAnalysis}</p>
+                            )}
+                        </div>
                       </div>
                     )}
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="rounded-xl border border-current/20 bg-white/20 dark:bg-black/10 p-3">
-                        <p className="text-xs opacity-70">Điểm rủi ro</p>
-                        <p className="mt-1 font-black text-xl">
-                          {Number(selectedAnalysis.heuristic?.overallRiskScore ?? 0)}/100
-                        </p>
-                        <p
-                          className={`text-xs font-semibold ${parseRiskLevelVN(selectedAnalysis.heuristic?.riskLevel).class}`}
-                        >
-                          {parseRiskLevelVN(selectedAnalysis.heuristic?.riskLevel).label}
-                        </p>
-                      </div>
-                      <div className="rounded-xl border border-current/20 bg-white/20 dark:bg-black/10 p-3">
-                        <p className="text-xs opacity-70">Điều kiện thời tiết</p>
-                        <p className="mt-1 font-semibold">
-                          {parseWeatherConditionVN(selectedAnalysis.weather?.condition)}
-                        </p>
-                        <p className="text-xs opacity-70 mt-1">
-                          Độ ẩm: {selectedAnalysis.weather?.humidity}% • Gió:{' '}
-                          {selectedAnalysis.weather?.windKph?.toFixed(1)} km/h
-                        </p>
-                      </div>
+                    <div className="rounded-xl border border-current/20 bg-white/30 dark:bg-black/10 p-4 space-y-3">
+                      <p className="text-xs uppercase font-semibold opacity-70">
+                        Khuyến nghị & kịch bản
+                      </p>
+                      {!!selectedAnalysis.heuristic?.potentialScenarios?.length && (
+                        <div>
+                          <p className="text-xs font-semibold mb-1">Kịch bản có thể xảy ra</p>
+                          <ul className="list-disc pl-5 text-sm space-y-1">
+                            {selectedAnalysis.heuristic.potentialScenarios.map((item, index) => (
+                              <li key={`scenario-${index}`}>{item}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {!!selectedAnalysis.heuristic?.triggerFactors?.length && (
+                        <div>
+                          <p className="text-xs font-semibold mb-1">
+                            Yếu tố kích hoạt cần theo dõi
+                          </p>
+                          <ul className="list-disc pl-5 text-sm space-y-1">
+                            {selectedAnalysis.heuristic.triggerFactors.map((item, index) => (
+                              <li key={`trigger-${index}`}>{item}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {!!selectedAnalysis.heuristic?.topThreats?.length && (
+                        <div>
+                          <p className="text-xs font-semibold mb-1">Mối đe dọa chính</p>
+                          <ul className="list-disc pl-5 text-sm space-y-1">
+                            {selectedAnalysis.heuristic.topThreats.map((item, index) => (
+                              <li key={`threat-${index}`}>{item}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {!selectedAnalysis.heuristic?.potentialScenarios?.length &&
+                        !selectedAnalysis.heuristic?.triggerFactors?.length &&
+                        !selectedAnalysis.heuristic?.topThreats?.length && (
+                          <p className="text-sm text-muted-foreground">
+                            Chưa có khuyến nghị chi tiết từ dữ liệu hiện tại.
+                          </p>
+                        )}
                     </div>
                     <div className="rounded-xl border border-current/20 bg-white/20 dark:bg-black/10 p-3">
                       <p className="text-xs opacity-70">Cập nhật lần gần nhất</p>
@@ -241,7 +341,7 @@ export function LargeDisasterMapSheet(props: Props) {
                     const theme = getDisasterTheme(getEffectiveDisasterType(analysis));
                     const riskVN = parseRiskLevelVN(analysis.heuristic?.riskLevel);
                     const isActive = analysis.analysisLogId === selectedAnalysis?.analysisLogId;
-                    const disasterTypeLabel = getDisplayDisasterLabel(analysis);
+                    const disasterTypeLabel = getRiskHeadlineVN(analysis);
                     return (
                       <button
                         key={analysis.analysisLogId}
