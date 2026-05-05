@@ -16,7 +16,6 @@ import {
   Send,
   Search,
   SearchX,
-  ShieldAlert,
   Users,
   type LucideIcon,
 } from 'lucide-react';
@@ -33,7 +32,6 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Switch, SwitchWrapper } from '@/components/ui/switch';
 import { coordinatorNavGroups } from './components/sidebarConfig';
 import { useMyReliefStation } from '@/hooks/useReliefStation';
 import { useTeamLatestTracking, useTeamsInStation } from '@/hooks/useTeams';
@@ -261,7 +259,7 @@ function translateSystemReason(reason?: string | null) {
 function actionLabel(action?: string | null) {
   switch (action) {
     case 'AssignAsInProgress':
-      return 'Chèn ngang nhiệm vụ hiện tại';
+      return 'Chèn vào hàng đợi';
     case 'AssignAndInsertQueue':
       return 'Chèn vào hàng đợi';
     case 'AssignQueueTail':
@@ -470,7 +468,6 @@ export default function DispatchPage() {
 
   const [selectedTeamId, setSelectedTeamId] = useState('');
   const [selectedRequestId, setSelectedRequestId] = useState('');
-  const [allowPreempt, setAllowPreempt] = useState(true);
   const [assignNote, setAssignNote] = useState('Điều phối theo tuyến gần nhất');
   const [search, setSearch] = useState('');
   const [activeBatch, setActiveBatch] = useState<RescueBatchQueueResponseDto | null>(null);
@@ -517,11 +514,10 @@ export default function DispatchPage() {
   const previewPayload = useMemo(
     () => ({
       teamId: selectedTeamId,
-      allowPreempt,
       normalNearRouteThresholdKm: NORMAL_THRESHOLD_KM,
       emergencyNearRouteThresholdKm: EMERGENCY_THRESHOLD_KM,
     }),
-    [selectedTeamId, allowPreempt],
+    [selectedTeamId],
   );
 
   const candidateCurrentPage = candidatePaging?.currentPage ?? candidatePage;
@@ -775,11 +771,6 @@ export default function DispatchPage() {
 
     return () => clearTimeout(timeoutId);
   }, [candidatePage, clearDispatchState, refreshDispatchData, selectedTeamId, trimmedSearch]);
-
-  useEffect(() => {
-    setPreview(null);
-    setQueueTab('current');
-  }, [allowPreempt, selectedRequestId]);
 
   const handlePreview = async () => {
     if (!selectedTeamId || !selectedRequestId) return;
@@ -1349,26 +1340,6 @@ export default function DispatchPage() {
                 </div>
 
                 <div className="space-y-4 p-5">
-                  <div className="rounded-2xl border border-border bg-primary/20 p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-primary">Cho phép chèn ngang</p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Dùng khi yêu cầu khẩn cấp nằm gần tuyến đường đội đang di chuyển.
-                        </p>
-                      </div>
-
-                      <SwitchWrapper>
-                        <Switch
-                          checked={allowPreempt}
-                          onCheckedChange={setAllowPreempt}
-                          size="lg"
-                          aria-label="Cho phép chèn ngang"
-                        />
-                      </SwitchWrapper>
-                    </div>
-                  </div>
-
                   {selectedRequestBlockReason ? (
                     <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
                       <AlertTriangle className="mt-0.5 size-4 shrink-0" />
@@ -1387,14 +1358,6 @@ export default function DispatchPage() {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {preview.willPreemptCurrentInProgress ? (
-                        <div className="rounded-2xl border border-red-300 bg-red-50 px-4 py-3">
-                          <p className="text-sm font-bold text-red-700">
-                            Đề xuất chèn ngang nhiệm vụ hiện tại
-                          </p>
-                        </div>
-                      ) : null}
-
                       <div className="rounded-2xl border border-border bg-accent/20 px-4 py-3">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                           Hành động đề xuất
@@ -1449,6 +1412,22 @@ export default function DispatchPage() {
                           </div>
                         ))}
                       </div>
+
+                      {preview.reasons?.length ? (
+                        <div className="rounded-2xl border border-border bg-background px-4 py-3">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                            Lý do từ hệ thống
+                          </p>
+                          <ul className="mt-2 space-y-1 text-sm text-foreground">
+                            {preview.reasons.map((reason, index) => (
+                              <li key={`${reason}-${index}`} className="flex gap-2">
+                                <span className="mt-2 size-1.5 shrink-0 rounded-full bg-primary" />
+                                <span>{translateSystemReason(reason)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
                     </div>
                   )}
 
@@ -1486,23 +1465,10 @@ export default function DispatchPage() {
                       size="lg"
                       disabled={isAssignBlocked}
                       onClick={handleSmartAssign}
-                      className={cn(
-                        'gap-2 rounded-xl font-bold',
-                        preview?.willPreemptCurrentInProgress
-                          ? 'bg-red-600 text-white hover:bg-red-500'
-                          : 'bg-primary text-primary-foreground hover:bg-primary/90',
-                      )}
+                      className="gap-2 rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90"
                     >
-                      {preview?.willPreemptCurrentInProgress ? (
-                        <ShieldAlert className="size-4" />
-                      ) : (
-                        <Send className="size-4" />
-                      )}
-                      {isAssigning
-                        ? 'Đang điều phối...'
-                        : preview?.willPreemptCurrentInProgress
-                          ? 'Xác nhận chèn ngang'
-                          : 'Xác nhận điều phối'}
+                      <Send className="size-4" />
+                      {isAssigning ? 'Đang điều phối...' : 'Xác nhận điều phối'}
                     </Button>
 
                     {!preview?.eligible && preview ? (
