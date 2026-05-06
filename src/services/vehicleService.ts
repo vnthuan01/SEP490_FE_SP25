@@ -190,6 +190,13 @@ export const vehicleService = {
     return Array.isArray(payload) ? payload.map(normalizeVehicle) : [];
   },
 
+  // Get supply-transfer-available vehicles for moderator at current source station
+  getAvailableForTransfer: async (): Promise<Vehicle[]> => {
+    const response = await apiClient.get('/Vehicle/available-for-transfer');
+    const payload = response.data?.data ?? response.data;
+    return Array.isArray(payload) ? payload.map(normalizeVehicle) : [];
+  },
+
   // Assign vehicle to station (manager only)
   assignStation: (id: string, stationId: string) =>
     apiClient.put<Vehicle>(`/Vehicle/${id}/assign-station/${stationId}`),

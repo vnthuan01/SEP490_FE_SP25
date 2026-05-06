@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge, BadgeDot } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
+import * as XLSX from 'xlsx';
 
 interface GoodsItem {
   id: string;
@@ -128,6 +129,24 @@ export default function DataManagementPage() {
     }
   };
 
+  const handleExportGoods = () => {
+    const rows = mockGoods.map((item) => ({
+      'Mã hàng': item.code,
+      'Tên hàng hóa': item.name,
+      'Danh mục': item.category,
+      'Đơn vị': item.unit,
+      'Mức ưu tiên': priorityConfig[item.priority].label,
+      'Trạng thái': statusBadgeConfig[item.status].label,
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'DuLieuNen');
+    XLSX.writeFile(
+      workbook,
+      `du-lieu-nen-admin-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.xlsx`,
+    );
+  };
+
   return (
     <DashboardLayout>
       {/* Page Header */}
@@ -188,7 +207,7 @@ export default function DataManagementPage() {
               <span>Lọc dữ liệu</span>
             </Button>
             <Separator orientation="vertical" className="h-6" />
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" onClick={handleExportGoods}>
               <span className="material-symbols-outlined text-[20px]">download</span>
               <span>Xuất Excel</span>
             </Button>

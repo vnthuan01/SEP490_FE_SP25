@@ -1,10 +1,12 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   supplyTransferService,
+  type AssignSupplyTransferVehiclesPayload,
   type AppendSupplyTransferEvidencesPayload,
   type CreateSupplyTransferPayload,
   type ReplaceSupplyTransferEvidenceUrlsPayload,
   type SearchSupplyTransferByStatusParams,
+  type UpdateSupplyTransferVehicleStatusPayload,
 } from '@/services/supplyTransferService';
 import { toast } from 'sonner';
 import { handleHookError } from './hookErrorUtils';
@@ -142,6 +144,69 @@ export const useCancelSupplyTransfer = createStatusMutation(
   supplyTransferService.cancel,
   'Đã huỷ phiếu chuyển hàng',
 );
+
+export function useAssignSupplyTransferVehicles() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: AssignSupplyTransferVehiclesPayload }) =>
+      supplyTransferService.assignVehicles(id, data),
+    onSuccess: (_, variables) => {
+      toast.success('Đã gán phương tiện cho phiếu chuyển hàng');
+      queryClient.invalidateQueries({ queryKey: SUPPLY_TRANSFER_KEYS.all });
+      queryClient.invalidateQueries({ queryKey: SUPPLY_TRANSFER_KEYS.detail(variables.id) });
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+    },
+    onError: (error: any) => {
+      handleHookError(error, 'Không thể gán phương tiện cho phiếu chuyển hàng');
+    },
+  });
+}
+
+export function useRemoveSupplyTransferVehicle() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      supplyTransferVehicleId,
+    }: {
+      id: string;
+      supplyTransferVehicleId: string;
+    }) => supplyTransferService.removeVehicle(id, supplyTransferVehicleId),
+    onSuccess: (_, variables) => {
+      toast.success('Đã bỏ phương tiện khỏi phiếu chuyển hàng');
+      queryClient.invalidateQueries({ queryKey: SUPPLY_TRANSFER_KEYS.all });
+      queryClient.invalidateQueries({ queryKey: SUPPLY_TRANSFER_KEYS.detail(variables.id) });
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+    },
+    onError: (error: any) => {
+      handleHookError(error, 'Không thể bỏ phương tiện khỏi phiếu chuyển hàng');
+    },
+  });
+}
+
+export function useUpdateSupplyTransferVehicleStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      supplyTransferVehicleId,
+      data,
+    }: {
+      id: string;
+      supplyTransferVehicleId: string;
+      data: UpdateSupplyTransferVehicleStatusPayload;
+    }) => supplyTransferService.updateVehicleStatus(id, supplyTransferVehicleId, data),
+    onSuccess: (_, variables) => {
+      toast.success('Đã cập nhật trạng thái phương tiện');
+      queryClient.invalidateQueries({ queryKey: SUPPLY_TRANSFER_KEYS.all });
+      queryClient.invalidateQueries({ queryKey: SUPPLY_TRANSFER_KEYS.detail(variables.id) });
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+    },
+    onError: (error: any) => {
+      handleHookError(error, 'Không thể cập nhật trạng thái phương tiện');
+    },
+  });
+}
 
 export function useReplaceSupplyTransferEvidenceUrls() {
   const queryClient = useQueryClient();

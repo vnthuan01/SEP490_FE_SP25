@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import * as XLSX from 'xlsx';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -71,6 +72,56 @@ const DONATION_STATUS_UI: Record<number, { label: string; className: string }> =
   },
 };
 
+const PROVIDER_LABELS: Record<string, string> = {
+  payos: 'PayOS',
+};
+
+const EVENT_LABELS: Record<string, string> = {
+  paid: 'Thanh toán thành công',
+  payment_paid: 'Thanh toán thành công',
+  pending: 'Đang chờ thanh toán',
+  cancelled: 'Đã hủy giao dịch',
+  canceled: 'Đã hủy giao dịch',
+  expired: 'Liên kết đã hết hạn',
+  failed: 'Thanh toán thất bại',
+  refunded: 'Đã hoàn tiền',
+};
+
+const CURRENCY_LABELS: Record<string, string> = {
+  VND: 'đ',
+  USD: 'USD',
+};
+
+const formatProviderLabel = (provider?: string | null) => {
+  const normalized = String(provider || '')
+    .trim()
+    .toLowerCase();
+  return PROVIDER_LABELS[normalized] || provider || 'Cổng thanh toán';
+};
+
+const formatEventLabel = (value?: string | null) => {
+  const normalized = String(value || '')
+    .trim()
+    .toLowerCase();
+  return EVENT_LABELS[normalized] || value || 'Sự kiện thanh toán';
+};
+
+const formatCurrencyLabel = (currency?: string | null) => {
+  const normalized = String(currency || '')
+    .trim()
+    .toUpperCase();
+  return CURRENCY_LABELS[normalized] || normalized || 'đ';
+};
+
+const formatGatewayResponse = (value?: string | null) => {
+  if (!value) return 'Không có dữ liệu phản hồi từ cổng thanh toán';
+  try {
+    return JSON.stringify(JSON.parse(value), null, 2);
+  } catch {
+    return value;
+  }
+};
+
 export default function DonationManagementPage() {
   const [statusFilter, setStatusFilter] = useState<string>(String(DonationStatus.Completed));
   const [keyword, setKeyword] = useState('');
@@ -110,12 +161,12 @@ export default function DonationManagementPage() {
 
   const handleExport = async () => {
     const blob = await exportCsv();
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `donations-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.csv`;
-    link.click();
-    window.URL.revokeObjectURL(url);
+    const csvText = await blob.text();
+    const workbook = XLSX.read(csvText, { type: 'string' });
+    XLSX.writeFile(
+      workbook,
+      `bao-cao-quyen-gop-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.xlsx`,
+    );
   };
 
   const totalPages = Math.max(paging?.totalPages || 0, 1);
@@ -196,7 +247,7 @@ export default function DonationManagementPage() {
             <h1 className="text-3xl font-black text-primary">Quản lý quyên góp</h1>
             <p className="text-muted-foreground mt-2">
               Quản trị viên dùng các API quyên góp để theo dõi giao dịch, đối soát thanh toán, hủy
-              liên kết chờ xử lý và xuất báo cáo CSV.
+              liên kết chờ xử lý và xuất báo cáo Excel để kiểm tra dữ liệu rõ hơn.
             </p>
           </div>
           <Button
@@ -206,7 +257,7 @@ export default function DonationManagementPage() {
             disabled={exportStatus === 'pending'}
           >
             <span className="material-symbols-outlined text-sm">download</span>
-            {exportStatus === 'pending' ? 'Đang xuất...' : 'Xuất CSV'}
+            {exportStatus === 'pending' ? 'Đang xuất...' : 'Xuất Excel'}
           </Button>
         </div>
 
@@ -512,21 +563,23 @@ export default function DonationManagementPage() {
           open={!!selectedDonationId}
           onOpenChange={(open) => !open && setSelectedDonationId('')}
         >
-          <DialogContent className="max-w-3xl">
+          <DialogContent className="max-w-4xl overflow-hidden p-0 sm:max-h-[90vh]">
             <DialogHeader>
-              <DialogTitle>Chi tiết giao dịch quyên góp</DialogTitle>
-              <DialogDescription>
-                Kiểm tra liên kết thanh toán, phản hồi cổng thanh toán và lịch sử giao dịch để đối
-                soát hoặc rà lỗi thanh toán.
-              </DialogDescription>
+              <div className="px-6 pt-6">
+                <DialogTitle>Chi tiết giao dịch quyên góp</DialogTitle>
+                <DialogDescription>
+                  Kiểm tra liên kết thanh toán, phản hồi cổng thanh toán và lịch sử giao dịch để đối
+                  soát hoặc rà lỗi thanh toán.
+                </DialogDescription>
+              </div>
             </DialogHeader>
             {isLoadingDetail || !donationDetail ? (
-              <p className="text-sm text-muted-foreground">
+              <p className="px-6 pb-6 text-sm text-muted-foreground">
                 Đang tải chi tiết giao dịch quyên góp...
               </p>
             ) : (
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="max-h-[calc(90vh-140px)] space-y-4 overflow-y-auto px-6 pb-6">
+                <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
                   <div className="rounded-xl border border-border bg-muted/20 p-4">
                     <p className="text-xs uppercase text-muted-foreground">Người ủng hộ</p>
                     <p className="mt-2 font-semibold">{donationDetail.donorName}</p>
@@ -540,31 +593,53 @@ export default function DonationManagementPage() {
                     <p className="mt-2 font-semibold">{formatNumberVN(donationDetail.amount)}đ</p>
                   </div>
                   <div className="rounded-xl border border-border bg-muted/20 p-4">
+                    <p className="text-xs uppercase text-muted-foreground">Mã đơn hàng</p>
+                    <p className="mt-2 break-all font-semibold">#{donationDetail.orderCode}</p>
+                  </div>
+                  <div className="rounded-xl border border-border bg-muted/20 p-4">
+                    <p className="text-xs uppercase text-muted-foreground">Trạng thái</p>
+                    <Badge
+                      variant="outline"
+                      appearance="outline"
+                      className={`mt-2 inline-flex border ${
+                        DONATION_STATUS_UI[Number(donationDetail.status)]?.className ||
+                        DONATION_STATUS_UI[DonationStatus.Pending].className
+                      }`}
+                    >
+                      {DONATION_STATUS_UI[Number(donationDetail.status)]?.label || 'Chờ thanh toán'}
+                    </Badge>
+                  </div>
+                  <div className="rounded-xl border border-border bg-muted/20 p-4">
                     <p className="text-xs uppercase text-muted-foreground">Liên kết thanh toán</p>
                     <a
                       href={donationDetail.checkoutUrl || '#'}
                       target="_blank"
                       rel="noreferrer"
-                      className="mt-2 inline-block text-primary underline break-all"
+                      className="mt-2 inline-block break-all text-primary underline"
                     >
                       {donationDetail.checkoutUrl || 'Không có'}
                     </a>
+                  </div>
+                  <div className="rounded-xl border border-border bg-muted/20 p-4 xl:col-span-2">
+                    <p className="text-xs uppercase text-muted-foreground">Lời nhắn người ủng hộ</p>
+                    <p className="mt-2 break-words text-sm text-foreground">
+                      {donationDetail.message || 'Không có lời nhắn'}
+                    </p>
                   </div>
                 </div>
                 <div className="rounded-xl border border-border bg-muted/20 p-4">
                   <p className="text-xs uppercase text-muted-foreground">
                     Phản hồi cổng thanh toán
                   </p>
-                  <pre className="mt-2 whitespace-pre-wrap break-words text-xs text-muted-foreground">
-                    {donationDetail.gatewayResponse ||
-                      'Không có dữ liệu phản hồi từ cổng thanh toán'}
+                  <pre className="mt-2 max-h-[260px] overflow-auto rounded-lg bg-background/80 p-3 text-xs text-muted-foreground whitespace-pre-wrap break-words">
+                    {formatGatewayResponse(donationDetail.gatewayResponse)}
                   </pre>
                 </div>
                 <div className="rounded-xl border border-border bg-muted/20 p-4">
                   <p className="text-xs uppercase text-muted-foreground">
                     Lịch sử giao dịch thanh toán
                   </p>
-                  <div className="mt-3 space-y-3 max-h-[260px] overflow-y-auto pr-1 custom-scrollbar">
+                  <div className="mt-3 space-y-3 max-h-[320px] overflow-y-auto pr-1 custom-scrollbar">
                     {donationDetail.transactions.length === 0 ? (
                       <p className="text-sm text-muted-foreground">
                         Chưa có bản ghi giao dịch thanh toán nào.
@@ -575,19 +650,27 @@ export default function DonationManagementPage() {
                           key={transaction.paymentTransactionId}
                           className="rounded-lg border border-border bg-background p-3"
                         >
-                          <p className="font-medium text-foreground">
-                            {transaction.provider} •{' '}
-                            {transaction.eventDescription ||
-                              transaction.eventCode ||
-                              'Sự kiện thanh toán'}
+                          <p className="break-words font-medium text-foreground">
+                            {formatProviderLabel(transaction.provider)} •{' '}
+                            {formatEventLabel(
+                              transaction.eventDescription || transaction.eventCode,
+                            )}
                           </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Mã tham chiếu: {transaction.reference || 'Không có'} • Chữ ký:{' '}
-                            {transaction.isSignatureValid ? 'Hợp lệ' : 'Không hợp lệ'}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {new Date(transaction.createdAt).toLocaleString('vi-VN')} •{' '}
-                            {formatNumberVN(transaction.amount)} {transaction.currency}
+                          <div className="mt-2 grid grid-cols-1 gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+                            <p className="break-all">
+                              Mã tham chiếu: {transaction.reference || 'Không có'}
+                            </p>
+                            <p>
+                              Chữ ký: {transaction.isSignatureValid ? 'Hợp lệ' : 'Không hợp lệ'}
+                            </p>
+                            <p>{new Date(transaction.createdAt).toLocaleString('vi-VN')}</p>
+                            <p>
+                              {formatNumberVN(transaction.amount)}{' '}
+                              {formatCurrencyLabel(transaction.currency)}
+                            </p>
+                          </div>
+                          <p className="mt-2 break-all text-[11px] text-muted-foreground">
+                            Mã giao dịch: {transaction.paymentTransactionId}
                           </p>
                         </div>
                       ))
@@ -596,7 +679,7 @@ export default function DonationManagementPage() {
                 </div>
               </div>
             )}
-            <DialogFooter>
+            <DialogFooter className="px-6 pb-6">
               <Button variant="outline" onClick={() => setSelectedDonationId('')}>
                 Đóng
               </Button>

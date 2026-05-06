@@ -31,7 +31,7 @@ export function LogisticsOverviewCard({
           Điều phối kho & phiên phân phát
         </CardTitle>
       </CardHeader>
-      <CardContent className="min-h-[280px] h-full overflow-hidden">
+      <CardContent className="min-h-[360px] h-full overflow-hidden">
         {isLoading ? (
           <div className="space-y-3">
             {Array.from({ length: 2 }).map((_, index) => (
@@ -58,7 +58,7 @@ export function LogisticsOverviewCard({
             </p>
           </div>
         ) : (
-          <div className="space-y-3 h-full max-h-[220px] overflow-y-auto pr-1 custom-scrollbar">
+          <div className="space-y-3 h-full max-h-[320px] overflow-y-auto pr-1 custom-scrollbar">
             {cards.map((card) => (
               <div key={card.label} className="rounded-xl border border-border bg-muted/20 p-4">
                 <div className="flex items-start gap-3">

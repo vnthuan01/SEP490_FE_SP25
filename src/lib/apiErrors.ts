@@ -1,6 +1,7 @@
 import { BACKEND_ERROR_CODE_MAP } from './backendErrors/codes.vi';
 import { BACKEND_STATUS_FALLBACK_MAP, GENERIC_BACKEND_MESSAGES } from './backendErrors/status.vi';
 import { BACKEND_LITERAL_MESSAGE_MAP } from './backendErrors/literals.vi';
+import { formatNumberVN } from './utils';
 
 export type ApiFieldErrors = Record<string, string[]>;
 
@@ -110,6 +111,13 @@ const translateRegexPatterns = (message: string) => {
 
   if (/^Duplicate supply items in package:\s*.+$/i.test(message)) {
     return 'Một vật phẩm đang bị lặp lại nhiều lần trong gói cứu trợ. Mỗi vật phẩm chỉ nên xuất hiện một lần.';
+  }
+
+  const importExceedsMaxMatch = message.match(
+    /^Import quantity exceeds maximum stock level for '([^']+)'. Maximum: (\d+), After import: (\d+)\.?$/i,
+  );
+  if (importExceedsMaxMatch) {
+    return `Số lượng nhập vượt quá mức tồn tối đa của vật phẩm trong kho. Giới hạn tối đa là ${formatNumberVN(Number(importExceedsMaxMatch[2]))}, nhưng sau khi nhập sẽ thành ${formatNumberVN(Number(importExceedsMaxMatch[3]))}. Vui lòng giảm số lượng nhập hoặc tăng mức tồn tối đa trước khi thử lại.`;
   }
 
   const greaterThanMatch = message.match(/^(.+?) must be greater than (.+)\.?$/i);

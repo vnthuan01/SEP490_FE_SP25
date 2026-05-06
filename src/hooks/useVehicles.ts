@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { CAMPAIGN_QUERY_KEYS } from '@/hooks/useCampaigns';
 import {
   normalizeVehicle,
   normalizeVehiclePage,
@@ -25,6 +26,7 @@ export const VEHICLE_QUERY_KEYS = {
   detail: (id: string) => ['vehicles', id] as const,
   byStatus: (status: number) => ['vehicles', 'status', status] as const,
   myVehicles: ['vehicles', 'my-vehicles'] as const,
+  availableForTransfer: ['vehicles', 'available-for-transfer'] as const,
 };
 
 export const VEHICLE_TYPE_QUERY_KEYS = {
@@ -178,6 +180,12 @@ export function useVehicles(
       toast.success('Gán đội cho phương tiện thành công');
       queryClient.invalidateQueries({ queryKey: VEHICLE_QUERY_KEYS.all });
       queryClient.invalidateQueries({ queryKey: VEHICLE_QUERY_KEYS.myVehicles });
+      queryClient.invalidateQueries({
+        predicate: (query) =>
+          Array.isArray(query.queryKey) &&
+          query.queryKey[0] === CAMPAIGN_QUERY_KEYS.all[0] &&
+          query.queryKey[1] === 'vehicles',
+      });
     },
     onError: (error: any) => {
       handleHookError(error, 'Không thể gán đội cho phương tiện');
@@ -240,6 +248,14 @@ export function useVehicles(
     assignVehicleTeam: assignVehicleTeamMutation.mutateAsync,
     assignVehicleTeamStatus: assignVehicleTeamMutation.status,
   };
+}
+
+export function useAvailableTransferVehicles(enabled = true) {
+  return useQuery({
+    queryKey: VEHICLE_QUERY_KEYS.availableForTransfer,
+    queryFn: () => vehicleService.getAvailableForTransfer(),
+    enabled,
+  });
 }
 
 export function useVehicleTypes(id?: string, params?: SearchVehicleTypeParams) {

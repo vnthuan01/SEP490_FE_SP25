@@ -13,6 +13,8 @@ export const STATION_REPORT_QUERY_KEYS = {
     [...STATION_REPORT_QUERY_KEYS.all, 'inventory-stock', params] as const,
   reliefDeliveries: (params: Record<string, unknown>) =>
     [...STATION_REPORT_QUERY_KEYS.all, 'relief-deliveries', params] as const,
+  reliefMissions: (params: Record<string, unknown>) =>
+    [...STATION_REPORT_QUERY_KEYS.all, 'relief-missions', params] as const,
 };
 
 export function useRescueRequestsReport(
@@ -41,7 +43,7 @@ export function useTeamWorkloadReport(params: { from?: string; to?: string } = {
 }
 
 export function useVehicleUtilizationReport(
-  params: { from?: string; to?: string } = {},
+  params: { from?: string; to?: string; pageIndex?: number; pageSize?: number } = {},
   enabled = true,
 ) {
   return useQuery({
@@ -83,6 +85,21 @@ export function useReliefDeliveriesReport(
   return useQuery({
     queryKey: STATION_REPORT_QUERY_KEYS.reliefDeliveries(params),
     queryFn: () => stationReportService.getReliefDeliveries(params),
+    enabled,
+  });
+}
+
+export function useReliefMissionReport(
+  params: {
+    from?: string;
+    to?: string;
+    teamIds?: string[];
+  },
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: STATION_REPORT_QUERY_KEYS.reliefMissions(params),
+    queryFn: () => stationReportService.getReliefMissions(params),
     enabled,
   });
 }

@@ -44,6 +44,7 @@ import { adminNavItems, adminProjects } from './components/sidebarConfig';
 import { Textarea } from '@/components/ui/textarea';
 import { parseApiError } from '@/lib/apiErrors';
 import type { UserProfile } from '@/services/userService';
+import * as XLSX from 'xlsx';
 
 export default function AdminUserManagementPage() {
   const [openAddUser, setOpenAddUser] = useState(false);
@@ -160,6 +161,30 @@ export default function AdminUserManagementPage() {
     }
   };
 
+  const handleExportUsers = () => {
+    const rows = users.map((user) => ({
+      'Tên hiển thị': user.displayName || 'Chưa cập nhật',
+      Email: user.email,
+      'Số điện thoại': user.phoneNumber || 'Không có',
+      'Trạng thái tài khoản': user.isBanned ? 'Đã khóa' : 'Đang hoạt động',
+      'Vai trò': user.roles.length
+        ? user.roles.map((role) => roleLabelMap[role as UserRoleType] || role).join(', ')
+        : 'Chưa gán',
+      'Địa chỉ': user.address || 'Không có',
+      'Ngày sinh': user.dateOfBirth
+        ? new Date(user.dateOfBirth).toLocaleDateString('vi-VN')
+        : 'Không có',
+      'Lý do khóa': user.banReason || 'Không có',
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'NguoiDung');
+    XLSX.writeFile(
+      workbook,
+      `nguoi-dung-admin-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.xlsx`,
+    );
+  };
+
   return (
     <DashboardLayout projects={adminProjects} navItems={adminNavItems}>
       {/* Page Header */}
@@ -174,9 +199,9 @@ export default function AdminUserManagementPage() {
           </p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" size="md" className="gap-2">
+          <Button variant="outline" size="md" className="gap-2" onClick={handleExportUsers}>
             <span className="material-symbols-outlined text-lg">download</span>
-            <span>Xuất dữ liệu</span>
+            <span>Xuất Excel</span>
           </Button>
           <Button
             variant="primary"

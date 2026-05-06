@@ -26,7 +26,10 @@ import { useInventories, useInventoryStocks } from '@/hooks/useInventory';
 import { useProvincialStations } from '@/hooks/useReliefStations';
 import { useVehicles } from '@/hooks/useVehicles';
 import { useAnalyzeDisasterRisks } from '@/hooks/useDisasterAnalysis';
-import type { AnalyzeDisasterRiskResponse } from '@/services/disasterAnalysisService';
+import {
+  getRiskHeadlineVN,
+  type AnalyzeDisasterRiskResponse,
+} from '@/services/disasterAnalysisService';
 import { reverseGeocodeV2 } from '@/services/goongService';
 import { managerNavGroups } from './components/sidebarConfig';
 import {
@@ -41,6 +44,7 @@ import { formatNumberVN } from '@/lib/utils';
 import { StatCard } from './components/ManagerInventoryShared';
 import { DisasterForecastMapPanel } from './components/DisasterForecastMapPanel';
 import { LargeDisasterMapSheet } from '@/components/shared/disaster/LargeDisasterMapSheet';
+import { toast } from 'sonner';
 
 // ─── Disaster helpers ────────────────────────────────────────────────────────
 
@@ -190,10 +194,8 @@ type StationAnalysisPoint = GeoPoint & {
   context: string;
 };
 
- 
 type OnSelectStation = (...args: [string | null]) => void;
 
- 
 type OnSelectAnalysis = (...args: [AnalyzeDisasterRiskResponse | null]) => void;
 
 const GOONG_API_KEY =
@@ -538,6 +540,7 @@ export default function ManagerDashboardPage() {
   const [openMapSheet, setOpenMapSheet] = useState(false);
   const [disasterFilter, setDisasterFilter] = useState<string>('all');
   const [highlightedAnalysisId, setHighlightedAnalysisId] = useState<string | null>(null);
+  const [analysisRenderKey, setAnalysisRenderKey] = useState(0);
   const highlightTimerRef = useRef<number | null>(null);
 
   const { data: fundSummary, isLoading: isLoadingFundSummary } = useFundSummary();
@@ -700,8 +703,33 @@ export default function ManagerDashboardPage() {
     [disasterPayloadsWithMeta],
   );
 
-  const { analyses: disasterAnalyses, isLoading: isLoadingDisaster } =
-    useAnalyzeDisasterRisks(disasterPayloads);
+  const {
+    analyses: disasterAnalyses,
+    isLoading: isLoadingDisaster,
+    hasMissingNearestData,
+    refreshAnalysis,
+    refreshStatus,
+  } = useAnalyzeDisasterRisks(disasterPayloads);
+
+  const handleRefreshLatestAnalysis = async () => {
+    const target = selectedAnalysis
+      ? {
+          latitude: selectedAnalysis.latitude,
+          longitude: selectedAnalysis.longitude,
+          locationName: selectedAnalysis.locationName,
+        }
+      : disasterPayloads[0];
+    if (!target) return;
+    toast.info('Đang lấy dự đoán mới nhất...');
+    try {
+      setSelectedAnalysis(null);
+      await refreshAnalysis(target);
+      setAnalysisRenderKey((prev) => prev + 1);
+      toast.success('Đã cập nhật dự đoán mới nhất thành công.');
+    } catch {
+      toast.error('Không thể lấy dự đoán mới nhất. Vui lòng thử lại.');
+    }
+  };
 
   // Filter risk analyses
   const filteredAnalyses = useMemo(() => {
@@ -711,6 +739,9 @@ export default function ManagerDashboardPage() {
         String(resolveDisasterTypeValue(getEffectiveDisasterType(analysis))) === disasterFilter,
     );
   }, [disasterAnalyses, disasterFilter]);
+  const visibleDisasterAnalyses = refreshStatus === 'pending' ? [] : disasterAnalyses;
+  const visibleFilteredAnalyses = refreshStatus === 'pending' ? [] : filteredAnalyses;
+  const visibleSelectedAnalysis = refreshStatus === 'pending' ? null : selectedAnalysis;
 
   // Top risk analysis
   const topRisk = useMemo(() => {
@@ -722,6 +753,7 @@ export default function ManagerDashboardPage() {
 
   const shouldShowTopRiskBanner = useMemo(() => {
     if (!topRisk) return false;
+    if (Number(topRisk.heuristic?.overallRiskScore || 0) < 50) return false;
     const typeValue = resolveDisasterTypeValue(getEffectiveDisasterType(topRisk));
     const isStableWeatherOnly =
       typeValue === DisasterType.Other &&
@@ -849,6 +881,7 @@ export default function ManagerDashboardPage() {
                     </Badge>
                   </div>
                   <p className="mt-1 text-sm font-medium">{topRisk.locationName}</p>
+                  <p className="mt-1 text-xs font-semibold">{getRiskHeadlineVN(topRisk)}</p>
                   <p className="mt-1 text-sm opacity-80 line-clamp-2">
                     {topRisk.ai?.summary ||
                       topRisk.ai?.detectedConcerns?.[0] ||
@@ -878,15 +911,19 @@ export default function ManagerDashboardPage() {
         )}
 
         <DisasterForecastMapPanel
+          key={`manager-disaster-panel-${analysisRenderKey}`}
           mapStations={mapStations}
-          analyses={disasterAnalyses}
-          filteredAnalyses={filteredAnalyses}
-          selectedAnalysis={selectedAnalysis}
+          analyses={visibleDisasterAnalyses}
+          filteredAnalyses={visibleFilteredAnalyses}
+          selectedAnalysis={visibleSelectedAnalysis}
           disasterFilter={disasterFilter}
           isLoadingDisaster={isLoadingDisaster}
+          hasMissingNearestData={hasMissingNearestData}
           setDisasterFilter={setDisasterFilter}
           setSelectedAnalysis={setSelectedAnalysis}
           onOpenMap={openMapSheetWithSelection}
+          onRefreshLatest={handleRefreshLatestAnalysis}
+          isRefreshingLatest={refreshStatus === 'pending'}
           onSelectStation={handleSelectStation}
           parseRiskLevelVN={parseRiskLevelVN}
           parseWeatherConditionVN={parseWeatherConditionVN}
@@ -1247,15 +1284,18 @@ export default function ManagerDashboardPage() {
         mapContent={
           <DisasterForecastMapPanel
             mapStations={mapStations}
-            analyses={disasterAnalyses}
-            filteredAnalyses={filteredAnalyses}
-            selectedAnalysis={selectedAnalysis}
+            analyses={visibleDisasterAnalyses}
+            filteredAnalyses={visibleFilteredAnalyses}
+            selectedAnalysis={visibleSelectedAnalysis}
             highlightedAnalysisId={highlightedAnalysisId}
             disasterFilter={disasterFilter}
             isLoadingDisaster={isLoadingDisaster}
+            hasMissingNearestData={hasMissingNearestData}
             setDisasterFilter={setDisasterFilter}
             setSelectedAnalysis={selectAnalysisWithPulse}
             onOpenMap={() => setOpenMapSheet(false)}
+            onRefreshLatest={handleRefreshLatestAnalysis}
+            isRefreshingLatest={refreshStatus === 'pending'}
             onSelectStation={handleSelectStation}
             parseRiskLevelVN={parseRiskLevelVN}
             parseWeatherConditionVN={parseWeatherConditionVN}
@@ -1264,15 +1304,14 @@ export default function ManagerDashboardPage() {
             renderMode="mapOnly"
           />
         }
-        selectedAnalysis={selectedAnalysis}
-        filteredAnalyses={filteredAnalyses}
+        selectedAnalysis={visibleSelectedAnalysis}
+        filteredAnalyses={visibleFilteredAnalyses}
         isLoadingDisaster={isLoadingDisaster}
         onSelectAnalysis={selectAnalysisWithPulse}
         parseRiskLevelVN={parseRiskLevelVN}
         parseWeatherConditionVN={parseWeatherConditionVN}
         getEffectiveDisasterType={getEffectiveDisasterType}
         getDisasterTheme={getDisasterTheme}
-        getDisplayDisasterLabel={getDisplayDisasterLabel}
       />
     </DashboardLayout>
   );

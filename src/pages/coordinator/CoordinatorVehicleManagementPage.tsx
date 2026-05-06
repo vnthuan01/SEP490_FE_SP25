@@ -39,6 +39,7 @@ import { useTeamsInStation } from '@/hooks/useTeams';
 import { TeamStatus } from '@/enums/beEnums';
 import { coordinatorNavGroups } from './components/sidebarConfig';
 import { toast } from 'sonner';
+import { parseApiError } from '@/lib/apiErrors';
 
 type VehicleFormState = {
   vehicleId?: string;
@@ -148,8 +149,13 @@ export default function CoordinatorVehicleManagementPage() {
       return;
     }
 
-    await assignVehicleTeam({ id: assignVehicleId, teamId: assignTeamId });
-    setOpenAssignTeamModal(false);
+    try {
+      await assignVehicleTeam({ id: assignVehicleId, teamId: assignTeamId });
+      setOpenAssignTeamModal(false);
+    } catch (error) {
+      const parsed = parseApiError(error, 'Không thể gán đội cho phương tiện.');
+      toast.error(parsed.message);
+    }
   };
 
   return (
