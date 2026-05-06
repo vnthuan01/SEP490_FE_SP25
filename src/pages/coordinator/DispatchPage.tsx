@@ -58,7 +58,7 @@ import { parseApiError } from '@/lib/apiErrors';
 const GOONG_MAP_KEY = import.meta.env.VITE_GOONG_MAP_KEY || '';
 const NORMAL_THRESHOLD_KM = 2;
 const EMERGENCY_THRESHOLD_KM = 3;
-const CANDIDATE_PAGE_SIZE = 8;
+const CANDIDATE_PAGE_SIZE = 1000;
 const NOT_FOUND_TOAST_COOLDOWN_MS = 30_000;
 const ROUTE_SOURCE_ID = 'dispatch-route-source';
 const ROUTE_LAYER_ID = 'dispatch-route-layer';
@@ -498,6 +498,11 @@ export default function DispatchPage() {
     [candidates, selectedRequestId],
   );
 
+  const visibleCandidates = useMemo(
+    () => candidates.filter((candidate) => !getBlockReason(candidate)),
+    [candidates],
+  );
+
   const selectedTeamName = useMemo(
     () => teams.find((team) => team.teamId === selectedTeamId)?.name || '--',
     [teams, selectedTeamId],
@@ -674,16 +679,16 @@ export default function DispatchPage() {
   }, [trimmedSearch, selectedTeamId]);
 
   useEffect(() => {
-    if (candidates.length === 0) {
+    if (visibleCandidates.length === 0) {
       if (selectedRequestId) setSelectedRequestId('');
       return;
     }
 
-    if (!candidates.some((candidate) => candidate.requestId === selectedRequestId)) {
-      const next = candidates.find((candidate) => !getBlockReason(candidate)) || candidates[0];
+    if (!visibleCandidates.some((candidate) => candidate.requestId === selectedRequestId)) {
+      const next = visibleCandidates[0];
       setSelectedRequestId(next.requestId);
     }
-  }, [candidates, selectedRequestId]);
+  }, [selectedRequestId, visibleCandidates]);
 
   useEffect(() => {
     if (!mapContainerRef.current || !GOONG_MAP_KEY || mapRef.current) return;
@@ -1042,6 +1047,7 @@ export default function DispatchPage() {
 
   const queueItemsForActiveTab =
     queueTab === 'current' ? activeBatch?.items || [] : orderedPreviewItems;
+  const visibleCandidateCount = visibleCandidates.length;
 
   return (
     <DashboardLayout navGroups={coordinatorNavGroups}>
@@ -1113,7 +1119,7 @@ export default function DispatchPage() {
 
                     <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background/80 px-3 py-1.5 text-xs font-medium text-muted-foreground">
                       <Search className="size-3.5" />
-                      {candidatePaging?.totalCount ?? candidates.length} kết quả
+                      {visibleCandidateCount} kết quả hợp lệ
                     </div>
                   </div>
 
@@ -1185,7 +1191,7 @@ export default function DispatchPage() {
                         <Skeleton key={key} className="h-24 rounded-2xl" />
                       ))}
                     </div>
-                  ) : candidates.length === 0 ? (
+                  ) : visibleCandidates.length === 0 ? (
                     <div className="flex min-h-[320px] flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-accent/20 px-4 py-8 text-center">
                       <SearchX className="mb-3 size-10 text-muted-foreground" />
                       <p className="font-medium text-foreground">Không tìm thấy yêu cầu phù hợp</p>
@@ -1196,27 +1202,21 @@ export default function DispatchPage() {
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {candidates.map((req) => {
+                      {visibleCandidates.map((req) => {
                         const isActive = req.requestId === selectedRequestId;
-                        const blockReason = getBlockReason(req);
-                        const isBlocked = Boolean(blockReason);
 
                         return (
                           <button
                             key={req.requestId}
                             type="button"
                             onClick={() => {
-                              if (!isBlocked) setSelectedRequestId(req.requestId);
+                              setSelectedRequestId(req.requestId);
                             }}
-                            disabled={isBlocked}
-                            title={blockReason || ''}
                             className={cn(
                               'w-full rounded-2xl border px-4 py-3 text-left transition-all',
-                              isBlocked
-                                ? 'cursor-not-allowed border-slate-200 bg-slate-50 opacity-60'
-                                : isActive
-                                  ? 'border-primary bg-primary/5 shadow-sm ring-1 ring-primary/10'
-                                  : 'border-border bg-background hover:border-primary/30 hover:bg-accent/20',
+                              isActive
+                                ? 'border-primary bg-primary/5 shadow-sm ring-1 ring-primary/10'
+                                : 'border-border bg-background hover:border-primary/30 hover:bg-accent/20',
                             )}
                           >
                             <div className="flex items-start justify-between gap-3">
@@ -1254,19 +1254,12 @@ export default function DispatchPage() {
                                 </div>
                               </div>
 
-                              {isActive && !isBlocked ? (
+                              {isActive ? (
                                 <span className="rounded-full bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground">
                                   Đang chọn
                                 </span>
                               ) : null}
                             </div>
-
-                            {blockReason ? (
-                              <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                                <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-                                <span>{blockReason}</span>
-                              </div>
-                            ) : null}
                           </button>
                         );
                       })}
@@ -1274,12 +1267,12 @@ export default function DispatchPage() {
                   )}
                 </div>
 
-                {(candidatePaging?.totalCount ?? 0) > 0 ? (
+                {visibleCandidateCount > 0 ? (
                   <div className="shrink-0 border-t border-border/70 bg-muted/20 px-4 py-3">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <p className="text-sm text-muted-foreground">
                         Trang {candidateCurrentPage}/{candidateTotalPages} — Tổng{' '}
-                        {candidatePaging?.totalCount ?? candidates.length} yêu cầu
+                        {visibleCandidateCount} yêu cầu hợp lệ
                       </p>
 
                       <div className="flex items-center gap-2 self-end sm:self-auto">
