@@ -36,6 +36,8 @@ import { parseApiError } from '@/lib/apiErrors';
 import {
   getDisasterTypeLabel,
   getRescueRequestTypeLabel,
+  RescueRequestStatus,
+  RescueRequestStatusLabel,
   getVerificationStatusLabel,
   getVerificationStatusClass,
   VerificationMethod,
@@ -62,7 +64,109 @@ const formatDate = (value?: string | null) => {
 const getRequestId = (req: RescueRequestItem) =>
   String(req.requestId ?? req.rescueRequestId ?? req.id ?? '');
 
-const getVerification = (req?: RescueRequestItem) => req?.verifications?.[0];
+const normalizeRescueRequestStatus = (value?: string | number | null) => {
+  if (value == null) return '';
+  if (typeof value === 'number') {
+    if (value === RescueRequestStatus.Cancelled) return 'cancelled';
+    return String(value).trim().toLowerCase();
+  }
+
+  const normalized = String(value).trim().toLowerCase();
+  if (normalized === 'canceled' || normalized === 'cancelled') return 'cancelled';
+  return normalized;
+};
+
+const isCancelledRescueRequest = (req?: RescueRequestItem) =>
+  normalizeRescueRequestStatus(req?.rescueRequestStatus) === 'cancelled';
+
+const isVerificationPending = (status?: number | string | null) =>
+  status === 0 || status === '0' || status === 'Pending' || status == null;
+
+const isVerificationApproved = (status?: number | string | null) =>
+  status === 1 || status === '1' || status === 'Approved';
+
+const isVerificationRejected = (status?: number | string | null) =>
+  status === 2 || status === '2' || status === 'Rejected';
+
+const isSelfCancelledVerification = (verification?: {
+  status?: number | string | null;
+  note?: string | null;
+  reason?: string | null;
+}) => {
+  if (!isVerificationRejected(verification?.status)) return false;
+
+  const combinedText = `${verification?.reason ?? ''} ${verification?.note ?? ''}`
+    .trim()
+    .toLowerCase();
+
+  return (
+    combinedText.includes('tự hủy') ||
+    combinedText.includes('tu huy') ||
+    combinedText.includes('tự huỷ') ||
+    combinedText.includes('hủy bởi người gửi') ||
+    combinedText.includes('huy boi nguoi gui') ||
+    combinedText.includes('người dân tự hủy') ||
+    combinedText.includes('nguoi dan tu huy') ||
+    combinedText.includes('người gửi tự hủy') ||
+    combinedText.includes('nguoi gui tu huy') ||
+    combinedText.includes('self cancel') ||
+    combinedText.includes('self-cancel') ||
+    combinedText.includes('user cancel') ||
+    combinedText.includes('cancelled by user') ||
+    combinedText.includes('canceled by user')
+  );
+};
+
+const getRequestStatusFilterKey = (req?: RescueRequestItem) => {
+  const verification = getVerification(req);
+  const status = verification?.status;
+  if (isSelfCancelledVerification(verification)) return 'cancelled';
+  if (isVerificationRejected(status)) return 'rejected';
+  if (isVerificationPending(status)) return 'pending';
+  if (isVerificationApproved(status)) return 'approved';
+  if (isCancelledRescueRequest(req)) return 'cancelled';
+  return 'pending';
+};
+
+const getVerification = (req?: RescueRequestItem) => {
+  const verifications = req?.verifications;
+  if (!verifications?.length) return undefined;
+
+  return [...verifications].sort((left, right) => {
+    const leftTime = new Date(left?.verifiedAt ?? 0).getTime();
+    const rightTime = new Date(right?.verifiedAt ?? 0).getTime();
+    return rightTime - leftTime;
+  })[0];
+};
+
+const getRequestStatusBadge = (req?: RescueRequestItem) => {
+  const verification = getVerification(req);
+  if (isSelfCancelledVerification(verification)) {
+    return {
+      label: RescueRequestStatusLabel[RescueRequestStatus.Cancelled],
+      cls: 'border-slate-300 bg-slate-500/10 text-slate-700',
+    };
+  }
+
+  if (isVerificationRejected(verification?.status)) {
+    return {
+      label: verificationStatusText(verification?.status),
+      cls: verificationStatusClass(verification?.status),
+    };
+  }
+
+  if (isCancelledRescueRequest(req)) {
+    return {
+      label: RescueRequestStatusLabel[RescueRequestStatus.Cancelled],
+      cls: 'border-slate-300 bg-slate-500/10 text-slate-700',
+    };
+  }
+
+  return {
+    label: verificationStatusText(verification?.status),
+    cls: verificationStatusClass(verification?.status),
+  };
+};
 
 type FilterChipProps = {
   active: boolean;
@@ -233,6 +337,7 @@ const attachmentTypeLabel = (type?: number | string | null) => {
 };
 
 const REQUEST_LIST_PAGE_SIZE = 5;
+const REQUEST_LIST_FETCH_SIZE = 1000;
 
 const GOONG_MAP_KEY = import.meta.env.VITE_GOONG_MAP_KEY || '';
 const GOONG_API_KEY = import.meta.env.VITE_GOONG_API_KEY || '';
@@ -248,13 +353,13 @@ export default function CoordinatorRequestManagementPage() {
     verifyStatus,
     rejectRequest,
     rejectStatus,
-  } = useRescueRequestManagement(1, 10);
+  } = useRescueRequestManagement(1, REQUEST_LIST_FETCH_SIZE);
   const { station } = useMyReliefStation();
 
   const [search, setSearch] = useState('');
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
-  const [verificationFilter, setVerificationFilter] = useState<
-    'all' | 'pending' | 'approved' | 'rejected'
+  const [requestStatusFilter, setRequestStatusFilter] = useState<
+    'all' | 'pending' | 'approved' | 'rejected' | 'cancelled'
   >('all');
   const [rescueTypeFilter, setRescueTypeFilter] = useState<'all' | 'normal' | 'emergency'>('all');
   const [createdDateFilter, setCreatedDateFilter] = useState<'all' | 'today' | '7d' | '30d'>('all');
@@ -281,15 +386,10 @@ export default function CoordinatorRequestManagementPage() {
     const term = search.trim().toLowerCase();
     return [...requests]
       .filter((r) => {
-        const status = getVerification(r)?.status;
         const matchStatus =
-          verificationFilter === 'all'
+          requestStatusFilter === 'all'
             ? true
-            : verificationFilter === 'pending'
-              ? status === 0 || status === '0' || status === 'Pending' || status == null
-              : verificationFilter === 'approved'
-                ? status === 1 || status === '1' || status === 'Approved'
-                : status === 2 || status === '2' || status === 'Rejected';
+            : getRequestStatusFilterKey(r) === requestStatusFilter;
 
         const matchSearch =
           !term ||
@@ -319,42 +419,33 @@ export default function CoordinatorRequestManagementPage() {
         return matchStatus && matchSearch && matchRescueType && matchCreatedDate && matchPriority;
       })
       .sort((left, right) => {
-        const leftStatus = getVerification(left)?.status;
-        const rightStatus = getVerification(right)?.status;
+        const statusOrder: Record<'pending' | 'approved' | 'rejected' | 'cancelled', number> = {
+          pending: 0,
+          approved: 1,
+          rejected: 2,
+          cancelled: 3,
+        };
 
-        const leftIsPending =
-          leftStatus === 0 || leftStatus === '0' || leftStatus === 'Pending' || leftStatus == null;
-        const rightIsPending =
-          rightStatus === 0 ||
-          rightStatus === '0' ||
-          rightStatus === 'Pending' ||
-          rightStatus == null;
+        const leftStatus = getRequestStatusFilterKey(left);
+        const rightStatus = getRequestStatusFilterKey(right);
 
-        if (leftIsPending !== rightIsPending) {
-          return leftIsPending ? -1 : 1;
+        if (leftStatus !== rightStatus) {
+          return statusOrder[leftStatus] - statusOrder[rightStatus];
         }
 
         const leftTime = new Date(left.createdAt || 0).getTime();
         const rightTime = new Date(right.createdAt || 0).getTime();
         return rightTime - leftTime;
       });
-  }, [requests, search, verificationFilter, rescueTypeFilter, createdDateFilter, priorityFilter]);
+  }, [requests, search, requestStatusFilter, rescueTypeFilter, createdDateFilter, priorityFilter]);
 
   const requestStats = useMemo(
     () => ({
       total: requests.length,
-      pending: requests.filter((r) => {
-        const status = getVerification(r)?.status;
-        return status === 0 || status === '0' || status === 'Pending' || status == null;
-      }).length,
-      approved: requests.filter((r) => {
-        const status = getVerification(r)?.status;
-        return status === 1 || status === '1' || status === 'Approved';
-      }).length,
-      rejected: requests.filter((r) => {
-        const status = getVerification(r)?.status;
-        return status === 2 || status === '2' || status === 'Rejected';
-      }).length,
+      pending: requests.filter((r) => getRequestStatusFilterKey(r) === 'pending').length,
+      approved: requests.filter((r) => getRequestStatusFilterKey(r) === 'approved').length,
+      rejected: requests.filter((r) => getRequestStatusFilterKey(r) === 'rejected').length,
+      cancelled: requests.filter((r) => getRequestStatusFilterKey(r) === 'cancelled').length,
     }),
     [requests],
   );
@@ -362,12 +453,12 @@ export default function CoordinatorRequestManagementPage() {
   const totalListPages = Math.max(1, Math.ceil(filtered.length / REQUEST_LIST_PAGE_SIZE));
 
   // Derive filterKey and effective page — when filter changes, page resets to 1
-  const filterKey = `${search}|${verificationFilter}|${rescueTypeFilter}|${createdDateFilter}|${priorityFilter}`;
+  const filterKey = `${search}|${requestStatusFilter}|${rescueTypeFilter}|${createdDateFilter}|${priorityFilter}`;
   const listPage = listPageState.key === filterKey ? listPageState.page : 1;
   const effectiveListPage = Math.min(Math.max(1, listPage), totalListPages);
   const setListPage = (page: number) => setListPageState({ key: filterKey, page });
   const activeFilterCount =
-    Number(verificationFilter !== 'all') +
+    Number(requestStatusFilter !== 'all') +
     Number(rescueTypeFilter !== 'all') +
     Number(createdDateFilter !== 'all') +
     Number(priorityFilter !== 'all');
@@ -391,6 +482,7 @@ export default function CoordinatorRequestManagementPage() {
     [filtered, effectiveSelectedId],
   );
   const verification = getVerification(selected);
+  const requestStatusBadge = getRequestStatusBadge(selected);
   const currentStatus = verification?.status;
   const isPending =
     currentStatus === 0 ||
@@ -518,7 +610,7 @@ export default function CoordinatorRequestManagementPage() {
   };
 
   const clearAllFilters = () => {
-    setVerificationFilter('all');
+    setRequestStatusFilter('all');
     setRescueTypeFilter('all');
     setCreatedDateFilter('all');
     setPriorityFilter('all');
@@ -541,7 +633,7 @@ export default function CoordinatorRequestManagementPage() {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
           <Card className="border-border bg-card">
             <CardContent className="p-5">
               <div className="flex items-start justify-between gap-3">
@@ -599,6 +691,23 @@ export default function CoordinatorRequestManagementPage() {
                   <p className="mt-3 text-3xl font-black text-rose-600">{requestStats.rejected}</p>
                 </div>
                 <div className="flex size-11 items-center justify-center rounded-2xl border border-rose-200 bg-rose-500/10 text-rose-600">
+                  <span className="material-symbols-outlined">cancel</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-border bg-card">
+            <CardContent className="p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                    Đã hủy
+                  </p>
+                  <p className="mt-3 text-3xl font-black text-slate-600">
+                    {requestStats.cancelled}
+                  </p>
+                </div>
+                <div className="flex size-11 items-center justify-center rounded-2xl border border-slate-200 bg-slate-500/10 text-slate-600">
                   <span className="material-symbols-outlined">cancel</span>
                 </div>
               </div>
@@ -670,17 +779,19 @@ export default function CoordinatorRequestManagementPage() {
                               : 'Mọi loại'}
                         </FilterChip>
                       ) : null}
-                      {verificationFilter !== 'all' ? (
+                      {requestStatusFilter !== 'all' ? (
                         <FilterChip
                           active
                           icon="fact_check"
-                          onClick={() => setVerificationFilter('all')}
+                          onClick={() => setRequestStatusFilter('all')}
                         >
-                          {verificationFilter === 'pending'
+                          {requestStatusFilter === 'pending'
                             ? 'Chờ xác minh'
-                            : verificationFilter === 'approved'
+                            : requestStatusFilter === 'approved'
                               ? 'Đã xác minh'
-                              : 'Từ chối'}
+                              : requestStatusFilter === 'rejected'
+                                ? 'Từ chối'
+                                : 'Đã hủy'}
                         </FilterChip>
                       ) : null}
                       {createdDateFilter !== 'all' ? (
@@ -742,7 +853,6 @@ export default function CoordinatorRequestManagementPage() {
                   <div className="space-y-3">
                     {paginatedRequests.map((req) => {
                       const id = getRequestId(req);
-                      const verificationItem = getVerification(req);
                       const isActive = id === effectiveSelectedId;
 
                       return (
@@ -788,10 +898,10 @@ export default function CoordinatorRequestManagementPage() {
                             <span
                               className={cn(
                                 'shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold',
-                                verificationStatusClass(verificationItem?.status),
+                                getRequestStatusBadge(req).cls,
                               )}
                             >
-                              {verificationStatusText(verificationItem?.status)}
+                              {getRequestStatusBadge(req).label}
                             </span>
                           </div>
                           <div className="mt-3 flex flex-wrap gap-2">
@@ -891,10 +1001,10 @@ export default function CoordinatorRequestManagementPage() {
                       <span
                         className={cn(
                           'text-xs px-3 py-1 rounded-full border font-semibold',
-                          verificationStatusClass(verification?.status),
+                          requestStatusBadge.cls,
                         )}
                       >
-                        {verificationStatusText(verification?.status)}
+                        {requestStatusBadge.label}
                       </span>
                     </div>
 
@@ -1243,6 +1353,25 @@ export default function CoordinatorRequestManagementPage() {
                     <div className="rounded-2xl border border-border p-4 space-y-3">
                       <p className="text-sm font-semibold">F. Xác minh yêu cầu</p>
 
+                      <div className="flex flex-wrap gap-2">
+                        <span
+                          className={cn(
+                            'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold',
+                            getRequestStatusBadge(selected).cls,
+                          )}
+                        >
+                          <span className="material-symbols-outlined text-sm">verified</span>
+                          {getRequestStatusBadge(selected).label}
+                        </span>
+                        {isCancelledRescueRequest(selected) ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-slate-500/10 px-2.5 py-1 text-xs font-semibold text-slate-700">
+                            <span className="material-symbols-outlined text-sm">cancel</span>
+                            Trạng thái yêu cầu:{' '}
+                            {RescueRequestStatusLabel[RescueRequestStatus.Cancelled]}
+                          </span>
+                        ) : null}
+                      </div>
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
                           <p className="text-xs uppercase text-muted-foreground mb-1">
@@ -1295,10 +1424,12 @@ export default function CoordinatorRequestManagementPage() {
                     </div> */}
                     </div>
 
-                    {verification?.status === 2 && (
+                    {isVerificationRejected(verification?.status) && (
                       <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-4">
                         <p className="text-xs uppercase font-semibold text-red-600">
-                          Lý do từ chối
+                          {isSelfCancelledVerification(verification)
+                            ? 'Lý do hủy'
+                            : 'Lý do từ chối'}
                         </p>
                         <p className="text-sm text-red-700 mt-1">
                           {verification.reason || 'Không có lý do'}
@@ -1456,35 +1587,42 @@ export default function CoordinatorRequestManagementPage() {
             </div>
 
             <div className="space-y-2">
-              <p className="text-sm font-semibold text-foreground">Trạng thái</p>
+              <p className="text-sm font-semibold text-foreground">Trạng thái xác minh</p>
               <div className="flex gap-2 overflow-x-auto pb-1 whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 <FilterChip
-                  active={verificationFilter === 'all'}
+                  active={requestStatusFilter === 'all'}
                   icon="apps"
-                  onClick={() => setVerificationFilter('all')}
+                  onClick={() => setRequestStatusFilter('all')}
                 >
                   Tất cả
                 </FilterChip>
                 <FilterChip
-                  active={verificationFilter === 'pending'}
+                  active={requestStatusFilter === 'pending'}
                   icon="schedule"
-                  onClick={() => setVerificationFilter('pending')}
+                  onClick={() => setRequestStatusFilter('pending')}
                 >
                   Chờ xác minh
                 </FilterChip>
                 <FilterChip
-                  active={verificationFilter === 'approved'}
+                  active={requestStatusFilter === 'approved'}
                   icon="verified"
-                  onClick={() => setVerificationFilter('approved')}
+                  onClick={() => setRequestStatusFilter('approved')}
                 >
                   Đã xác minh
                 </FilterChip>
                 <FilterChip
-                  active={verificationFilter === 'rejected'}
+                  active={requestStatusFilter === 'rejected'}
                   icon="cancel"
-                  onClick={() => setVerificationFilter('rejected')}
+                  onClick={() => setRequestStatusFilter('rejected')}
                 >
                   Từ chối
+                </FilterChip>
+                <FilterChip
+                  active={requestStatusFilter === 'cancelled'}
+                  icon="cancel_presentation"
+                  onClick={() => setRequestStatusFilter('cancelled')}
+                >
+                  Đã hủy
                 </FilterChip>
               </div>
             </div>
