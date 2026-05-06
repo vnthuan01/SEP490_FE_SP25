@@ -27,7 +27,6 @@ const GOONG_MAP_KEY = import.meta.env.VITE_GOONG_MAP_KEY || '';
 const GOONG_API_KEY = import.meta.env.VITE_GOONG_API_KEY || '';
 
 const OPERATION_STATUS_STEPS = [
-  { key: 'Pending', label: 'Chờ xử lý', icon: 'schedule', color: '#9ca3af' },
   { key: 'Assigned', label: 'Đã gán team', icon: 'assignment_ind', color: '#60a5fa' },
   { key: 'EnRoute', label: 'Đang di chuyển', icon: 'directions_car', color: '#3b82f6' },
   { key: 'Rescuing', label: 'Đang cứu hộ', icon: 'local_fire_department', color: '#f97316' },
@@ -35,11 +34,6 @@ const OPERATION_STATUS_STEPS = [
 ] as const;
 
 const STATUS_BADGE_MAP: Record<string, { label: string; cls: string; icon: string }> = {
-  Pending: {
-    label: 'Chờ xử lý',
-    cls: 'border-yellow-200 bg-yellow-500/10 text-yellow-600',
-    icon: 'schedule',
-  },
   Assigned: {
     label: 'Đã gán team',
     cls: 'border-blue-200 bg-blue-500/10 text-blue-700',
@@ -105,6 +99,12 @@ const REQUEST_TYPE_COLOR: Record<string | number, string> = {
   2: 'bg-red-500 text-white',
 };
 
+const MISSION_REQUEST_STATUSES = [
+  RescueRequestStatus.Assigned,
+  RescueRequestStatus.InProgress,
+  RescueRequestStatus.Completed,
+] as const;
+
 const formatDate = (v?: string | null) => {
   if (!v) return '--';
   const d = new Date(v);
@@ -124,6 +124,22 @@ const normalizeRequestStatus = (value?: string | number | null) => {
 
 const isCancelledRequest = (request: { rescueRequestStatus?: string | number | null }) =>
   normalizeRequestStatus(request.rescueRequestStatus) === 'cancelled';
+
+const isMissionTrackingRequest = (request: { rescueRequestStatus?: string | number | null }) => {
+  const status = normalizeRequestStatus(request.rescueRequestStatus);
+  return (
+    status === 'assigned' ||
+    status === 'inprogress' ||
+    status === 'completed' ||
+    status === String(RescueRequestStatus.Assigned) ||
+    status === String(RescueRequestStatus.InProgress) ||
+    status === String(RescueRequestStatus.Completed) ||
+    status === 'đã gán đội' ||
+    status === 'đang di chuyển' ||
+    status === 'đang cứu hộ' ||
+    status === 'hoàn thành'
+  );
+};
 
 const MISSION_PAGE_SIZE = 5;
 
@@ -214,7 +230,6 @@ export default function MissionTrackingPage() {
   const [isListLoading, setIsListLoading] = useState(true);
   const [isListError, setIsListError] = useState(false);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<number | undefined>(undefined);
   const [listPage, setListPage] = useState(1);
 
   const [selectedId, setSelectedId] = useState(searchParams.get('requestId') || '');
@@ -237,7 +252,7 @@ export default function MissionTrackingPage() {
     }
 
     const found = requests.find((req) => getRequestId(req) === selectedId);
-    if (found && !isCancelledRequest(found)) {
+    if (found && !isCancelledRequest(found) && isMissionTrackingRequest(found)) {
       setSelectedListRequest(found);
       return;
     }
@@ -364,7 +379,10 @@ export default function MissionTrackingPage() {
   );
 
   const visibleRequests = useMemo(
-    () => requests.filter((request) => !isCancelledRequest(request)),
+    () =>
+      requests.filter(
+        (request) => !isCancelledRequest(request) && isMissionTrackingRequest(request),
+      ),
     [requests],
   );
 
@@ -386,7 +404,7 @@ export default function MissionTrackingPage() {
 
   useEffect(() => {
     setListPage(1);
-  }, [search, statusFilter]);
+  }, [search]);
 
   useEffect(() => {
     if (listPage > totalListPages) setListPage(totalListPages);
@@ -403,7 +421,6 @@ export default function MissionTrackingPage() {
     );
     return {
       total: visibleRequests.length,
-      pending: statuses.filter((status) => !status || status === 'Pending').length,
       active: statuses.filter(
         (status) => status === 'Assigned' || status === 'EnRoute' || status === 'Rescuing',
       ).length,
@@ -416,18 +433,32 @@ export default function MissionTrackingPage() {
   const loadList = useCallback(async () => {
     try {
       setIsListError(false);
-      const result = await rescueRequestService.getMyStationRequests({
-        statusFilter,
-        pageNumber: 1,
-        pageSize: 50,
+      const results = await Promise.all(
+        MISSION_REQUEST_STATUSES.map((statusFilter) =>
+          rescueRequestService.getMyStationRequests({
+            statusFilter,
+            pageNumber: 1,
+            pageSize: 50,
+          }),
+        ),
+      );
+
+      const merged = new Map<string, RescueRequestDetail>();
+      results.forEach((result) => {
+        (result.items as RescueRequestDetail[])
+          .filter(isMissionTrackingRequest)
+          .forEach((request) => {
+            merged.set(getRequestId(request), request);
+          });
       });
-      setRequests(result.items as RescueRequestDetail[]);
+
+      setRequests(Array.from(merged.values()));
     } catch {
       setIsListError(true);
     } finally {
       setIsListLoading(false);
     }
-  }, [statusFilter]);
+  }, []);
 
   useEffect(() => {
     setIsListLoading(true);
@@ -533,7 +564,7 @@ export default function MissionTrackingPage() {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <Card className="border-border bg-card">
             <CardContent className="p-5">
               <div className="flex items-start justify-between gap-3">
@@ -545,21 +576,6 @@ export default function MissionTrackingPage() {
                 </div>
                 <div className="flex size-11 items-center justify-center rounded-2xl border border-sky-200 bg-sky-500/10 text-sky-600">
                   <span className="material-symbols-outlined">radar</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-border bg-card">
-            <CardContent className="p-5">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                    Chờ xử lý
-                  </p>
-                  <p className="mt-3 text-3xl font-black text-amber-600">{missionStats.pending}</p>
-                </div>
-                <div className="flex size-11 items-center justify-center rounded-2xl border border-amber-200 bg-amber-500/10 text-amber-600">
-                  <span className="material-symbols-outlined">schedule</span>
                 </div>
               </div>
             </CardContent>
@@ -622,51 +638,10 @@ export default function MissionTrackingPage() {
                     />
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {(
-                      [
-                        { label: 'Tất cả', value: undefined, icon: 'apps', activeCls: '' },
-                        {
-                          label: 'Đang xử lý',
-                          value: 3,
-                          icon: 'progress_activity',
-                          activeCls:
-                            'border-blue-300 bg-blue-500/15 text-blue-700 hover:bg-blue-500/20',
-                        },
-                        {
-                          label: 'Chờ duyệt',
-                          value: 0,
-                          icon: 'schedule',
-                          activeCls:
-                            'border-yellow-300 bg-yellow-500/15 text-yellow-700 hover:bg-yellow-500/20',
-                        },
-                        {
-                          label: 'Hoàn thành',
-                          value: 4,
-                          icon: 'check_circle',
-                          activeCls:
-                            'border-emerald-300 bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/20',
-                        },
-                      ] as {
-                        label: string;
-                        value: number | undefined;
-                        icon: string;
-                        activeCls: string;
-                      }[]
-                    ).map(({ label, value, icon, activeCls }) => {
-                      const isActive = statusFilter === value;
-                      return (
-                        <Button
-                          key={label}
-                          size="sm"
-                          variant={isActive && !activeCls ? 'primary' : 'outline'}
-                          className={cn('rounded-full', isActive && activeCls)}
-                          onClick={() => setStatusFilter(value)}
-                        >
-                          <span className="material-symbols-outlined text-sm">{icon}</span>
-                          {label}
-                        </Button>
-                      );
-                    })}
+                    <Button size="sm" variant="outline" className="rounded-full" disabled>
+                      <span className="material-symbols-outlined text-sm">assignment_ind</span>
+                      Đã gán đội
+                    </Button>
                   </div>
                 </div>
               </div>
