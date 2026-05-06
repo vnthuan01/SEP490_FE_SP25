@@ -6,6 +6,16 @@ import {
   normalizeDisasterAnalysisResponse,
 } from '@/services/disasterAnalysisService';
 
+const mergeAnalysisWithRequestedPoint = (
+  analysis: AnalyzeDisasterRiskResponse,
+  payload: AnalyzeDisasterRiskPayload,
+): AnalyzeDisasterRiskResponse => ({
+  ...analysis,
+  latitude: payload.latitude,
+  longitude: payload.longitude,
+  locationName: payload.locationName || analysis.locationName,
+});
+
 export const DISASTER_ANALYSIS_QUERY_KEYS = {
   all: ['disaster-analysis'] as const,
   analyze: (payload: AnalyzeDisasterRiskPayload) =>
@@ -23,7 +33,10 @@ export function useAnalyzeDisasterRisks(payloads: AnalyzeDisasterRiskPayload[]) 
             payload.latitude,
             payload.longitude,
           );
-          return normalizeDisasterAnalysisResponse(response.data);
+          return mergeAnalysisWithRequestedPoint(
+            normalizeDisasterAnalysisResponse(response.data),
+            payload,
+          );
         } catch (error: any) {
           if (error?.response?.status === 404) {
             return null as any;
@@ -47,7 +60,10 @@ export function useAnalyzeDisasterRisks(payloads: AnalyzeDisasterRiskPayload[]) 
     mutationFn: async (payload: AnalyzeDisasterRiskPayload) => {
       const response = await disasterAnalysisService.analyzeRisk(payload);
       try {
-        return normalizeDisasterAnalysisResponse(response.data as any);
+        return mergeAnalysisWithRequestedPoint(
+          normalizeDisasterAnalysisResponse(response.data as any),
+          payload,
+        );
       } catch (error: any) {
         if (error?.message === 'INVALID_DISASTER_ANALYSIS_COORDINATE') {
           return null;

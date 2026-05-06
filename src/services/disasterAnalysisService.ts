@@ -108,6 +108,9 @@ const toNumber = (value: any, fallback = 0) => {
   return Number.isFinite(n) ? n : fallback;
 };
 
+const firstDefined = (...values: any[]) =>
+  values.find((value) => value !== undefined && value !== null);
+
 const asArray = (value: any): any[] => (Array.isArray(value) ? value : []);
 
 export const isVietnamCoordinate = (latitude: number, longitude: number) => {
@@ -213,93 +216,183 @@ export const extractLlmSectionsVN = (llmResponse: any) => {
 };
 
 export const normalizeDisasterAnalysisResponse = (raw: AnyRecord): AnalyzeDisasterRiskResponse => {
-  if (raw?.weather && raw?.heuristic) return raw as AnalyzeDisasterRiskResponse;
+  const source = raw?.data || raw?.result || raw?.analysis || raw;
+  if (source?.weather && source?.heuristic) return source as AnalyzeDisasterRiskResponse;
 
-  const current = raw?.weatherSnapshot?.current || {};
-  const forecast = raw?.weatherSnapshot?.forecast || {};
+  const current =
+    source?.weatherSnapshot?.current ||
+    source?.weatherSnapshot?.Current ||
+    source?.currentWeather ||
+    source?.weather ||
+    source?.current ||
+    {};
+  const forecast =
+    source?.weatherSnapshot?.forecast ||
+    source?.weatherSnapshot?.Forecast ||
+    source?.forecast ||
+    {};
   const days = asArray(forecast?.Days || forecast?.days);
-  const llmResponse = raw?.llmResponse || {};
+  const heuristicSource = source?.heuristic || source?.heuristicRisk || source?.risk || {};
+  const llmResponse = source?.llmResponse || source?.ai?.llmResponse || source?.ai || {};
   const llmText = extractLlmText(llmResponse);
   const llmSections = extractLlmSectionsVN(llmResponse);
   const peakRainDay = [...days].sort(
     (a: any, b: any) => toNumber(b?.PrecipMm) - toNumber(a?.PrecipMm),
   )[0];
-  const normalizedLatitude = toNumber(raw?.matchedLatitude ?? raw?.requestedLatitude);
-  const normalizedLongitude = toNumber(raw?.matchedLongitude ?? raw?.requestedLongitude);
+  const requestedLatitude = toNumber(source?.requestedLatitude ?? source?.latitude, NaN);
+  const requestedLongitude = toNumber(source?.requestedLongitude ?? source?.longitude, NaN);
+  const matchedLatitude = toNumber(source?.matchedLatitude ?? source?.latitude, NaN);
+  const matchedLongitude = toNumber(source?.matchedLongitude ?? source?.longitude, NaN);
+  const normalizedLatitude = isVietnamCoordinate(requestedLatitude, requestedLongitude)
+    ? requestedLatitude
+    : matchedLatitude;
+  const normalizedLongitude = isVietnamCoordinate(requestedLatitude, requestedLongitude)
+    ? requestedLongitude
+    : matchedLongitude;
 
   if (!isVietnamCoordinate(normalizedLatitude, normalizedLongitude)) {
     throw new Error('INVALID_DISASTER_ANALYSIS_COORDINATE');
   }
 
   return {
-    analysisLogId: String(raw?.analysisLogId || ''),
+    analysisLogId: String(
+      source?.analysisLogId || source?.id || `${normalizedLatitude},${normalizedLongitude}`,
+    ),
     latitude: normalizedLatitude,
     longitude: normalizedLongitude,
-    locationName: String(raw?.locationName || 'Khu vực dự báo'),
-    analysisMode: String(raw?.heuristicRiskLevel || 'AI-First'),
-    requestedDisasterType: raw?.disasterType || null,
-    primaryDisasterType: String(raw?.disasterType || 'Other'),
+    locationName: String(source?.locationName || 'Khu vực dự báo'),
+    analysisMode: String(source?.heuristicRiskLevel || 'AI-First'),
+    requestedDisasterType: source?.disasterType || null,
+    primaryDisasterType: String(source?.disasterType || 'Other'),
     weather: {
-      observedAt: String(current?.ObservedAt || new Date().toISOString()),
-      condition: String(current?.Condition || ''),
-      temperatureC: toNumber(current?.TemperatureC),
-      windKph: toNumber(current?.WindKph),
-      precipMm: toNumber(current?.PrecipMm),
-      visibilityKm: toNumber(current?.VisibilityKm),
-      humidity: toNumber(current?.Humidity),
-      baseWeatherRiskScore: toNumber(current?.WeatherRiskScore),
-      baseWeatherRiskLevel: String(current?.WeatherRiskLevel || 'Low'),
+      observedAt: String(
+        firstDefined(
+          current?.ObservedAt,
+          current?.observedAt,
+          current?.datetime,
+          new Date().toISOString(),
+        ),
+      ),
+      condition: String(
+        firstDefined(current?.Condition, current?.condition, current?.conditions, ''),
+      ),
+      temperatureC: toNumber(
+        firstDefined(current?.TemperatureC, current?.temperatureC, current?.tempC, current?.temp),
+      ),
+      windKph: toNumber(
+        firstDefined(current?.WindKph, current?.windKph, current?.windSpeedKph, current?.windspeed),
+      ),
+      precipMm: toNumber(
+        firstDefined(
+          current?.PrecipMm,
+          current?.precipMm,
+          current?.precip,
+          current?.precipitationMm,
+        ),
+      ),
+      visibilityKm: toNumber(
+        firstDefined(current?.VisibilityKm, current?.visibilityKm, current?.visibility),
+      ),
+      humidity: toNumber(firstDefined(current?.Humidity, current?.humidity)),
+      baseWeatherRiskScore: toNumber(
+        firstDefined(
+          current?.WeatherRiskScore,
+          current?.weatherRiskScore,
+          current?.baseWeatherRiskScore,
+        ),
+      ),
+      baseWeatherRiskLevel: String(
+        firstDefined(
+          current?.WeatherRiskLevel,
+          current?.weatherRiskLevel,
+          current?.baseWeatherRiskLevel,
+          'Low',
+        ),
+      ),
     },
     forecast: {
-      resolvedAddress: forecast?.ResolvedAddress,
-      timeZone: forecast?.TimeZone,
-      requestedDays: toNumber(forecast?.RequestedDays),
-      generatedAt: forecast?.GeneratedAt,
-      queryCost: toNumber(forecast?.QueryCost),
-      maxDailyPrecipMm: Math.max(...days.map((d: any) => toNumber(d?.PrecipMm)), 0),
-      peakRainDate: peakRainDay?.Date || null,
+      resolvedAddress: firstDefined(forecast?.ResolvedAddress, forecast?.resolvedAddress),
+      timeZone: firstDefined(forecast?.TimeZone, forecast?.timeZone),
+      requestedDays: toNumber(firstDefined(forecast?.RequestedDays, forecast?.requestedDays)),
+      generatedAt: firstDefined(forecast?.GeneratedAt, forecast?.generatedAt),
+      queryCost: toNumber(firstDefined(forecast?.QueryCost, forecast?.queryCost)),
+      maxDailyPrecipMm: Math.max(
+        ...days.map((d: any) => toNumber(firstDefined(d?.PrecipMm, d?.precipMm, d?.precip))),
+        0,
+      ),
+      peakRainDate:
+        firstDefined(peakRainDay?.Date, peakRainDay?.date, forecast?.peakRainDate) || null,
       days: days.map((d: any) => ({
-        date: d?.Date,
-        tempMaxC: toNumber(d?.TempMaxC),
-        tempMinC: toNumber(d?.TempMinC),
-        precipMm: toNumber(d?.PrecipMm),
-        precipProbability: toNumber(d?.PrecipProbability),
-        precipCover: toNumber(d?.PrecipCover),
-        humidity: toNumber(d?.Humidity),
-        pressure: toNumber(d?.Pressure),
-        windSpeedKph: toNumber(d?.WindSpeedKph),
-        windGustKph: toNumber(d?.WindGustKph),
-        visibilityKm: toNumber(d?.VisibilityKm),
-        severeRisk: toNumber(d?.SevereRisk),
-        conditions: d?.Conditions,
-        description: d?.Description,
-        precipTypes: asArray(d?.PrecipTypes),
+        date: firstDefined(d?.Date, d?.date, d?.datetime),
+        tempMaxC: toNumber(firstDefined(d?.TempMaxC, d?.tempMaxC, d?.tempmax, d?.tempMax)),
+        tempMinC: toNumber(firstDefined(d?.TempMinC, d?.tempMinC, d?.tempmin, d?.tempMin)),
+        precipMm: toNumber(firstDefined(d?.PrecipMm, d?.precipMm, d?.precip)),
+        precipProbability: toNumber(
+          firstDefined(d?.PrecipProbability, d?.precipProbability, d?.precipprob),
+        ),
+        precipCover: toNumber(firstDefined(d?.PrecipCover, d?.precipCover, d?.precipcover)),
+        humidity: toNumber(firstDefined(d?.Humidity, d?.humidity)),
+        pressure: toNumber(firstDefined(d?.Pressure, d?.pressure)),
+        windSpeedKph: toNumber(firstDefined(d?.WindSpeedKph, d?.windSpeedKph, d?.windspeed)),
+        windGustKph: toNumber(firstDefined(d?.WindGustKph, d?.windGustKph, d?.windgust)),
+        visibilityKm: toNumber(firstDefined(d?.VisibilityKm, d?.visibilityKm, d?.visibility)),
+        severeRisk: toNumber(firstDefined(d?.SevereRisk, d?.severeRisk)),
+        conditions: firstDefined(d?.Conditions, d?.conditions),
+        description: firstDefined(d?.Description, d?.description),
+        precipTypes: asArray(firstDefined(d?.PrecipTypes, d?.precipTypes, d?.preciptype)),
       })),
     },
     riskRanking: [],
     heuristic: {
-      overallRiskScore: toNumber(raw?.heuristicRiskScore),
-      riskLevel: String(raw?.heuristicRiskLevel || 'Low'),
-      assessmentConfidence: String(raw?.assessmentConfidence || 'ModelDependent'),
-      dataLimitationNote: raw?.dataLimitationNote || null,
-      triggerFactors: asArray(raw?.triggerFactors).map(String),
-      potentialScenarios: asArray(raw?.potentialScenarios).map(String),
-      topThreats: asArray(raw?.topThreats).map(String),
+      overallRiskScore: toNumber(
+        firstDefined(
+          source?.heuristicRiskScore,
+          source?.overallRiskScore,
+          heuristicSource?.overallRiskScore,
+          heuristicSource?.riskScore,
+        ),
+      ),
+      riskLevel: String(
+        firstDefined(
+          source?.heuristicRiskLevel,
+          source?.riskLevel,
+          heuristicSource?.riskLevel,
+          'Low',
+        ),
+      ),
+      assessmentConfidence: String(
+        firstDefined(
+          source?.assessmentConfidence,
+          heuristicSource?.assessmentConfidence,
+          'ModelDependent',
+        ),
+      ),
+      dataLimitationNote:
+        firstDefined(source?.dataLimitationNote, heuristicSource?.dataLimitationNote) || null,
+      triggerFactors: asArray(
+        firstDefined(source?.triggerFactors, heuristicSource?.triggerFactors),
+      ).map(String),
+      potentialScenarios: asArray(
+        firstDefined(source?.potentialScenarios, heuristicSource?.potentialScenarios),
+      ).map(String),
+      topThreats: asArray(firstDefined(source?.topThreats, heuristicSource?.topThreats)).map(
+        String,
+      ),
     },
     ai: {
-      succeeded: !raw?.errorMessage,
-      provider: raw?.llmProvider || null,
-      model: raw?.llmModel || null,
-      promptVersion: raw?.promptVersion || null,
-      analyzedAt: raw?.createdAt || null,
-      primaryRiskType: raw?.disasterType || null,
-      requestedRiskType: raw?.disasterType || null,
+      succeeded: !source?.errorMessage,
+      provider: source?.llmProvider || null,
+      model: source?.llmModel || null,
+      promptVersion: source?.promptVersion || null,
+      analyzedAt: source?.createdAt || null,
+      primaryRiskType: source?.disasterType || null,
+      requestedRiskType: source?.disasterType || null,
       summary: llmText.summary,
       detailedAnalysis: llmText.detail,
       recommendations: [],
-      potentialScenarios: asArray(raw?.potentialScenarios).map(String),
+      potentialScenarios: asArray(source?.potentialScenarios).map(String),
       detectedConcerns: [],
-      errorMessage: raw?.errorMessage || null,
+      errorMessage: source?.errorMessage || null,
       sections: llmSections,
     },
   };
