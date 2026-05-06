@@ -143,9 +143,6 @@ export function useCreateSupplyAllocation() {
       toast.success('Đã tạo điều phối hàng hóa');
       queryClient.invalidateQueries({ queryKey: SUPPLY_QUERY_KEYS.all });
     },
-    onError: (error: any) => {
-      handleHookError(error, 'Không thể tạo điều phối hàng hóa');
-    },
   });
 }
 

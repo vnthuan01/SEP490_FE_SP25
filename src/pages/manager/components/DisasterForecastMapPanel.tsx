@@ -11,7 +11,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useGoongMap } from '@/hooks/useGoongMap';
-import type { AnalyzeDisasterRiskResponse } from '@/services/disasterAnalysisService';
+import {
+  getRiskHeadlineVN,
+  type AnalyzeDisasterRiskResponse,
+} from '@/services/disasterAnalysisService';
 import { DisasterType, ReliefStationLevel } from '@/enums/beEnums';
 
 type Station = {
@@ -59,6 +62,17 @@ const getForecastTemperatureRange = (analysis: AnalyzeDisasterRiskResponse) => {
   return { highestTemp: currentTemp, lowestTemp: currentTemp };
 };
 
+const hasUsableWeatherData = (analysis: AnalyzeDisasterRiskResponse) => {
+  const hasCurrentWeather =
+    Number(analysis.weather?.temperatureC || 0) > 0 ||
+    Number(analysis.weather?.humidity || 0) > 0 ||
+    Number(analysis.weather?.windKph || 0) > 0 ||
+    Number(analysis.weather?.precipMm || 0) > 0 ||
+    String(analysis.weather?.condition || '').trim().length > 0;
+  const hasForecastDays = (analysis.forecast?.days || []).length > 0;
+  return hasCurrentWeather || hasForecastDays;
+};
+
 export function DisasterForecastMapPanel(props: {
   mapStations: Station[];
   analyses: AnalyzeDisasterRiskResponse[];
@@ -67,9 +81,12 @@ export function DisasterForecastMapPanel(props: {
   highlightedAnalysisId?: string | null;
   disasterFilter: string;
   isLoadingDisaster: boolean;
+  hasMissingNearestData?: boolean;
   setDisasterFilter: (...args: [string]) => void;
   setSelectedAnalysis: (...args: [AnalyzeDisasterRiskResponse | null]) => void;
   onOpenMap: () => void;
+  onRefreshLatest?: () => void;
+  isRefreshingLatest?: boolean;
   onSelectStation: (...args: [string | null]) => void;
   parseRiskLevelVN: (...args: [string | null | undefined]) => { label: string; class: string };
   parseWeatherConditionVN: (...args: [string | null | undefined]) => string;
@@ -85,9 +102,12 @@ export function DisasterForecastMapPanel(props: {
     highlightedAnalysisId,
     disasterFilter,
     isLoadingDisaster,
+    hasMissingNearestData = false,
     setDisasterFilter,
     setSelectedAnalysis,
     onOpenMap,
+    onRefreshLatest,
+    isRefreshingLatest = false,
     onSelectStation,
     parseRiskLevelVN,
     parseWeatherConditionVN,
@@ -154,7 +174,8 @@ export function DisasterForecastMapPanel(props: {
     if (!mapImpl) return;
     riskMarkersRef.current.forEach((m) => m.remove());
     riskMarkersRef.current = [];
-    filteredAnalyses.forEach((analysis) => {
+    if (isRefreshingLatest) return;
+    filteredAnalyses.filter(hasUsableWeatherData).forEach((analysis) => {
       const theme = getDisasterTheme(getEffectiveDisasterType(analysis));
       const icon = weatherIcon(analysis.weather?.condition);
       const probability = Math.round(Number(analysis.heuristic?.overallRiskScore || 0));
@@ -170,12 +191,13 @@ export function DisasterForecastMapPanel(props: {
           ? Math.min(...forecastDays.map((day) => Number(day.tempMinC || 0)))
           : Number(analysis.weather?.temperatureC || 0);
       const tempLevel = evaluateTemperatureVN(safeCurrentTemp);
+      const riskHeadline = getRiskHeadlineVN(analysis);
       const el = document.createElement('button');
       el.type = 'button';
       el.className = 'bg-transparent border-0 p-0 cursor-pointer';
       const isSelected = analysis.analysisLogId === selectedAnalysis?.analysisLogId;
       const isHighlighted = analysis.analysisLogId === highlightedAnalysisId;
-      el.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;"><span style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;background:${theme.color};border:2px solid #fff;border-radius:999px;box-shadow:0 0 0 ${isHighlighted ? 13 : isSelected ? 9 : 5}px ${theme.light};animation:${isHighlighted ? 'managerRiskPulseStrong 1.2s cubic-bezier(0.22,1,0.36,1) infinite' : isSelected ? 'managerRiskBreathing 1.8s ease-in-out infinite' : 'none'};will-change:transform;"><span class="material-symbols-outlined" style="font-size:16px;color:#fff;">${icon}</span></span><div style="display:flex;flex-direction:column;align-items:center;background:#fff;border:1px solid ${theme.color};border-radius:8px;padding:4px 6px;box-shadow:0 6px 16px rgba(15,23,42,0.16);min-width:106px;"><span style="font-size:12px;line-height:1.1;font-weight:800;color:${theme.color};">${probability}%</span><span style="font-size:10px;line-height:1.1;color:#334155;white-space:nowrap;">Bão lũ dự báo</span><span style="margin-top:2px;font-size:10px;line-height:1.1;color:#b45309;white-space:nowrap;display:flex;align-items:center;gap:2px;"><span class="material-symbols-outlined" style="font-size:12px;">arrow_upward</span>${highestTemp.toFixed(1)}°C</span><span style="font-size:10px;line-height:1.1;color:#1d4ed8;white-space:nowrap;display:flex;align-items:center;gap:2px;"><span class="material-symbols-outlined" style="font-size:12px;">arrow_downward</span>${lowestTemp.toFixed(1)}°C</span><span style="font-size:10px;line-height:1.1;font-weight:700;color:${tempLevel.className};white-space:nowrap;">${tempLevel.label}${safeCurrentTemp !== null ? ` (${safeCurrentTemp.toFixed(1)}°C)` : ''}</span></div></div>`;
+      el.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;"><span style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;background:${theme.color};border:2px solid #fff;border-radius:999px;box-shadow:0 0 0 ${isHighlighted ? 13 : isSelected ? 9 : 5}px ${theme.light};animation:${isHighlighted ? 'managerRiskPulseStrong 1.2s cubic-bezier(0.22,1,0.36,1) infinite' : isSelected ? 'managerRiskBreathing 1.8s ease-in-out infinite' : 'none'};will-change:transform;"><span class="material-symbols-outlined" style="font-size:16px;color:#fff;">${icon}</span></span><div style="display:flex;flex-direction:column;align-items:center;background:#fff;border:1px solid ${theme.color};border-radius:8px;padding:4px 6px;box-shadow:0 6px 16px rgba(15,23,42,0.16);min-width:116px;"><span style="font-size:12px;line-height:1.1;font-weight:800;color:${theme.color};">${probability}%</span><span style="font-size:10px;line-height:1.1;color:#334155;white-space:nowrap;">${riskHeadline}</span><span style="margin-top:2px;font-size:10px;line-height:1.1;color:#b45309;white-space:nowrap;display:flex;align-items:center;gap:2px;"><span class="material-symbols-outlined" style="font-size:12px;">arrow_upward</span>${highestTemp.toFixed(1)}°C</span><span style="font-size:10px;line-height:1.1;color:#1d4ed8;white-space:nowrap;display:flex;align-items:center;gap:2px;"><span class="material-symbols-outlined" style="font-size:12px;">arrow_downward</span>${lowestTemp.toFixed(1)}°C</span><span style="font-size:10px;line-height:1.1;font-weight:700;color:${tempLevel.className};white-space:nowrap;">${tempLevel.label}${safeCurrentTemp !== null ? ` (${safeCurrentTemp.toFixed(1)}°C)` : ''}</span></div></div>`;
       el.addEventListener('click', () => {
         setSelectedAnalysis(analysis);
         (mapImpl as any).flyTo({
@@ -281,12 +303,21 @@ export function DisasterForecastMapPanel(props: {
             <Button variant="outline" className="gap-2" onClick={onOpenMap}>
               Mở bản đồ lớn
             </Button>
+            <Button
+              variant="primary"
+              className="gap-2"
+              onClick={onRefreshLatest}
+              disabled={!onRefreshLatest || isRefreshingLatest}
+            >
+              <span className="material-symbols-outlined text-lg">auto_awesome</span>
+              {isRefreshingLatest ? 'Đang dự đoán...' : 'Dự đoán mới nhất'}
+            </Button>
           </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {mapBlock}
-        {selectedAnalysis && (
+        {selectedAnalysis && hasUsableWeatherData(selectedAnalysis) && (
           <div
             className={`rounded-2xl border p-4 ${getDisasterTheme(getEffectiveDisasterType(selectedAnalysis)).cardClass}`}
           >
@@ -295,11 +326,29 @@ export function DisasterForecastMapPanel(props: {
               const safeCurrentTemp = Number.isFinite(currentTemp) ? currentTemp : null;
               const tempLevel = evaluateTemperatureVN(safeCurrentTemp);
               const { highestTemp, lowestTemp } = getForecastTemperatureRange(selectedAnalysis);
+              const riskHeadline = getRiskHeadlineVN(selectedAnalysis);
+              const hasAiSummary = Boolean(
+                selectedAnalysis.ai?.sections?.danhGiaTongQuan ||
+                selectedAnalysis.ai?.summary?.trim(),
+              );
+              const hasAiDetail = Boolean(
+                selectedAnalysis.ai?.sections?.hienTrangThoiTiet ||
+                selectedAnalysis.ai?.sections?.xuHuongNhieuNgay ||
+                selectedAnalysis.ai?.sections?.ngayTrongDiem ||
+                selectedAnalysis.ai?.sections?.yeuToRuiRo ||
+                selectedAnalysis.ai?.sections?.tacDongVanHanh ||
+                selectedAnalysis.ai?.sections?.khuyenNghiTheoDoi ||
+                selectedAnalysis.ai?.sections?.confidence ||
+                selectedAnalysis.ai?.detailedAnalysis?.trim(),
+              );
 
               return (
                 <>
                   <div className="flex items-center justify-between gap-2">
-                    <div className="font-bold">{selectedAnalysis.locationName}</div>
+                    <div>
+                      <div className="font-bold">{selectedAnalysis.locationName}</div>
+                      <div className="text-xs font-semibold mt-1">{riskHeadline}</div>
+                    </div>
                     <Badge variant="outline" appearance="outline" size="xs">
                       {Math.round(Number(selectedAnalysis.heuristic?.overallRiskScore || 0))}%
                     </Badge>
@@ -332,14 +381,12 @@ export function DisasterForecastMapPanel(props: {
                   >
                     {parseRiskLevelVN(selectedAnalysis.heuristic?.riskLevel).label}
                   </div>
-                  {selectedAnalysis.ai?.summary?.trim() ? (
-                    <div className="mt-2 text-sm">{selectedAnalysis.ai.summary}</div>
-                  ) : (
-                    <ul className="mt-2 space-y-1 text-sm list-disc pl-5">
+                  <div className="mt-2 rounded-lg border border-border/60 bg-background/60 px-3 py-2">
+                    <p className="text-xs font-semibold mb-1">Nhận định tạm thời từ dữ liệu</p>
+                    <ul className="space-y-1 text-sm list-disc pl-5">
                       <li>
                         Điểm rủi ro hiện tại:{' '}
-                        {Number(selectedAnalysis.heuristic?.overallRiskScore ?? 0)}
-                        /100
+                        {Number(selectedAnalysis.heuristic?.overallRiskScore ?? 0)}/100
                       </li>
                       <li>
                         Mưa cao nhất dự báo:{' '}
@@ -356,6 +403,73 @@ export function DisasterForecastMapPanel(props: {
                         {selectedAnalysis.weather?.temperatureC?.toFixed(1) ?? '0.0'}°C
                       </li>
                     </ul>
+                  </div>
+                  {hasAiSummary && (
+                    <div className="mt-2 space-y-2 text-sm">
+                      <div className="rounded-lg border border-border/60 bg-background/60 px-3 py-2">
+                        <p className="text-xs font-semibold mb-1">Tóm tắt từ AI</p>
+                        <div>
+                          {selectedAnalysis.ai.sections?.danhGiaTongQuan ||
+                            selectedAnalysis.ai.summary}
+                        </div>
+                      </div>
+                      {selectedAnalysis.ai.sections?.khuyenNghiTheoDoi && (
+                        <div className="rounded-lg border border-border/60 bg-background/60 px-3 py-2 text-xs">
+                          <span className="font-semibold">Khuyến nghị theo dõi: </span>
+                          {selectedAnalysis.ai.sections.khuyenNghiTheoDoi}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {hasAiDetail && (
+                    <div className="mt-2 rounded-lg border border-border/60 bg-background/60 px-3 py-2 space-y-2 text-xs leading-6">
+                      <p className="text-xs font-semibold">Chi tiết AI</p>
+                      {selectedAnalysis.ai.sections?.hienTrangThoiTiet && (
+                        <div>
+                          <span className="font-semibold">Hiện trạng thời tiết: </span>
+                          {selectedAnalysis.ai.sections.hienTrangThoiTiet}
+                        </div>
+                      )}
+                      {selectedAnalysis.ai.sections?.xuHuongNhieuNgay && (
+                        <div>
+                          <span className="font-semibold">Xu hướng nhiều ngày: </span>
+                          {selectedAnalysis.ai.sections.xuHuongNhieuNgay}
+                        </div>
+                      )}
+                      {selectedAnalysis.ai.sections?.ngayTrongDiem && (
+                        <div>
+                          <span className="font-semibold">Ngày trọng điểm: </span>
+                          {selectedAnalysis.ai.sections.ngayTrongDiem}
+                        </div>
+                      )}
+                      {selectedAnalysis.ai.sections?.yeuToRuiRo && (
+                        <div>
+                          <span className="font-semibold">Yếu tố rủi ro: </span>
+                          {selectedAnalysis.ai.sections.yeuToRuiRo}
+                        </div>
+                      )}
+                      {selectedAnalysis.ai.sections?.tacDongVanHanh && (
+                        <div>
+                          <span className="font-semibold">Tác động vận hành: </span>
+                          {selectedAnalysis.ai.sections.tacDongVanHanh}
+                        </div>
+                      )}
+                      {selectedAnalysis.ai.sections?.confidence && (
+                        <div>
+                          <span className="font-semibold">Độ tin cậy: </span>
+                          {selectedAnalysis.ai.sections.confidence}
+                        </div>
+                      )}
+                      {!selectedAnalysis.ai.sections?.hienTrangThoiTiet &&
+                        !selectedAnalysis.ai.sections?.xuHuongNhieuNgay &&
+                        !selectedAnalysis.ai.sections?.ngayTrongDiem &&
+                        !selectedAnalysis.ai.sections?.yeuToRuiRo &&
+                        !selectedAnalysis.ai.sections?.tacDongVanHanh &&
+                        !selectedAnalysis.ai.sections?.confidence &&
+                        selectedAnalysis.ai?.detailedAnalysis?.trim() && (
+                          <div>{selectedAnalysis.ai.detailedAnalysis}</div>
+                        )}
+                    </div>
                   )}
                 </>
               );
@@ -365,18 +479,28 @@ export function DisasterForecastMapPanel(props: {
         {isLoadingDisaster && (
           <div className="text-xs text-muted-foreground">Đang phân tích dữ liệu AI...</div>
         )}
-        {analyses.length > 0 && (
+        {!isLoadingDisaster && hasMissingNearestData && (
+          <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            Chưa có dữ liệu dự báo đã lưu cho một số điểm. Hãy bấm <b>Dự đoán mới nhất</b> để cập
+            nhật.
+          </div>
+        )}
+        {analyses.filter(hasUsableWeatherData).length > 0 && (
           <div className="flex flex-wrap gap-2">
-            {analyses.slice(0, 6).map((analysis) => (
-              <button
-                key={analysis.analysisLogId}
-                type="button"
-                className="rounded-full border px-3 py-1 text-xs"
-                onClick={() => setSelectedAnalysis(analysis)}
-              >
-                {analysis.locationName}
-              </button>
-            ))}
+            {analyses
+              .filter(hasUsableWeatherData)
+              .slice(0, 6)
+              .map((analysis) => (
+                <button
+                  key={analysis.analysisLogId}
+                  type="button"
+                  className="rounded-full border px-3 py-1 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={() => setSelectedAnalysis(analysis)}
+                  disabled={isRefreshingLatest}
+                >
+                  {analysis.locationName}
+                </button>
+              ))}
           </div>
         )}
       </CardContent>

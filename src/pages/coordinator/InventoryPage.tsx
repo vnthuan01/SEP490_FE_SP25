@@ -38,6 +38,7 @@ import { useMyReliefStation } from '@/hooks/useReliefStation';
 import {
   useAddStock,
   useCreateTransaction,
+  useDeleteStock,
   useImportHistoryBySupplyItem,
   useInventories,
   useInventoryStocks,
@@ -533,6 +534,7 @@ export default function CoordinatorInventoryPage() {
 
   const { mutateAsync: addStock } = useAddStock();
   const { mutateAsync: createTransaction } = useCreateTransaction();
+  const { mutateAsync: deleteStock } = useDeleteStock();
   const { mutateAsync: createSupplyTransfer, status: createSupplyTransferStatus } =
     useCreateSupplyTransfer();
   const { mutateAsync: replaceTransferEvidenceUrls } = useReplaceSupplyTransferEvidenceUrls();
@@ -1487,23 +1489,20 @@ export default function CoordinatorInventoryPage() {
     expirationDate?: string | null;
   }): Promise<boolean> => {
     if (!managedInventory?.inventoryId) {
-      toast.error('Không tìm thấy kho đang quản lý để nhập hàng.');
-      return false;
+      throw new Error('Không tìm thấy kho đang quản lý để nhập hàng.');
     }
 
     const matchedSupplyItem = supplyItems.find((supply) => supply.id === item.supplyItemId);
 
     if (!matchedSupplyItem) {
-      toast.error('Chưa tìm thấy vật phẩm tương ứng trong danh mục hàng hóa cứu trợ.');
-      return false;
+      throw new Error('Chưa tìm thấy vật phẩm tương ứng trong danh mục hàng hóa cứu trợ.');
     }
 
     const existingStock = stockMapBySupplyItemId.get(matchedSupplyItem.id);
 
     if (existingStock) {
       if (!item.note?.trim()) {
-        toast.error('Vui lòng nhập lý do nhập kho cho vật phẩm đã có sẵn trong kho.');
-        return false;
+        throw new Error('Vui lòng nhập lý do nhập kho cho vật phẩm đã có sẵn trong kho.');
       }
 
       // Existing stock → use inventory transaction import
@@ -1527,24 +1526,62 @@ export default function CoordinatorInventoryPage() {
             },
           ],
         });
-      } catch {
-        return false;
+      } catch (error) {
+        const parsed = parseApiError(error, 'Không thể nhập thêm vật tư vào kho.');
+        toast.error(parsed.message);
+        throw new Error(parsed.message);
       }
     } else {
-      // New stock row → use addStock with optional expiration date
+      // New supply item import: create the stock row first, then record an import transaction
+      // so unit cost and source reference are preserved in import history.
+      let createdStockId: string | undefined;
       try {
-        await addStock({
+        const createdStock = await addStock({
           id: managedInventory.inventoryId,
           data: {
             supplyItemId: matchedSupplyItem.id,
-            currentQuantity: item.quantity,
+            currentQuantity: 0,
             minimumStockLevel: 0,
             maximumStockLevel: item.capacity || item.quantity,
             expirationDate: item.expirationDate ?? null,
           },
         });
-      } catch {
-        return false;
+
+        createdStockId = createdStock?.data?.stockId;
+
+        await createTransaction({
+          inventoryId: managedInventory.inventoryId,
+          type: TransactionType.Import,
+          reason: TransactionReason.Other,
+          notes: item.note?.trim() || 'Nhập kho vật tư mới từ bên ngoài',
+          importBatchCode: `LO-${Date.now()}`,
+          sourceReference: item.sourceReference?.trim() || 'Nhập kho trực tiếp',
+          items: [
+            {
+              supplyItemId: matchedSupplyItem.id,
+              supplyItemName: matchedSupplyItem.name,
+              supplyItemUnit: matchedSupplyItem.unit,
+              quantity: item.quantity,
+              notes: item.note?.trim() || 'Tạo mới vật tư và nhập lô đầu tiên vào kho',
+              unitCost: item.unitCost,
+              expiryDate: item.expirationDate ?? null,
+            },
+          ],
+        });
+      } catch (error) {
+        if (createdStockId) {
+          try {
+            await deleteStock({
+              stockId: createdStockId,
+              inventoryId: managedInventory.inventoryId,
+            });
+          } catch {
+            // Ignore rollback cleanup errors here; original import error is more important.
+          }
+        }
+        const parsed = parseApiError(error, 'Không thể nhập vật tư mới vào kho.');
+        toast.error(parsed.message);
+        throw new Error(parsed.message);
       }
     }
 
@@ -1855,6 +1892,27 @@ export default function CoordinatorInventoryPage() {
       return false;
     }
 
+    for (const item of validItems) {
+      const matchedInventoryItem = inventoryItems.find(
+        (inventoryItem) => inventoryItem.supplyItemId === item.supplyItemId,
+      );
+      const currentStock = matchedInventoryItem?.current ?? 0;
+      const maximumStock = matchedInventoryItem?.capacity ?? 0;
+      const remainingAfterAllocation = currentStock - item.quantity;
+
+      if (remainingAfterAllocation < 0) {
+        throw new Error(
+          `Số lượng cấp phát cho "${item.supplyItemName}" vượt quá số lượng hiện có trong kho. Hiện chỉ còn ${formatNumberVN(currentStock)} ${item.supplyItemUnit}.`,
+        );
+      }
+
+      if (maximumStock > 0 && remainingAfterAllocation > maximumStock) {
+        throw new Error(
+          `Số lượng sau cấp phát của "${item.supplyItemName}" đang vượt quá mức tồn tối đa ${formatNumberVN(maximumStock)} ${item.supplyItemUnit}.`,
+        );
+      }
+    }
+
     try {
       await createSupplyAllocation({
         campaignId,
@@ -1880,8 +1938,13 @@ export default function CoordinatorInventoryPage() {
       toast.success('Đã cấp phát vật tư cho chiến dịch.');
       setOpenCampaignAllocation(false);
       return true;
-    } catch {
-      return false;
+    } catch (error) {
+      if (error instanceof Error && error.message) {
+        throw error;
+      }
+
+      const parsed = parseApiError(error, 'Không thể cấp phát vật tư cho chiến dịch.');
+      throw new Error(parsed.message);
     }
   };
 
@@ -3340,7 +3403,7 @@ export default function CoordinatorInventoryPage() {
                             <div className="min-w-0">
                               <p className="font-medium text-foreground">{item.supplyItemName}</p>
                               <p className="text-xs text-muted-foreground break-all">
-                                {item.supplyItemId}
+                                Mã vật phẩm: {item.supplyItemId?.slice(0, 6)}
                               </p>
                             </div>
                             <p className="text-sm font-medium text-foreground whitespace-nowrap">

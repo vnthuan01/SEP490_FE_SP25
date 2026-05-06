@@ -16,7 +16,6 @@ import {
   Send,
   Search,
   SearchX,
-  ShieldAlert,
   Users,
   type LucideIcon,
 } from 'lucide-react';
@@ -33,7 +32,6 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Switch, SwitchWrapper } from '@/components/ui/switch';
 import { coordinatorNavGroups } from './components/sidebarConfig';
 import { useMyReliefStation } from '@/hooks/useReliefStation';
 import { useTeamLatestTracking, useTeamsInStation } from '@/hooks/useTeams';
@@ -46,6 +44,7 @@ import {
   type RescueRequestPaging,
 } from '@/services/rescueRequestService';
 import { cn } from '@/lib/utils';
+import { buffer, lineString } from '@turf/turf';
 import {
   getPriorityLevelLabel,
   getRescueRequestTypeLabel,
@@ -120,20 +119,16 @@ function toCoordinate(lat?: number | null, lng?: number | null): Coordinate | nu
   return { lat: validLat, lng: validLng };
 }
 
-function buildRouteBufferPolygon(coords: Array<[number, number]>, radiusKm: number) {
-  if (coords.length < 2) return [];
+function buildRouteBufferGeometry(coords: Array<[number, number]>, radiusKm: number) {
+  if (coords.length < 2) return null;
 
-  const radiusDeg = radiusKm / 111;
-  const polygon: number[][] = [];
+  const routeLine = lineString(coords);
+  const buffered = buffer(routeLine, radiusKm, {
+    units: 'kilometers',
+    steps: 64,
+  });
 
-  for (const [lng, lat] of coords) polygon.push([lng - radiusDeg, lat + radiusDeg]);
-  for (let i = coords.length - 1; i >= 0; i--) {
-    const [lng, lat] = coords[i];
-    polygon.push([lng + radiusDeg, lat - radiusDeg]);
-  }
-
-  polygon.push(polygon[0]);
-  return polygon;
+  return buffered?.geometry ? buffered : null;
 }
 
 function requestBadgeClass(type?: string | number | null) {
@@ -261,7 +256,7 @@ function translateSystemReason(reason?: string | null) {
 function actionLabel(action?: string | null) {
   switch (action) {
     case 'AssignAsInProgress':
-      return 'Chèn ngang nhiệm vụ hiện tại';
+      return 'Chèn vào hàng đợi';
     case 'AssignAndInsertQueue':
       return 'Chèn vào hàng đợi';
     case 'AssignQueueTail':
@@ -470,7 +465,6 @@ export default function DispatchPage() {
 
   const [selectedTeamId, setSelectedTeamId] = useState('');
   const [selectedRequestId, setSelectedRequestId] = useState('');
-  const [allowPreempt, setAllowPreempt] = useState(true);
   const [assignNote, setAssignNote] = useState('Điều phối theo tuyến gần nhất');
   const [search, setSearch] = useState('');
   const [activeBatch, setActiveBatch] = useState<RescueBatchQueueResponseDto | null>(null);
@@ -517,11 +511,10 @@ export default function DispatchPage() {
   const previewPayload = useMemo(
     () => ({
       teamId: selectedTeamId,
-      allowPreempt,
       normalNearRouteThresholdKm: NORMAL_THRESHOLD_KM,
       emergencyNearRouteThresholdKm: EMERGENCY_THRESHOLD_KM,
     }),
-    [selectedTeamId, allowPreempt],
+    [selectedTeamId],
   );
 
   const candidateCurrentPage = candidatePaging?.currentPage ?? candidatePage;
@@ -776,11 +769,6 @@ export default function DispatchPage() {
     return () => clearTimeout(timeoutId);
   }, [candidatePage, clearDispatchState, refreshDispatchData, selectedTeamId, trimmedSearch]);
 
-  useEffect(() => {
-    setPreview(null);
-    setQueueTab('current');
-  }, [allowPreempt, selectedRequestId]);
-
   const handlePreview = async () => {
     if (!selectedTeamId || !selectedRequestId) return;
     if (previewInFlightRef.current) return;
@@ -970,16 +958,12 @@ export default function DispatchPage() {
               ? EMERGENCY_THRESHOLD_KM
               : NORMAL_THRESHOLD_KM;
 
-          const bufferPolygon = buildRouteBufferPolygon(routeCoords, thresholdKm);
+          const bufferGeometry = buildRouteBufferGeometry(routeCoords, thresholdKm);
 
-          if (bufferPolygon.length >= 4) {
+          if (bufferGeometry) {
             (map as any).addSource(BUFFER_SOURCE_ID, {
               type: 'geojson',
-              data: {
-                type: 'Feature',
-                properties: {},
-                geometry: { type: 'Polygon', coordinates: [bufferPolygon] },
-              },
+              data: bufferGeometry,
             });
 
             (map as any).addLayer({
@@ -1349,26 +1333,6 @@ export default function DispatchPage() {
                 </div>
 
                 <div className="space-y-4 p-5">
-                  <div className="rounded-2xl border border-border bg-primary/20 p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-primary">Cho phép chèn ngang</p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Dùng khi yêu cầu khẩn cấp nằm gần tuyến đường đội đang di chuyển.
-                        </p>
-                      </div>
-
-                      <SwitchWrapper>
-                        <Switch
-                          checked={allowPreempt}
-                          onCheckedChange={setAllowPreempt}
-                          size="lg"
-                          aria-label="Cho phép chèn ngang"
-                        />
-                      </SwitchWrapper>
-                    </div>
-                  </div>
-
                   {selectedRequestBlockReason ? (
                     <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
                       <AlertTriangle className="mt-0.5 size-4 shrink-0" />
@@ -1387,14 +1351,6 @@ export default function DispatchPage() {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {preview.willPreemptCurrentInProgress ? (
-                        <div className="rounded-2xl border border-red-300 bg-red-50 px-4 py-3">
-                          <p className="text-sm font-bold text-red-700">
-                            Đề xuất chèn ngang nhiệm vụ hiện tại
-                          </p>
-                        </div>
-                      ) : null}
-
                       <div className="rounded-2xl border border-border bg-accent/20 px-4 py-3">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                           Hành động đề xuất
@@ -1486,23 +1442,10 @@ export default function DispatchPage() {
                       size="lg"
                       disabled={isAssignBlocked}
                       onClick={handleSmartAssign}
-                      className={cn(
-                        'gap-2 rounded-xl font-bold',
-                        preview?.willPreemptCurrentInProgress
-                          ? 'bg-red-600 text-white hover:bg-red-500'
-                          : 'bg-primary text-primary-foreground hover:bg-primary/90',
-                      )}
+                      className="gap-2 rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90"
                     >
-                      {preview?.willPreemptCurrentInProgress ? (
-                        <ShieldAlert className="size-4" />
-                      ) : (
-                        <Send className="size-4" />
-                      )}
-                      {isAssigning
-                        ? 'Đang điều phối...'
-                        : preview?.willPreemptCurrentInProgress
-                          ? 'Xác nhận chèn ngang'
-                          : 'Xác nhận điều phối'}
+                      <Send className="size-4" />
+                      {isAssigning ? 'Đang điều phối...' : 'Xác nhận điều phối'}
                     </Button>
 
                     {!preview?.eligible && preview ? (

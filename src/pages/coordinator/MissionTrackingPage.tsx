@@ -17,7 +17,11 @@ import { coordinatorNavGroups } from './components/sidebarConfig';
 import { MissionTrackingMapSection } from './components/MissionTrackingMapSection';
 import { usePrefetchedDirectionsRoute } from './components/usePrefetchedDirectionsRoute';
 import { useMissionTrackingData } from './components/useMissionTrackingData';
-import { getDisasterTypeLabel, getRescueRequestTypeLabel } from '@/enums/beEnums';
+import {
+  getDisasterTypeLabel,
+  getRescueRequestTypeLabel,
+  RescueRequestStatus,
+} from '@/enums/beEnums';
 
 const GOONG_MAP_KEY = import.meta.env.VITE_GOONG_MAP_KEY || '';
 const GOONG_API_KEY = import.meta.env.VITE_GOONG_API_KEY || '';
@@ -109,6 +113,17 @@ const formatDate = (v?: string | null) => {
 
 const getRequestId = (r: { requestId?: string; rescueRequestId?: string; id?: string }) =>
   String(r.requestId ?? r.rescueRequestId ?? r.id ?? '');
+
+const normalizeRequestStatus = (value?: string | number | null) => {
+  if (value == null) return '';
+  if (typeof value === 'number') {
+    return value === RescueRequestStatus.Cancelled ? 'cancelled' : String(value).toLowerCase();
+  }
+  return value.trim().toLowerCase();
+};
+
+const isCancelledRequest = (request: { rescueRequestStatus?: string | number | null }) =>
+  normalizeRequestStatus(request.rescueRequestStatus) === 'cancelled';
 
 const MISSION_PAGE_SIZE = 5;
 
@@ -222,10 +237,15 @@ export default function MissionTrackingPage() {
     }
 
     const found = requests.find((req) => getRequestId(req) === selectedId);
-    if (found) {
+    if (found && !isCancelledRequest(found)) {
       setSelectedListRequest(found);
+      return;
     }
-  }, [requests, selectedId]);
+
+    setSelectedListRequest(null);
+    setSelectedId('');
+    setSearchParams({}, { replace: true });
+  }, [requests, selectedId, setSearchParams]);
 
   const { prefetchRoute } = usePrefetchedDirectionsRoute(GOONG_API_KEY);
 
@@ -343,9 +363,14 @@ export default function MissionTrackingPage() {
     [activeDetail?.attachments],
   );
 
+  const visibleRequests = useMemo(
+    () => requests.filter((request) => !isCancelledRequest(request)),
+    [requests],
+  );
+
   const filteredRequests = useMemo(() => {
     const term = search.trim().toLowerCase();
-    return requests.filter(
+    return visibleRequests.filter(
       (r) =>
         !term ||
         (r.reporterFullName ?? '').toLowerCase().includes(term) ||
@@ -355,7 +380,7 @@ export default function MissionTrackingPage() {
           .toLowerCase()
           .includes(term),
     );
-  }, [requests, search]);
+  }, [search, visibleRequests]);
 
   const totalListPages = Math.max(1, Math.ceil(filteredRequests.length / MISSION_PAGE_SIZE));
 
@@ -373,11 +398,11 @@ export default function MissionTrackingPage() {
   }, [filteredRequests, listPage]);
 
   const missionStats = useMemo(() => {
-    const statuses = requests.map(
+    const statuses = visibleRequests.map(
       (req) => (req.rescueOperations as RescueOperationDetail[] | undefined)?.[0]?.status,
     );
     return {
-      total: requests.length,
+      total: visibleRequests.length,
       pending: statuses.filter((status) => !status || status === 'Pending').length,
       active: statuses.filter(
         (status) => status === 'Assigned' || status === 'EnRoute' || status === 'Rescuing',
@@ -385,7 +410,7 @@ export default function MissionTrackingPage() {
       completed: statuses.filter((status) => status === 'RescueCompleted' || status === 'Closed')
         .length,
     };
-  }, [requests]);
+  }, [visibleRequests]);
 
   // ── List fetching ─────────────────────────────────────────────────────────
   const loadList = useCallback(async () => {

@@ -174,7 +174,7 @@ export function CampaignAllocationDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="!max-w-none w-[95vw] max-h-[90vh] p-0 overflow-hidden">
         {/* HEADER */}
-        <DialogHeader className="px-6 py-4 border-b border-border">
+        <DialogHeader className="px-6 py-4 border-b border-border bg-background">
           <DialogTitle className="text-2xl font-bold text-foreground">
             Cấp phát vật tư cho chiến dịch
           </DialogTitle>
@@ -284,8 +284,8 @@ export function CampaignAllocationDialog({
           </div>
 
           {/* RIGHT – ALLOCATION SLIP */}
-          <div className="w-[420px] min-w-0 border-l border-border bg-muted/40 flex flex-col min-h-0 overflow-hidden">
-            <div className="sticky top-0 z-10 border-b border-border bg-muted/40 px-6 pt-6 pb-4 backdrop-blur supports-[backdrop-filter]:bg-muted/75 shrink-0">
+          <div className="w-[420px] min-w-0 border-l border-border bg-background flex flex-col min-h-0 overflow-hidden">
+            <div className="sticky top-0 z-10 border-b border-border bg-background px-6 pt-6 pb-4 mb-2 shrink-0">
               <h3 className="font-semibold text-lg mb-4 text-foreground">
                 Phiếu cấp phát chiến dịch
               </h3>
@@ -462,67 +462,73 @@ export function CampaignAllocationDialog({
             </div>
 
             {/* ACTION */}
-            <div className="sticky bottom-0 z-10 flex flex-wrap gap-2 border-t border-border bg-muted/40 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-muted/75 shrink-0">
-              <Button
-                variant="outline"
-                disabled={submitting}
-                onClick={() => {
-                  clearDialogDraft(CAMPAIGN_ALLOCATION_DRAFT_KEY);
-                  setSelectedItems([]);
-                  setCheckedItemIds([]);
-                  setNote('');
-                  setCampaignId('');
-                  setEditingId(null);
-                  setErrors({});
-                }}
-              >
-                <span className="material-symbols-outlined mr-1">remove_done</span>
-                Xóa nháp
-              </Button>
+            <div className="sticky bottom-0 z-10 border-t border-border bg-background px-6 py-4 shrink-0">
+              <div className="flex flex-wrap justify-end gap-2 sm:flex-nowrap">
+                <Button
+                  variant="outline"
+                  disabled={submitting}
+                  onClick={() => {
+                    clearDialogDraft(CAMPAIGN_ALLOCATION_DRAFT_KEY);
+                    setSelectedItems([]);
+                    setCheckedItemIds([]);
+                    setNote('');
+                    setCampaignId('');
+                    setEditingId(null);
+                    setErrors({});
+                  }}
+                >
+                  <span className="material-symbols-outlined mr-1">remove_done</span>
+                  Xóa nháp
+                </Button>
 
-              <Button
-                variant="destructive"
-                disabled={submitting}
-                onClick={() => onOpenChange(false)}
-              >
-                <span className="material-symbols-outlined">close</span>
-                Hủy
-              </Button>
-              <Button
-                variant="primary"
-                disabled={submitting}
-                onClick={async () => {
-                  const errs: { campaign?: string; items?: string } = {};
-                  if (!campaignId) errs.campaign = 'Vui lòng chọn chiến dịch nhận cấp phát.';
-                  if (totalLines === 0)
-                    errs.items = 'Vui lòng thêm ít nhất một vật tư vào phiếu cấp phát.';
-                  if (Object.keys(errs).length > 0) {
-                    setErrors(errs);
-                    return;
-                  }
-                  setSubmitError('');
-                  setSubmitting(true);
-                  try {
-                    const success = await onSubmit(selectedItems, note, campaignId);
-                    if (success) {
-                      clearDialogDraft(CAMPAIGN_ALLOCATION_DRAFT_KEY);
-                    } else {
-                      setSubmitError(
-                        'Không thể cấp phát vật tư cho chiến dịch. Vui lòng kiểm tra lại thông tin và thử lại.',
-                      );
+                <Button
+                  variant="destructive"
+                  disabled={submitting}
+                  className="whitespace-nowrap"
+                  onClick={() => onOpenChange(false)}
+                >
+                  <span className="material-symbols-outlined">close</span>
+                  Hủy
+                </Button>
+                <Button
+                  variant="primary"
+                  disabled={submitting}
+                  className="whitespace-nowrap"
+                  onClick={async () => {
+                    const errs: { campaign?: string; items?: string } = {};
+                    if (!campaignId) errs.campaign = 'Vui lòng chọn chiến dịch nhận cấp phát.';
+                    if (totalLines === 0)
+                      errs.items = 'Vui lòng thêm ít nhất một vật tư vào phiếu cấp phát.';
+                    if (Object.keys(errs).length > 0) {
+                      setErrors(errs);
+                      return;
                     }
-                  } catch {
-                    setSubmitError(
-                      'Không thể cấp phát vật tư cho chiến dịch. Vui lòng kiểm tra lại thông tin và thử lại.',
-                    );
-                  } finally {
-                    setSubmitting(false);
-                  }
-                }}
-              >
-                <span className="material-symbols-outlined mr-2">outbound</span>
-                {submitting ? 'Đang cấp phát...' : 'Xác nhận cấp phát'}
-              </Button>
+                    setSubmitError('');
+                    setSubmitting(true);
+                    try {
+                      const success = await onSubmit(selectedItems, note, campaignId);
+                      if (success) {
+                        clearDialogDraft(CAMPAIGN_ALLOCATION_DRAFT_KEY);
+                      } else {
+                        setSubmitError(
+                          'Không thể cấp phát vật tư cho chiến dịch. Vui lòng kiểm tra lại thông tin và thử lại.',
+                        );
+                      }
+                    } catch (error) {
+                      setSubmitError(
+                        error instanceof Error && error.message
+                          ? error.message
+                          : 'Không thể cấp phát vật tư cho chiến dịch. Vui lòng kiểm tra lại thông tin và thử lại.',
+                      );
+                    } finally {
+                      setSubmitting(false);
+                    }
+                  }}
+                >
+                  <span className="material-symbols-outlined mr-2">outbound</span>
+                  {submitting ? 'Đang cấp phát...' : 'Xác nhận cấp phát'}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
