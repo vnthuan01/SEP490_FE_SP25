@@ -30,7 +30,13 @@ import {
   getRiskHeadlineVN,
   type AnalyzeDisasterRiskResponse,
 } from '@/services/disasterAnalysisService';
+import {
+  buildStationAnalysisPoints,
+  isPointInBoundaryPolygon,
+  isPointWithinStationFallbackArea,
+} from '@/lib/disasterAnalysisPoints';
 import { reverseGeocodeV2 } from '@/services/goongService';
+import { getAdministrativeBoundary } from '@/services/goongService';
 import { managerNavGroups } from './components/sidebarConfig';
 import {
   DisasterType,
@@ -184,16 +190,6 @@ const getWeatherIcon = (condition?: string | null) => {
   return 'cloud';
 };
 
-type GeoPoint = {
-  latitude: number;
-  longitude: number;
-};
-
-type StationAnalysisPoint = GeoPoint & {
-  label: string;
-  context: string;
-};
-
 type OnSelectStation = (...args: [string | null]) => void;
 
 type OnSelectAnalysis = (...args: [AnalyzeDisasterRiskResponse | null]) => void;
@@ -203,46 +199,6 @@ const GOONG_API_KEY =
 
 const toAnalysisCoordKey = (latitude: number, longitude: number) =>
   `${Number(latitude).toFixed(6)},${Number(longitude).toFixed(6)}`;
-
-const kmToLatitudeDelta = (km: number) => km / 111;
-
-const kmToLongitudeDelta = (km: number, latitude: number) => {
-  const cosLat = Math.cos((latitude * Math.PI) / 180);
-  return km / (111 * Math.max(Math.abs(cosLat), 0.2));
-};
-
-const getPointInRadius = (center: GeoPoint, distanceKm: number, angleDeg: number): GeoPoint => {
-  const angleRad = (angleDeg * Math.PI) / 180;
-  const latDelta = kmToLatitudeDelta(distanceKm * Math.sin(angleRad));
-  const lngDelta = kmToLongitudeDelta(distanceKm * Math.cos(angleRad), center.latitude);
-
-  return {
-    latitude: center.latitude + latDelta,
-    longitude: center.longitude + lngDelta,
-  };
-};
-
-const buildStationAnalysisPoints = (stationPoint: GeoPoint, coverageRadiusKm?: number | null) => {
-  const radiusKm = Math.max(coverageRadiusKm || 12, 3);
-  return [
-    {
-      ...getPointInRadius(stationPoint, radiusKm * 0.28, 32),
-      label: 'Điểm giám sát gần trạm',
-      context: 'khu vực lân cận trạm và cụm dân cư gần nhất',
-    },
-    {
-      ...getPointInRadius(stationPoint, radiusKm * 0.58, 154),
-      label: 'Điểm giám sát vành đai',
-      context: 'vành đai hoạt động của trạm, gồm khu dân cư và hạ tầng lân cận',
-    },
-    {
-      ...getPointInRadius(stationPoint, radiusKm * 0.82, 286),
-      label: 'Điểm giám sát ngoại vi',
-      context:
-        'khu vực rìa phạm vi phủ của trạm, có thể gồm địa hình tự nhiên hoặc vùng ít dân cư hơn',
-    },
-  ] satisfies StationAnalysisPoint[];
-};
 
 // ─── Map for disaster overlay ────────────────────────────────────────────────
 
@@ -541,6 +497,15 @@ export default function ManagerDashboardPage() {
   const [disasterFilter, setDisasterFilter] = useState<string>('all');
   const [highlightedAnalysisId, setHighlightedAnalysisId] = useState<string | null>(null);
   const [analysisRenderKey, setAnalysisRenderKey] = useState(0);
+  const [customAnalyses, setCustomAnalyses] = useState<AnalyzeDisasterRiskResponse[]>([]);
+  const [focusedStationId, setFocusedStationId] = useState<string | null>(null);
+  const [selectedCustomPoint, setSelectedCustomPoint] = useState<{
+    latitude: number;
+    longitude: number;
+    stationId: string | null;
+    stationName: string;
+    distanceKm: number;
+  } | null>(null);
   const highlightTimerRef = useRef<number | null>(null);
 
   const { data: fundSummary, isLoading: isLoadingFundSummary } = useFundSummary();
@@ -663,6 +628,37 @@ export default function ManagerDashboardPage() {
     })),
   });
 
+  const stationBoundaryQueries = useQueries({
+    queries: mapStations.map((station) => ({
+      queryKey: [
+        'station-boundary',
+        station.id ?? station.name,
+        station.latitude,
+        station.longitude,
+      ],
+      enabled: Boolean(GOONG_API_KEY),
+      staleTime: 6 * 60 * 60 * 1000,
+      retry: 0,
+      queryFn: async () => ({
+        stationId: station.id ?? null,
+        boundary: await getAdministrativeBoundary(
+          station.latitude,
+          station.longitude,
+          GOONG_API_KEY,
+        ),
+      }),
+    })),
+  });
+
+  const stationBoundaryById = useMemo(() => {
+    const lookup: Record<string, number[][][] | null | undefined> = {};
+    stationBoundaryQueries.forEach((query) => {
+      const stationId = query.data?.stationId;
+      if (stationId) lookup[String(stationId)] = query.data?.boundary?.coordinates || null;
+    });
+    return lookup;
+  }, [stationBoundaryQueries]);
+
   const areaNameByStationId = useMemo(() => {
     const map = new Map<string | null, string>();
     areaLookupQueries.forEach((query) => {
@@ -682,20 +678,30 @@ export default function ManagerDashboardPage() {
           longitude: station.longitude,
         };
         const analysisPoints = buildStationAnalysisPoints(stationPoint, station.coverageRadiusKm);
+        const stationBoundary = stationId ? stationBoundaryById[String(stationId)] : null;
         const areaName = areaNameByStationId.get(stationId) || station.name;
 
-        return analysisPoints.map((point, index) => ({
-          stationId,
-          pointLabel: point.label,
-          payload: {
-            latitude: point.latitude,
-            longitude: point.longitude,
-            locationName: `${station.name} - ${point.label}`,
-            additionalContext: `Phân tích nguy cơ thiên tai cho vị trí đại diện số ${index + 1} trong phạm vi hoạt động khoảng ${Math.round(station.coverageRadiusKm || 12)}km của trạm ${station.name}. Khu vực tham chiếu: ${areaName}. Đây là vị trí nằm trong vùng hoạt động của trạm, không phải đúng tọa độ trung tâm trạm. Ngữ cảnh địa bàn: ${point.context}. Địa chỉ trạm: ${station.address || 'Không rõ địa chỉ'}`,
-          },
-        }));
+        return analysisPoints
+          .filter((point) => {
+            const isInsideFallback = isPointWithinStationFallbackArea(point, station);
+            const isInsideBoundary = stationBoundary?.length
+              ? isPointInBoundaryPolygon(point, stationBoundary)
+              : true;
+            return isInsideFallback && isInsideBoundary;
+          })
+          .slice(0, 2)
+          .map((point, index) => ({
+            stationId,
+            pointLabel: point.label,
+            payload: {
+              latitude: point.latitude,
+              longitude: point.longitude,
+              locationName: `${station.name} - ${point.label}`,
+              additionalContext: `Phân tích nguy cơ thiên tai cho vị trí đại diện số ${index + 1} trong phạm vi hoạt động khoảng ${Math.round(station.coverageRadiusKm || 12)}km của trạm ${station.name}. Khu vực tham chiếu: ${areaName}. Đây là vị trí nằm trong vùng hoạt động của trạm, không phải đúng tọa độ trung tâm trạm. Ngữ cảnh địa bàn: ${point.context}. Địa chỉ trạm: ${station.address || 'Không rõ địa chỉ'}`,
+            },
+          }));
       }),
-    [mapStations, areaNameByStationId],
+    [mapStations, areaNameByStationId, stationBoundaryById],
   );
 
   const disasterPayloads = useMemo(
@@ -710,6 +716,14 @@ export default function ManagerDashboardPage() {
     refreshAnalysis,
     refreshStatus,
   } = useAnalyzeDisasterRisks(disasterPayloads);
+
+  const mergedDisasterAnalyses = useMemo(() => {
+    const merged = new Map<string, AnalyzeDisasterRiskResponse>();
+    [...disasterAnalyses, ...customAnalyses].forEach((analysis) => {
+      merged.set(toAnalysisCoordKey(analysis.latitude, analysis.longitude), analysis);
+    });
+    return Array.from(merged.values());
+  }, [customAnalyses, disasterAnalyses]);
 
   const handleRefreshLatestAnalysis = async () => {
     const target = selectedAnalysis
@@ -733,23 +747,23 @@ export default function ManagerDashboardPage() {
 
   // Filter risk analyses
   const filteredAnalyses = useMemo(() => {
-    if (disasterFilter === 'all') return disasterAnalyses;
-    return disasterAnalyses.filter(
+    if (disasterFilter === 'all') return mergedDisasterAnalyses;
+    return mergedDisasterAnalyses.filter(
       (analysis) =>
         String(resolveDisasterTypeValue(getEffectiveDisasterType(analysis))) === disasterFilter,
     );
-  }, [disasterAnalyses, disasterFilter]);
-  const visibleDisasterAnalyses = refreshStatus === 'pending' ? [] : disasterAnalyses;
+  }, [mergedDisasterAnalyses, disasterFilter]);
+  const visibleDisasterAnalyses = refreshStatus === 'pending' ? [] : mergedDisasterAnalyses;
   const visibleFilteredAnalyses = refreshStatus === 'pending' ? [] : filteredAnalyses;
   const visibleSelectedAnalysis = refreshStatus === 'pending' ? null : selectedAnalysis;
 
   // Top risk analysis
   const topRisk = useMemo(() => {
-    if (!disasterAnalyses.length) return null;
-    return [...disasterAnalyses].sort(
+    if (!mergedDisasterAnalyses.length) return null;
+    return [...mergedDisasterAnalyses].sort(
       (a, b) => getAnalysisPriorityScore(b) - getAnalysisPriorityScore(a),
     )[0];
-  }, [disasterAnalyses]);
+  }, [mergedDisasterAnalyses]);
 
   const shouldShowTopRiskBanner = useMemo(() => {
     if (!topRisk) return false;
@@ -776,7 +790,7 @@ export default function ManagerDashboardPage() {
     const map = new Map<string | null, AnalyzeDisasterRiskResponse>();
     disasterPayloadsWithMeta.forEach((meta) => {
       const coordKey = toAnalysisCoordKey(meta.payload.latitude, meta.payload.longitude);
-      const analysis = disasterAnalyses.find(
+      const analysis = mergedDisasterAnalyses.find(
         (a) => toAnalysisCoordKey(a.latitude, a.longitude) === coordKey,
       );
       if (!analysis) return;
@@ -789,9 +803,50 @@ export default function ManagerDashboardPage() {
       }
     });
     return map;
-  }, [disasterPayloadsWithMeta, disasterAnalyses]);
+  }, [disasterPayloadsWithMeta, mergedDisasterAnalyses]);
+
+  const handleAnalyzeCustomPoint = async (point: {
+    latitude: number;
+    longitude: number;
+    stationId: string | null;
+    stationName: string;
+    distanceKm: number;
+  }) => {
+    const payload = {
+      latitude: point.latitude,
+      longitude: point.longitude,
+      locationName: `${point.stationName} - Điểm chọn thủ công`,
+      additionalContext: `Phân tích theo điểm người dùng chọn trên bản đồ, cách trạm ${point.stationName} khoảng ${point.distanceKm.toFixed(1)}km và vẫn nằm trong ranh giới tỉnh phụ trách của trạm.`,
+    };
+
+    toast.info('Đang phân tích điểm bạn chọn trên bản đồ...');
+    try {
+      const normalized = await refreshAnalysis(payload);
+      if (!normalized) {
+        toast.error('Điểm đã chọn không hợp lệ để phân tích.');
+        return;
+      }
+
+      setCustomAnalyses((current) => {
+        const next = current.filter((item) => {
+          const isSameCoord =
+            toAnalysisCoordKey(item.latitude, item.longitude) ===
+            toAnalysisCoordKey(normalized.latitude, normalized.longitude);
+          const isSameStationCustom = item.locationName === payload.locationName;
+          return !isSameCoord && !isSameStationCustom;
+        });
+        return [...next, normalized];
+      });
+
+      selectAnalysisWithPulse(normalized);
+      toast.success('Đã phân tích xong điểm bạn chọn.');
+    } catch {
+      toast.error('Không thể phân tích điểm đã chọn. Vui lòng thử lại.');
+    }
+  };
 
   const handleSelectStation = (stationId: string | null) => {
+    setFocusedStationId(stationId);
     if (stationId) {
       const topAnalysis = stationTopAnalysisMap.get(stationId);
       if (topAnalysis) setSelectedAnalysis(topAnalysis);
@@ -916,13 +971,18 @@ export default function ManagerDashboardPage() {
           analyses={visibleDisasterAnalyses}
           filteredAnalyses={visibleFilteredAnalyses}
           selectedAnalysis={visibleSelectedAnalysis}
+          selectedCustomPoint={selectedCustomPoint}
+          focusedStationId={focusedStationId}
+          stationBoundaryById={stationBoundaryById}
           disasterFilter={disasterFilter}
           isLoadingDisaster={isLoadingDisaster}
           hasMissingNearestData={hasMissingNearestData}
           setDisasterFilter={setDisasterFilter}
-          setSelectedAnalysis={setSelectedAnalysis}
+          setSelectedAnalysis={selectAnalysisWithPulse}
           onOpenMap={openMapSheetWithSelection}
           onRefreshLatest={handleRefreshLatestAnalysis}
+          onAnalyzeCustomPoint={handleAnalyzeCustomPoint}
+          onSelectCustomPoint={setSelectedCustomPoint}
           isRefreshingLatest={refreshStatus === 'pending'}
           onSelectStation={handleSelectStation}
           parseRiskLevelVN={parseRiskLevelVN}
@@ -1287,6 +1347,9 @@ export default function ManagerDashboardPage() {
             analyses={visibleDisasterAnalyses}
             filteredAnalyses={visibleFilteredAnalyses}
             selectedAnalysis={visibleSelectedAnalysis}
+            selectedCustomPoint={selectedCustomPoint}
+            focusedStationId={focusedStationId}
+            stationBoundaryById={stationBoundaryById}
             highlightedAnalysisId={highlightedAnalysisId}
             disasterFilter={disasterFilter}
             isLoadingDisaster={isLoadingDisaster}
@@ -1295,6 +1358,8 @@ export default function ManagerDashboardPage() {
             setSelectedAnalysis={selectAnalysisWithPulse}
             onOpenMap={() => setOpenMapSheet(false)}
             onRefreshLatest={handleRefreshLatestAnalysis}
+            onAnalyzeCustomPoint={handleAnalyzeCustomPoint}
+            onSelectCustomPoint={setSelectedCustomPoint}
             isRefreshingLatest={refreshStatus === 'pending'}
             onSelectStation={handleSelectStation}
             parseRiskLevelVN={parseRiskLevelVN}

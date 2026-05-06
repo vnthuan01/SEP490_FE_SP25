@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import goongjs from '@goongmaps/goong-js';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,14 @@ import {
   type AnalyzeDisasterRiskResponse,
 } from '@/services/disasterAnalysisService';
 import { DisasterType, ReliefStationLevel } from '@/enums/beEnums';
+import {
+  type BoundaryPolygon,
+  buildStationFallbackBoundary,
+  findNearestStationArea,
+  isPointWithinStationFallbackArea,
+  isPointInBoundaryPolygon,
+  isVietnamLandCoordinate,
+} from '@/lib/disasterAnalysisPoints';
 
 type Station = {
   id: string | null | undefined;
@@ -62,15 +70,22 @@ const getForecastTemperatureRange = (analysis: AnalyzeDisasterRiskResponse) => {
   return { highestTemp: currentTemp, lowestTemp: currentTemp };
 };
 
-const hasUsableWeatherData = (analysis: AnalyzeDisasterRiskResponse) => {
-  const hasCurrentWeather =
-    Number(analysis.weather?.temperatureC || 0) > 0 ||
-    Number(analysis.weather?.humidity || 0) > 0 ||
-    Number(analysis.weather?.windKph || 0) > 0 ||
-    Number(analysis.weather?.precipMm || 0) > 0 ||
-    String(analysis.weather?.condition || '').trim().length > 0;
-  const hasForecastDays = (analysis.forecast?.days || []).length > 0;
-  return hasCurrentWeather || hasForecastDays;
+const hasRenderableCoordinate = (analysis: AnalyzeDisasterRiskResponse) =>
+  Number.isFinite(Number(analysis.latitude)) && Number.isFinite(Number(analysis.longitude));
+
+const getBoundaryBounds = (boundary?: BoundaryPolygon | null) => {
+  const coords = boundary?.flat() || [];
+  const validCoords = coords.filter(
+    (coord) => Number.isFinite(coord?.[0]) && Number.isFinite(coord?.[1]),
+  );
+  if (!validCoords.length) return null;
+
+  const lngs = validCoords.map((coord) => coord[0]);
+  const lats = validCoords.map((coord) => coord[1]);
+  return [
+    [Math.min(...lngs), Math.min(...lats)],
+    [Math.max(...lngs), Math.max(...lats)],
+  ] as [[number, number], [number, number]];
 };
 
 export function DisasterForecastMapPanel(props: {
@@ -78,6 +93,15 @@ export function DisasterForecastMapPanel(props: {
   analyses: AnalyzeDisasterRiskResponse[];
   filteredAnalyses: AnalyzeDisasterRiskResponse[];
   selectedAnalysis: AnalyzeDisasterRiskResponse | null;
+  selectedCustomPoint?: {
+    latitude: number;
+    longitude: number;
+    stationId: string | null;
+    stationName: string;
+    distanceKm: number;
+  } | null;
+  focusedStationId?: string | null;
+  stationBoundaryById?: Record<string, BoundaryPolygon | null | undefined>;
   highlightedAnalysisId?: string | null;
   disasterFilter: string;
   isLoadingDisaster: boolean;
@@ -86,6 +110,26 @@ export function DisasterForecastMapPanel(props: {
   setSelectedAnalysis: (...args: [AnalyzeDisasterRiskResponse | null]) => void;
   onOpenMap: () => void;
   onRefreshLatest?: () => void;
+  onAnalyzeCustomPoint?:
+    | ((point: {
+        latitude: number;
+        longitude: number;
+        stationId: string | null;
+        stationName: string;
+        distanceKm: number;
+      }) => void | Promise<void>)
+    | undefined;
+  onSelectCustomPoint?:
+    | ((
+        point: {
+          latitude: number;
+          longitude: number;
+          stationId: string | null;
+          stationName: string;
+          distanceKm: number;
+        } | null,
+      ) => void)
+    | undefined;
   isRefreshingLatest?: boolean;
   onSelectStation: (...args: [string | null]) => void;
   parseRiskLevelVN: (...args: [string | null | undefined]) => { label: string; class: string };
@@ -99,6 +143,9 @@ export function DisasterForecastMapPanel(props: {
     analyses,
     filteredAnalyses,
     selectedAnalysis,
+    selectedCustomPoint = null,
+    focusedStationId = null,
+    stationBoundaryById = {},
     highlightedAnalysisId,
     disasterFilter,
     isLoadingDisaster,
@@ -107,6 +154,8 @@ export function DisasterForecastMapPanel(props: {
     setSelectedAnalysis,
     onOpenMap,
     onRefreshLatest,
+    onAnalyzeCustomPoint,
+    onSelectCustomPoint,
     isRefreshingLatest = false,
     onSelectStation,
     parseRiskLevelVN,
@@ -121,6 +170,13 @@ export function DisasterForecastMapPanel(props: {
   const mapRef = useRef<any>(null);
   const stationMarkersRef = useRef<any[]>([]);
   const riskMarkersRef = useRef<any[]>([]);
+  const customPointMarkerRef = useRef<any>(null);
+  const mapInstanceId = useId().replace(/:/g, '');
+  const boundarySourceId = `station-boundary-source-${mapInstanceId}`;
+  const boundaryFillLayerId = `station-boundary-fill-${mapInstanceId}`;
+  const boundaryLineLayerId = `station-boundary-line-${mapInstanceId}`;
+  const [customHint, setCustomHint] = useState<string | null>(null);
+  const [isCustomCardCollapsed, setIsCustomCardCollapsed] = useState(false);
   const center = useMemo(
     () =>
       mapStations[0]
@@ -154,12 +210,21 @@ export function DisasterForecastMapPanel(props: {
       el.innerHTML = `<span style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;background:#fff;border:2px solid ${markerColor};border-radius:10px;"><span class="material-symbols-outlined" style="font-size:18px;color:${markerColor};">home_work</span></span>`;
       el.addEventListener('click', () => {
         onSelectStation(station.id ?? null);
-        (mapImpl as any).flyTo({
-          center: [station.longitude, station.latitude],
-          zoom: 11,
-          speed: 1.1,
-          essential: true,
-        });
+        const stationBoundary = station.id ? stationBoundaryById[String(station.id)] : null;
+        const displayBoundary = stationBoundary?.length
+          ? stationBoundary
+          : buildStationFallbackBoundary(station);
+        const bounds = getBoundaryBounds(displayBoundary);
+        if (bounds) {
+          (mapImpl as any).fitBounds(bounds, { padding: 54, duration: 900, essential: true });
+        } else {
+          (mapImpl as any).flyTo({
+            center: [station.longitude, station.latitude],
+            zoom: 11,
+            speed: 1.1,
+            essential: true,
+          });
+        }
       });
       stationMarkersRef.current.push(
         new goongjs.Marker({ element: el })
@@ -167,7 +232,7 @@ export function DisasterForecastMapPanel(props: {
           .addTo(mapImpl),
       );
     });
-  }, [map, mapStations, onSelectStation]);
+  }, [map, mapStations, onSelectStation, stationBoundaryById]);
 
   useEffect(() => {
     const mapImpl = map || mapRef.current;
@@ -175,7 +240,7 @@ export function DisasterForecastMapPanel(props: {
     riskMarkersRef.current.forEach((m) => m.remove());
     riskMarkersRef.current = [];
     if (isRefreshingLatest) return;
-    filteredAnalyses.filter(hasUsableWeatherData).forEach((analysis) => {
+    filteredAnalyses.filter(hasRenderableCoordinate).forEach((analysis) => {
       const theme = getDisasterTheme(getEffectiveDisasterType(analysis));
       const icon = weatherIcon(analysis.weather?.condition);
       const probability = Math.round(Number(analysis.heuristic?.overallRiskScore || 0));
@@ -221,6 +286,7 @@ export function DisasterForecastMapPanel(props: {
     setSelectedAnalysis,
     selectedAnalysis,
     highlightedAnalysisId,
+    isRefreshingLatest,
   ]);
 
   useEffect(() => {
@@ -233,6 +299,166 @@ export function DisasterForecastMapPanel(props: {
       essential: true,
     });
   }, [map, selectedAnalysis]);
+
+  useEffect(() => {
+    const mapImpl = map || mapRef.current;
+    if (!mapImpl || !onAnalyzeCustomPoint) return;
+
+    const handleMapClick = (event: any) => {
+      if (isCustomCardCollapsed) return;
+      const latitude = Number(event?.lngLat?.lat);
+      const longitude = Number(event?.lngLat?.lng);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+
+      if (!isVietnamLandCoordinate(latitude, longitude)) {
+        setCustomHint('Điểm chọn đang nằm ngoài đất liền Việt Nam. Hãy chọn lại.');
+        return;
+      }
+
+      const nearest = findNearestStationArea({ latitude, longitude }, mapStations);
+      if (!nearest) return;
+
+      const boundary = nearest.station.id ? stationBoundaryById[String(nearest.station.id)] : null;
+      const isInsideRealBoundary = boundary?.length
+        ? isPointInBoundaryPolygon({ latitude, longitude }, boundary)
+        : true;
+      const isInsideFallback = isPointWithinStationFallbackArea(
+        { latitude, longitude },
+        nearest.station,
+      );
+
+      if (!isInsideRealBoundary || !isInsideFallback) {
+        onSelectCustomPoint?.(null);
+        setCustomHint(
+          boundary?.length
+            ? `Điểm chọn đang nằm ngoài vùng tỉnh/phạm vi của trạm ${nearest.station.name}.`
+            : `Điểm chọn đang nằm ngoài vùng tạm quanh trạm ${nearest.station.name}.`,
+        );
+        return;
+      }
+
+      onSelectCustomPoint?.({
+        latitude,
+        longitude,
+        stationId: nearest.station.id ?? null,
+        stationName: nearest.station.name,
+        distanceKm: nearest.distanceKm,
+      });
+      setCustomHint(
+        boundary?.length
+          ? `Đã chọn điểm trong tỉnh, cách trạm ${nearest.station.name} khoảng ${nearest.distanceKm.toFixed(1)} km.`
+          : `Chưa có polygon tỉnh, đang dùng vùng tạm quanh trạm ${nearest.station.name}; điểm cách trạm khoảng ${nearest.distanceKm.toFixed(1)} km.`,
+      );
+    };
+
+    (mapImpl as any).on('click', handleMapClick);
+    return () => {
+      (mapImpl as any).off('click', handleMapClick);
+    };
+  }, [
+    isCustomCardCollapsed,
+    map,
+    mapStations,
+    onAnalyzeCustomPoint,
+    onSelectCustomPoint,
+    stationBoundaryById,
+  ]);
+
+  useEffect(() => {
+    const mapImpl = map || mapRef.current;
+    if (!mapImpl) return;
+
+    customPointMarkerRef.current?.remove();
+    customPointMarkerRef.current = null;
+
+    if (!selectedCustomPoint) return;
+
+    const el = document.createElement('div');
+    el.innerHTML = `<span style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;background:#f97316;border:2px solid #fff;border-radius:999px;box-shadow:0 0 0 6px rgba(249,115,22,0.18);"><span class="material-symbols-outlined" style="font-size:12px;color:#fff;">ads_click</span></span>`;
+    customPointMarkerRef.current = new goongjs.Marker({ element: el })
+      .setLngLat([selectedCustomPoint.longitude, selectedCustomPoint.latitude])
+      .addTo(mapImpl);
+  }, [map, selectedCustomPoint]);
+
+  useEffect(() => {
+    const mapImpl = map || mapRef.current;
+    if (!mapImpl) return;
+
+    const sourceId = boundarySourceId;
+    const fillLayerId = boundaryFillLayerId;
+    const lineLayerId = boundaryLineLayerId;
+    const stationId = selectedCustomPoint?.stationId
+      ? String(selectedCustomPoint.stationId)
+      : focusedStationId;
+    const station = stationId
+      ? mapStations.find((item) => String(item.id ?? '') === stationId)
+      : null;
+    const realBoundary = stationId ? stationBoundaryById[stationId] : null;
+    const boundary = realBoundary?.length
+      ? realBoundary
+      : station
+        ? buildStationFallbackBoundary(station)
+        : null;
+
+    if ((mapImpl as any).getLayer(fillLayerId)) (mapImpl as any).removeLayer(fillLayerId);
+    if ((mapImpl as any).getLayer(lineLayerId)) (mapImpl as any).removeLayer(lineLayerId);
+    if ((mapImpl as any).getSource(sourceId)) (mapImpl as any).removeSource(sourceId);
+
+    if (!boundary?.length) return;
+
+    const bounds = getBoundaryBounds(boundary);
+    if (bounds) {
+      (mapImpl as any).fitBounds(bounds, { padding: 54, duration: 900, essential: true });
+    }
+
+    (mapImpl as any).addSource(sourceId, {
+      type: 'geojson',
+      data: {
+        type: 'Feature',
+        properties: {},
+        geometry: {
+          type: 'Polygon',
+          coordinates: boundary,
+        },
+      },
+    });
+
+    (mapImpl as any).addLayer({
+      id: fillLayerId,
+      type: 'fill',
+      source: sourceId,
+      paint: {
+        'fill-color': '#f97316',
+        'fill-opacity': 0.12,
+      },
+    });
+
+    (mapImpl as any).addLayer({
+      id: lineLayerId,
+      type: 'line',
+      source: sourceId,
+      paint: {
+        'line-color': '#ea580c',
+        'line-width': 2,
+        'line-opacity': 0.9,
+      },
+    });
+
+    return () => {
+      if ((mapImpl as any).getLayer(fillLayerId)) (mapImpl as any).removeLayer(fillLayerId);
+      if ((mapImpl as any).getLayer(lineLayerId)) (mapImpl as any).removeLayer(lineLayerId);
+      if ((mapImpl as any).getSource(sourceId)) (mapImpl as any).removeSource(sourceId);
+    };
+  }, [
+    boundaryFillLayerId,
+    boundaryLineLayerId,
+    boundarySourceId,
+    focusedStationId,
+    map,
+    mapStations,
+    selectedCustomPoint,
+    stationBoundaryById,
+  ]);
 
   const mapBlock = (
     <div
@@ -258,6 +484,14 @@ export function DisasterForecastMapPanel(props: {
           </span>
           Nguy cơ thiên tai
         </div>
+        {onAnalyzeCustomPoint && (
+          <div className="inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50/95 px-3 py-1.5 text-xs font-medium text-orange-800 shadow-sm backdrop-blur">
+            <span className="inline-flex size-5 items-center justify-center rounded-full bg-orange-500 text-white">
+              <span className="material-symbols-outlined text-[12px]">ads_click</span>
+            </span>
+            Bấm bản đồ để chọn điểm trong vùng tô cam
+          </div>
+        )}
       </div>
       <div className="absolute left-4 bottom-4 z-10 rounded-xl bg-background/95 border border-border p-3 text-xs space-y-2">
         <div className="font-semibold">Chú thích thời tiết</div>
@@ -274,6 +508,40 @@ export function DisasterForecastMapPanel(props: {
           <span className="material-symbols-outlined text-sm">thunderstorm</span> Dông bão
         </div>
       </div>
+      {onAnalyzeCustomPoint && (
+        <div className="absolute right-4 bottom-4 z-10 max-w-[340px] rounded-xl border border-orange-200 bg-background/95 p-3 text-xs shadow-sm backdrop-blur space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="font-semibold text-orange-700">Phân tích điểm tự chọn</div>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 px-2 text-xs"
+              onClick={() => setIsCustomCardCollapsed((current) => !current)}
+            >
+              {isCustomCardCollapsed ? 'Mở' : 'Ẩn'}
+            </Button>
+          </div>
+          {!isCustomCardCollapsed && (
+            <>
+              <div className="text-muted-foreground">
+                Chỉ chọn điểm trên đất liền và nằm trong vùng tô cam. Nếu chưa có polygon tỉnh, vùng
+                cam là phạm vi tạm quanh trạm.
+              </div>
+              {customHint && <div>{customHint}</div>}
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full gap-2"
+                disabled={!selectedCustomPoint || isRefreshingLatest}
+                onClick={() => selectedCustomPoint && onAnalyzeCustomPoint(selectedCustomPoint)}
+              >
+                <span className="material-symbols-outlined text-sm">auto_awesome</span>
+                {isRefreshingLatest ? 'Đang dự đoán...' : 'Phân tích điểm đã chọn'}
+              </Button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 
@@ -317,7 +585,7 @@ export function DisasterForecastMapPanel(props: {
       </CardHeader>
       <CardContent className="space-y-4">
         {mapBlock}
-        {selectedAnalysis && hasUsableWeatherData(selectedAnalysis) && (
+        {selectedAnalysis && hasRenderableCoordinate(selectedAnalysis) && (
           <div
             className={`rounded-2xl border p-4 ${getDisasterTheme(getEffectiveDisasterType(selectedAnalysis)).cardClass}`}
           >
@@ -485,10 +753,10 @@ export function DisasterForecastMapPanel(props: {
             nhật.
           </div>
         )}
-        {analyses.filter(hasUsableWeatherData).length > 0 && (
+        {analyses.filter(hasRenderableCoordinate).length > 0 && (
           <div className="flex flex-wrap gap-2">
             {analyses
-              .filter(hasUsableWeatherData)
+              .filter(hasRenderableCoordinate)
               .slice(0, 6)
               .map((analysis) => (
                 <button
