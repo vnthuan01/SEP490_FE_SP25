@@ -77,6 +77,7 @@ import {
   normalizeNumberInput,
   parseFormattedNumber,
 } from '@/lib/utils';
+import { parseApiError } from '@/lib/apiErrors';
 import { inventoryService, type Stock } from '@/services/inventoryService';
 import { toast } from 'sonner';
 import CustomCalendar from '@/components/ui/customCalendar';
@@ -126,6 +127,7 @@ const DANH_MUC_VAT_PHAM = [
 ] as const;
 
 const NEW_STOCK_LOT_OPTION = '__new_stock_lot__';
+const MAX_INT_32 = 2147483647;
 
 const groupStocksBySupplyItemId = (stocks: Stock[]) => {
   const grouped = new Map<string, Stock[]>();
@@ -874,6 +876,13 @@ export default function ManagerInventoryCoordinationPage() {
         return;
       }
 
+      if (maximumStockLevel > MAX_INT_32) {
+        setCreateStockSubmitError(
+          `Mức tồn tối đa không được vượt quá ${formatNumberVN(MAX_INT_32)}.`,
+        );
+        return;
+      }
+
       if (maximumStockLevel > 0 && minimumStockLevel > maximumStockLevel) {
         setCreateStockSubmitError('Mức tồn tối thiểu không được lớn hơn mức tồn tối đa.');
         return;
@@ -904,7 +913,7 @@ export default function ManagerInventoryCoordinationPage() {
       setOpenCreateStockDialog(false);
       setCreateStockSubmitError('');
     } catch (error: any) {
-      setCreateStockSubmitError(error?.response?.data?.message || 'Không thể tạo tồn kho mới.');
+      setCreateStockSubmitError(parseApiError(error, 'Không thể tạo tồn kho mới.').message);
     }
   };
 
@@ -1016,9 +1025,7 @@ export default function ManagerInventoryCoordinationPage() {
       setOpenImportStockDialog(false);
       setImportStockSubmitError('');
     } catch (error: any) {
-      setImportStockSubmitError(
-        error?.response?.data?.message || 'Không thể nhập bổ sung tồn kho.',
-      );
+      setImportStockSubmitError(parseApiError(error, 'Không thể nhập bổ sung tồn kho.').message);
     }
   };
 
@@ -1082,6 +1089,13 @@ export default function ManagerInventoryCoordinationPage() {
         return;
       }
 
+      if (maximumStockLevel > MAX_INT_32) {
+        setUpdateStockSubmitError(
+          `Mức tồn tối đa không được vượt quá ${formatNumberVN(MAX_INT_32)}.`,
+        );
+        return;
+      }
+
       if (maximumStockLevel > 0 && minimumStockLevel > maximumStockLevel) {
         setUpdateStockSubmitError('Mức tồn tối thiểu không được lớn hơn mức tồn tối đa.');
         return;
@@ -1115,7 +1129,7 @@ export default function ManagerInventoryCoordinationPage() {
       setOpenUpdateStockDialog(false);
       setUpdateStockSubmitError('');
     } catch (error: any) {
-      setUpdateStockSubmitError(error?.response?.data?.message || 'Không thể cập nhật tồn kho.');
+      setUpdateStockSubmitError(parseApiError(error, 'Không thể cập nhật tồn kho.').message);
     }
   };
 
@@ -1688,6 +1702,7 @@ export default function ManagerInventoryCoordinationPage() {
                           }
                           placeholder="0"
                         />
+                        <p className="text-xs text-muted-foreground">Không được nhỏ hơn 0.</p>
                       </div>
 
                       <div className="grid gap-2">
@@ -1704,6 +1719,9 @@ export default function ManagerInventoryCoordinationPage() {
                           }
                           placeholder="0"
                         />
+                        <p className="text-xs text-muted-foreground">
+                          Tối đa {formatNumberVN(MAX_INT_32)}.
+                        </p>
                       </div>
 
                       <div className="grid gap-2 md:col-span-2">
@@ -2455,6 +2473,7 @@ export default function ManagerInventoryCoordinationPage() {
                           }
                           placeholder="0"
                         />
+                        <p className="text-xs text-muted-foreground">Không được nhỏ hơn 0.</p>
                       </div>
 
                       <div className="grid gap-2">
@@ -2471,6 +2490,9 @@ export default function ManagerInventoryCoordinationPage() {
                           }
                           placeholder="0"
                         />
+                        <p className="text-xs text-muted-foreground">
+                          Tối đa {formatNumberVN(MAX_INT_32)}.
+                        </p>
                       </div>
                     </div>
 
