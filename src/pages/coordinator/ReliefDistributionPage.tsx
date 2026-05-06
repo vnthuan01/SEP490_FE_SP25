@@ -3179,13 +3179,13 @@ export default function ReliefDistributionPage() {
             canAssign={canAssign}
             onAssign={handleAssignSelectedHouseholds}
             hasPickupHouseholds={hasPickupHouseholds}
-            hasDistributionPoint={activeDistributionPoints.length > 0}
+            hasDistributionPoint={assignableDistributionPoints.length > 0}
             filtersValue={filtersValue}
             onChangeFilters={handleFiltersChange}
             onResetFilters={resetFilters}
             filtersExpanded={filtersExpanded}
             onFiltersExpandedChange={setFiltersExpanded}
-            distributionPoints={activeDistributionPoints.map((point) => ({
+            distributionPoints={assignableDistributionPoints.map((point) => ({
               label: point.name,
               value: point.distributionPointId,
             }))}
