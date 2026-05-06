@@ -162,16 +162,16 @@ function LoginPage() {
                 <p className="text-sm text-destructive text-center font-medium">{rootError}</p>
               )}
 
-              {/* Email / Phone */}
+              {/* Email */}
               <FormField
                 control={form.control}
                 name="email"
-                rules={{ required: 'Vui lòng nhập số điện thoại hoặc email' }}
+                rules={{ required: 'Vui lòng nhập  email' }}
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Số điện thoại / Email</FormLabel>
+                    <FormLabel> Email</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="Nhập số điện thoại hoặc email" />
+                      <Input {...field} placeholder="Nhập email" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -232,14 +232,6 @@ function LoginPage() {
             </form>
           </Form>
           {/* Footer */}
-          <div className="px-8 pb-8 border-t text-center">
-            <p className="text-sm text-muted-foreground mt-6">
-              Gặp sự cố đăng nhập? Liên hệ{' '}
-              <a href="tel:19001234" className="font-bold text-foreground hover:text-primary">
-                1900-1234
-              </a>
-            </p>
-          </div>
           {/* Bottom strip */}
           <div
             className="
