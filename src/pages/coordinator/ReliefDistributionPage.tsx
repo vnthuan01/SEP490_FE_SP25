@@ -664,13 +664,27 @@ export default function ReliefDistributionPage() {
     () => distributionPoints.filter((point) => point.isActive),
     [distributionPoints],
   );
+  const assignableDistributionPoints = useMemo(
+    () =>
+      activeDistributionPoints.filter(
+        (point) =>
+          !(
+            point.pendingDeliveryCount <= 0 &&
+            (point.totalDeliveryCount > 0 || point.assignedHouseholdCount > 0)
+          ),
+      ),
+    [activeDistributionPoints],
+  );
 
   useEffect(() => {
     const activePointIds = new Set(
       activeDistributionPoints.map((point) => point.distributionPointId),
     );
+    const assignablePointIds = new Set(
+      assignableDistributionPoints.map((point) => point.distributionPointId),
+    );
 
-    if (selectedDistributionPointId && !activePointIds.has(selectedDistributionPointId)) {
+    if (selectedDistributionPointId && !assignablePointIds.has(selectedDistributionPointId)) {
       setSelectedDistributionPointId('');
     }
 
@@ -682,7 +696,12 @@ export default function ReliefDistributionPage() {
       if (!prev?.distributionPointId || activePointIds.has(prev.distributionPointId)) return prev;
       return { ...prev, distributionPointId: null };
     });
-  }, [activeDistributionPoints, filtersValue.distributionPointId, selectedDistributionPointId]);
+  }, [
+    activeDistributionPoints,
+    assignableDistributionPoints,
+    filtersValue.distributionPointId,
+    selectedDistributionPointId,
+  ]);
   const { packages } = useReliefPackages(effectiveSelectedCampaignId);
   const {
     inventoryBalance,
