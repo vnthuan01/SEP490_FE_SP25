@@ -4793,7 +4793,7 @@ export default function CoordinatorInventoryPage() {
                               </div>
                               <div className="space-y-2">
                                 <label className="text-xs font-medium text-foreground">
-                                  Thuộc đội / nhóm giao hàng
+                                  Thuộc đội
                                 </label>
                                 <Input
                                   value={
