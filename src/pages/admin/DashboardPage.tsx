@@ -27,9 +27,22 @@ import {
 import { useProvincialStations } from '@/hooks/useReliefStations';
 import { useAnalyzeDisasterRisks } from '@/hooks/useDisasterAnalysis';
 import { reverseGeocodeV2 } from '@/services/goongService';
-import type { AnalyzeDisasterRiskResponse } from '@/services/disasterAnalysisService';
+import {
+  getRiskHeadlineVN,
+  type AnalyzeDisasterRiskResponse,
+} from '@/services/disasterAnalysisService';
 import { DisasterForecastMapPanel } from '@/pages/manager/components/DisasterForecastMapPanel';
 import { DisasterType, EntityStatus, getDisasterTypeLabel } from '@/enums/beEnums';
+import { useDonationAdminExport } from '@/hooks/useDonations';
+import * as XLSX from 'xlsx';
+import { toast } from 'sonner';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 const GOONG_API_KEY =
   import.meta.env.VITE_GOONG_API_KEY || import.meta.env.VITE_GOONG_MAP_KEY || '';
@@ -182,6 +195,10 @@ export default function AdminDashboardPage() {
   const highlightTimerRef = useRef<number | null>(null);
   const [disasterFilter, setDisasterFilter] = useState<string>('all');
   const [openMapSheet, setOpenMapSheet] = useState(false);
+  const [analysisRenderKey, setAnalysisRenderKey] = useState(0);
+  const [teamFilter, setTeamFilter] = useState<string>('all');
+  const [campaignFilter, setCampaignFilter] = useState<string>('all');
+  const { mutateAsync: exportDonations, status: exportStatus } = useDonationAdminExport();
   const {
     isLoading,
     formatCurrencyVN,
@@ -191,6 +208,7 @@ export default function AdminDashboardPage() {
     donationByRange,
     requestByTime,
     topTeams,
+    teamFilterOptions,
     inventoryStats,
     activityFeed,
     requestHighlights,
@@ -198,7 +216,10 @@ export default function AdminDashboardPage() {
     systemAlerts,
     logisticsOverview,
     widgets,
-  } = useAdminDashboardOverview(timeRange);
+  } = useAdminDashboardOverview(timeRange, {
+    teamId: teamFilter === 'all' ? undefined : teamFilter,
+    campaignId: campaignFilter === 'all' ? undefined : campaignFilter,
+  });
 
   const { data: stationsData } = useProvincialStations({ pageIndex: 1, pageSize: 200 });
   const stations = useMemo(() => stationsData?.items || [], [stationsData]);
@@ -282,8 +303,32 @@ export default function AdminDashboardPage() {
     () => disasterPayloadsWithMeta.map(({ payload }) => payload),
     [disasterPayloadsWithMeta],
   );
-  const { analyses: disasterAnalyses, isLoading: isLoadingDisaster } =
-    useAnalyzeDisasterRisks(disasterPayloads);
+  const {
+    analyses: disasterAnalyses,
+    isLoading: isLoadingDisaster,
+    hasMissingNearestData,
+    refreshAnalysis,
+    refreshStatus,
+  } = useAnalyzeDisasterRisks(disasterPayloads);
+  const handleRefreshLatestAnalysis = async () => {
+    const target = selectedAnalysis
+      ? {
+          latitude: selectedAnalysis.latitude,
+          longitude: selectedAnalysis.longitude,
+          locationName: selectedAnalysis.locationName,
+        }
+      : disasterPayloads[0];
+    if (!target) return;
+    toast.info('Đang lấy dự đoán mới nhất...');
+    try {
+      setSelectedAnalysis(null);
+      await refreshAnalysis(target);
+      setAnalysisRenderKey((prev) => prev + 1);
+      toast.success('Đã cập nhật dự đoán mới nhất thành công.');
+    } catch {
+      toast.error('Không thể lấy dự đoán mới nhất. Vui lòng thử lại.');
+    }
+  };
   const filteredAnalyses = useMemo(() => {
     if (disasterFilter === 'all') return disasterAnalyses;
     return disasterAnalyses.filter(
@@ -291,6 +336,9 @@ export default function AdminDashboardPage() {
         String(resolveDisasterTypeValue(getEffectiveDisasterType(analysis))) === disasterFilter,
     );
   }, [disasterAnalyses, disasterFilter]);
+  const visibleDisasterAnalyses = refreshStatus === 'pending' ? [] : disasterAnalyses;
+  const visibleFilteredAnalyses = refreshStatus === 'pending' ? [] : filteredAnalyses;
+  const visibleSelectedAnalysis = refreshStatus === 'pending' ? null : selectedAnalysis;
   const topRisk = useMemo(() => {
     if (!disasterAnalyses.length) return null;
     return [...disasterAnalyses].sort(
@@ -299,6 +347,7 @@ export default function AdminDashboardPage() {
   }, [disasterAnalyses]);
   const shouldShowTopRiskBanner = useMemo(() => {
     if (!topRisk) return false;
+    if (Number(topRisk.heuristic?.overallRiskScore || 0) < 50) return false;
     const typeValue = resolveDisasterTypeValue(getEffectiveDisasterType(topRisk));
     return !(
       typeValue === DisasterType.Other &&
@@ -353,6 +402,22 @@ export default function AdminDashboardPage() {
         ? '30 ngày gần nhất'
         : '12 tháng gần nhất';
 
+  const campaignOptions = useMemo(
+    () => upcomingCampaigns.map((campaign) => ({ id: campaign.id, name: campaign.name })),
+    [upcomingCampaigns],
+  );
+  const teamOptions = useMemo(() => teamFilterOptions, [teamFilterOptions]);
+
+  const handleExportDonationReport = async () => {
+    const blob = await exportDonations();
+    const csvText = await blob.text();
+    const workbook = XLSX.read(csvText, { type: 'string' });
+    XLSX.writeFile(
+      workbook,
+      `bao-cao-quyen-gop-tong-quan-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.xlsx`,
+    );
+  };
+
   return (
     <DashboardLayout projects={adminProjects} navItems={adminNavItems}>
       <div className="flex flex-col gap-6">
@@ -372,8 +437,7 @@ export default function AdminDashboardPage() {
               <h1 className="mt-3 text-3xl font-black text-primary">Tổng quan điều hành</h1>
               <p className="text-muted-foreground mt-2 max-w-3xl">
                 Theo dõi chiến dịch, yêu cầu cứu hộ, dòng tiền, tồn kho, đội ứng cứu và hoạt động
-                vận hành của toàn hệ thống. Khi có report API riêng, chỉ cần sửa trong hook tổng hợp
-                là gần như xong toàn bộ dashboard.
+                vận hành của toàn hệ thống.
               </p>
             </div>
 
@@ -400,6 +464,35 @@ export default function AdminDashboardPage() {
                   </button>
                 ))}
               </div>
+              <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-background px-3 py-2">
+                <Select value={campaignFilter} onValueChange={setCampaignFilter}>
+                  <SelectTrigger className="h-10 min-w-[220px] border-0 bg-transparent shadow-none focus:ring-0">
+                    <SelectValue placeholder="Lọc theo chiến dịch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả chiến dịch</SelectItem>
+                    {campaignOptions.map((campaign) => (
+                      <SelectItem key={campaign.id} value={campaign.id}>
+                        {campaign.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={teamFilter} onValueChange={setTeamFilter}>
+                  <SelectTrigger className="h-10 min-w-[220px] border-0 bg-transparent shadow-none focus:ring-0">
+                    <SelectValue placeholder="Lọc theo đội" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả đội</SelectItem>
+                    {teamOptions.map((team) => (
+                      <SelectItem key={team.id} value={team.id}>
+                        {team.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
               <Button
                 size="lg"
@@ -418,9 +511,15 @@ export default function AdminDashboardPage() {
                 <span className="material-symbols-outlined text-lg">campaign</span>
                 Mở Chiến dịch gây quỹ công khai
               </Button>
-              <Button variant="outline" size="lg" className="rounded-full font-bold border-2 gap-2">
+              <Button
+                variant="outline"
+                size="lg"
+                className="rounded-full font-bold border-2 gap-2"
+                onClick={() => void handleExportDonationReport()}
+                disabled={exportStatus === 'pending'}
+              >
                 <span className="material-symbols-outlined text-lg">download</span>
-                Xuất báo cáo tạm thời
+                {exportStatus === 'pending' ? 'Đang xuất Excel...' : 'Xuất báo cáo Excel'}
               </Button>
             </div>
           </div>
@@ -679,7 +778,7 @@ export default function AdminDashboardPage() {
           </div>
 
           <LogisticsOverviewCard
-            className="xl:col-span-4 h-[320px]"
+            className="xl:col-span-4 h-[360px]"
             cards={logisticsOverview.cards}
             isLoading={widgets.logistics.isLoading}
             isError={widgets.logistics.isError}
@@ -706,7 +805,7 @@ export default function AdminDashboardPage() {
               </Card>
             ) : (
               <TeamOverview
-                className="h-[320px]"
+                className="h-[360px]"
                 title="Đội phản ứng nổi bật"
                 icon="shield_person"
                 teams={topTeams}
@@ -728,6 +827,7 @@ export default function AdminDashboardPage() {
                 <div>
                   <p className="font-black">Nguy cơ {getDisplayDisasterLabel(topRisk)} cao nhất</p>
                   <p className="text-sm mt-1">{topRisk.locationName}</p>
+                  <p className="text-xs font-semibold mt-1">{getRiskHeadlineVN(topRisk)}</p>
                 </div>
                 <Badge variant="outline" appearance="outline" size="sm" className="border gap-1">
                   {parseRiskLevelVN(topRisk.heuristic?.riskLevel).label}
@@ -739,15 +839,18 @@ export default function AdminDashboardPage() {
           <div className="xl:col-span-12">
             <DisasterForecastMapPanel
               mapStations={mapStations}
-              analyses={disasterAnalyses}
-              filteredAnalyses={filteredAnalyses}
-              selectedAnalysis={selectedAnalysis}
+              analyses={visibleDisasterAnalyses}
+              filteredAnalyses={visibleFilteredAnalyses}
+              selectedAnalysis={visibleSelectedAnalysis}
               highlightedAnalysisId={highlightedAnalysisId}
               disasterFilter={disasterFilter}
               isLoadingDisaster={isLoadingDisaster}
+              hasMissingNearestData={hasMissingNearestData}
               setDisasterFilter={setDisasterFilter}
               setSelectedAnalysis={selectAnalysisWithPulse}
               onOpenMap={openMapSheetWithSelection}
+              onRefreshLatest={handleRefreshLatestAnalysis}
+              isRefreshingLatest={refreshStatus === 'pending'}
               onSelectStation={(stationId) => {
                 if (!stationId) return;
                 const topAnalysis = stationTopAnalysisMap.get(stationId);
@@ -812,16 +915,20 @@ export default function AdminDashboardPage() {
         onOpenChange={setOpenMapSheet}
         mapContent={
           <DisasterForecastMapPanel
+            key={`admin-disaster-panel-${analysisRenderKey}`}
             mapStations={mapStations}
-            analyses={disasterAnalyses}
-            filteredAnalyses={filteredAnalyses}
-            selectedAnalysis={selectedAnalysis}
+            analyses={visibleDisasterAnalyses}
+            filteredAnalyses={visibleFilteredAnalyses}
+            selectedAnalysis={visibleSelectedAnalysis}
             highlightedAnalysisId={highlightedAnalysisId}
             disasterFilter={disasterFilter}
             isLoadingDisaster={isLoadingDisaster}
+            hasMissingNearestData={hasMissingNearestData}
             setDisasterFilter={setDisasterFilter}
             setSelectedAnalysis={selectAnalysisWithPulse}
             onOpenMap={() => setOpenMapSheet(false)}
+            onRefreshLatest={handleRefreshLatestAnalysis}
+            isRefreshingLatest={refreshStatus === 'pending'}
             onSelectStation={(stationId) => {
               if (!stationId) return;
               const topAnalysis = stationTopAnalysisMap.get(stationId);
@@ -834,15 +941,14 @@ export default function AdminDashboardPage() {
             renderMode="mapOnly"
           />
         }
-        selectedAnalysis={selectedAnalysis}
-        filteredAnalyses={filteredAnalyses}
+        selectedAnalysis={visibleSelectedAnalysis}
+        filteredAnalyses={visibleFilteredAnalyses}
         isLoadingDisaster={isLoadingDisaster}
         onSelectAnalysis={selectAnalysisWithPulse}
         parseRiskLevelVN={parseRiskLevelVN}
         parseWeatherConditionVN={parseWeatherConditionVN}
         getEffectiveDisasterType={getEffectiveDisasterType}
         getDisasterTheme={getDisasterTheme}
-        getDisplayDisasterLabel={getDisplayDisasterLabel}
       />
     </DashboardLayout>
   );

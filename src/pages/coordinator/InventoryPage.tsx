@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { FileUploadCard } from '@/components/ui/file-upload-card';
 import CustomCalendar from '@/components/ui/customCalendar';
@@ -37,6 +38,7 @@ import { useMyReliefStation } from '@/hooks/useReliefStation';
 import {
   useAddStock,
   useCreateTransaction,
+  useDeleteStock,
   useImportHistoryBySupplyItem,
   useInventories,
   useInventoryStocks,
@@ -54,7 +56,9 @@ import { useCloudinaryUpload } from '@/hooks/useCloudinaryUpload';
 import { useVehicles } from '@/hooks/useVehicles';
 import {
   useAppendSupplyTransferEvidences,
+  useAssignSupplyTransferVehicles,
   useCreateSupplyTransfer,
+  useRemoveSupplyTransferVehicle,
   useReplaceSupplyTransferEvidenceUrls,
   useSupplyTransferDetails,
   useSupplyTransfersByDestinationStation,
@@ -64,6 +68,7 @@ import {
   useReceiveSupplyTransfer,
   useCancelSupplyTransfer,
 } from '@/hooks/useSupplyTransfers';
+import { useAvailableTransferVehicles } from '@/hooks/useVehicles';
 import { useCampaigns } from '@/hooks/useCampaigns';
 import { useUserProfile } from '@/hooks/useUsers';
 import { formatNumberInputVN, formatNumberVN, parseFormattedNumber } from '@/lib/utils';
@@ -81,6 +86,7 @@ import {
   TransactionType,
   SupplyTransferStatus,
   VehicleStatus,
+  getTransactionReasonLabel,
   getSupplyAllocationStatusClass,
   getSupplyAllocationStatusLabel,
   parseEnumValue,
@@ -193,6 +199,33 @@ const TRANSFER_STATUS_CLASS: Record<number, string> = {
   [SupplyTransferStatus.Cancelled]: 'bg-red-500/10 text-red-600 border-red-500/20',
 };
 
+const TRANSFER_VEHICLE_STATUS_META: Record<number, { label: string; className: string }> = {
+  1: {
+    label: 'Đã gán',
+    className: 'border-slate-300 bg-slate-100 text-slate-700',
+  },
+  2: {
+    label: 'Đang vận chuyển',
+    className: 'border-sky-500/20 bg-sky-500/10 text-sky-700',
+  },
+  3: {
+    label: 'Đã tới nơi',
+    className: 'border-amber-500/20 bg-amber-500/10 text-amber-700',
+  },
+  4: {
+    label: 'Hoàn tất',
+    className: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700',
+  },
+  5: {
+    label: 'Đã hủy',
+    className: 'border-red-500/20 bg-red-500/10 text-red-700',
+  },
+  6: {
+    label: 'Có sự cố',
+    className: 'border-orange-500/20 bg-orange-500/10 text-orange-700',
+  },
+};
+
 const TRANSACTION_TYPE_UI: Record<
   number,
   {
@@ -215,6 +248,33 @@ const TRANSACTION_TYPE_UI: Record<
     iconWrap: 'bg-amber-500/10 text-amber-500',
   },
 };
+
+function formatApprovalApproverDisplay(value?: string | null): string {
+  if (!value) return '';
+
+  const compact = value.replace(/\s+/g, ' ').trim();
+  const deliveryMarker = 'Đã nhận được hàng';
+  const deliveryIndex = compact.indexOf(deliveryMarker);
+
+  if (deliveryIndex < 0) {
+    return compact;
+  }
+
+  const approverPrefix = compact.slice(0, deliveryIndex).trim();
+  const deliveryContent = compact.slice(deliveryIndex).trim();
+
+  const normalizedDeliveryContent = deliveryContent.replace(
+    /(Xe\s+(?:Tải|Bán|Khách)[^:]*:\s*)/g,
+    '\n$1',
+  );
+
+  const lines = normalizedDeliveryContent
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  return [approverPrefix, ...lines].filter(Boolean).join('\n');
+}
 
 function getInventoryCardStatus(
   current: number,
@@ -308,17 +368,22 @@ export default function CoordinatorInventoryPage() {
     pdfBytes: null,
   });
   const [shipTransferForm, setShipTransferForm] = useState<{
-    vehicleId: string;
     notes: string;
     evidenceFiles: File[];
   }>({
-    vehicleId: '',
     notes: '',
     evidenceFiles: [],
   });
   const [receiveTransferForm, setReceiveTransferForm] = useState<{
     notes: string;
     evidenceFiles: File[];
+    vehicleNotes: Record<
+      string,
+      {
+        driverName: string;
+        teamName: string;
+      }
+    >;
     itemMetas: Record<
       string,
       {
@@ -330,6 +395,7 @@ export default function CoordinatorInventoryPage() {
   }>({
     notes: '',
     evidenceFiles: [],
+    vehicleNotes: {},
     itemMetas: {},
   });
   const [cancelTransferForm, setCancelTransferForm] = useState<{
@@ -343,6 +409,12 @@ export default function CoordinatorInventoryPage() {
   const [openActionableTransferSection, setOpenActionableTransferSection] = useState(true);
   const [outgoingTransferPage, setOutgoingTransferPage] = useState(1);
   const [actionableTransferPage, setActionableTransferPage] = useState(1);
+  const [selectedShipVehicleIds, setSelectedShipVehicleIds] = useState<string[]>([]);
+  const transferDialogBodyRef = useRef<HTMLDivElement | null>(null);
+  const transferSourceFieldRef = useRef<HTMLDivElement | null>(null);
+  const transferReasonFieldRef = useRef<HTMLDivElement | null>(null);
+  const transferItemsFieldRef = useRef<HTMLDivElement | null>(null);
+  const transferEvidenceFieldRef = useRef<HTMLDivElement | null>(null);
 
   const [selectedQuickImportSupplyItemId, setSelectedQuickImportSupplyItemId] = useState('');
   const [selectedQuickImportStock, setSelectedQuickImportStock] = useState<{
@@ -462,6 +534,7 @@ export default function CoordinatorInventoryPage() {
 
   const { mutateAsync: addStock } = useAddStock();
   const { mutateAsync: createTransaction } = useCreateTransaction();
+  const { mutateAsync: deleteStock } = useDeleteStock();
   const { mutateAsync: createSupplyTransfer, status: createSupplyTransferStatus } =
     useCreateSupplyTransfer();
   const { mutateAsync: replaceTransferEvidenceUrls } = useReplaceSupplyTransferEvidenceUrls();
@@ -471,6 +544,10 @@ export default function CoordinatorInventoryPage() {
   const { mutateAsync: updateSupplyAllocationStatus } = useUpdateSupplyAllocationStatus();
   const { mutateAsync: approveTransfer, status: approveTransferStatus } =
     useApproveSupplyTransfer();
+  const { mutateAsync: assignTransferVehicles, status: assignTransferVehiclesStatus } =
+    useAssignSupplyTransferVehicles();
+  const { mutateAsync: removeTransferVehicle, status: removeTransferVehicleStatus } =
+    useRemoveSupplyTransferVehicle();
   const { mutateAsync: shipTransfer, status: shipTransferStatus } = useShipSupplyTransfer();
   const { mutateAsync: receiveTransfer, status: receiveTransferStatus } =
     useReceiveSupplyTransfer();
@@ -778,6 +855,17 @@ export default function CoordinatorInventoryPage() {
     () => new Set(selectedSourceStocks.map((stock) => stock.supplyItemId)),
     [selectedSourceStocks],
   );
+  const selectedTransferItemIds = useMemo(
+    () => new Set(transferForm.items.map((item) => item.supplyItemId)),
+    [transferForm.items],
+  );
+  const availableTransferSupplyItems = useMemo(
+    () =>
+      supplyItems.filter(
+        (item) => selectedSourceSupplyIds.has(item.id) && !selectedTransferItemIds.has(item.id),
+      ),
+    [selectedSourceSupplyIds, selectedTransferItemIds, supplyItems],
+  );
 
   const stationCampaignDetailQueries = useQueries({
     queries: allCampaigns.map((campaign) => ({
@@ -882,18 +970,6 @@ export default function CoordinatorInventoryPage() {
   const { vehicle: selectedTransferVehicle } = useVehicles(
     selectedTransfer?.vehicleId || undefined,
   );
-
-  const selectedTransferSummary = useMemo(() => {
-    if (!selectedTransfer) return [] as string[];
-
-    return [
-      `Mã phiếu: ${selectedTransfer.transferCode || selectedTransfer.id.slice(0, 8)}`,
-      `Nguồn: ${selectedTransfer.sourceStationName || selectedTransfer.sourceStationId || '—'}`,
-      `Đích: ${selectedTransfer.destinationStationName || selectedTransfer.destinationStationId || '—'}`,
-      `Số dòng: ${formatNumberVN(selectedTransfer.totalRequestedItems || selectedTransfer.items?.length || 0)}`,
-      `Tổng SL: ${formatNumberVN(selectedTransfer.totalRequestedQuantity || 0)}`,
-    ];
-  }, [selectedTransfer]);
 
   const selectedTransferSummaryCompact = useMemo(() => {
     if (!selectedTransfer) return [] as Array<{ label: string; value: string }>;
@@ -1096,16 +1172,6 @@ export default function CoordinatorInventoryPage() {
     };
   }, [selectedTransfer]);
 
-  const availableStationVehicles = useMemo(() => {
-    const freeVehicleIds = new Set((freeVehicles || []).map((vehicle) => vehicle.vehicleId));
-
-    return (stationVehicles || []).filter(
-      (vehicle) =>
-        vehicle.reliefStationId === station?.reliefStationId &&
-        freeVehicleIds.has(vehicle.vehicleId),
-    );
-  }, [freeVehicles, station?.reliefStationId, stationVehicles]);
-
   const selectedTransferPreviewUrls = useMemo(() => {
     if (!selectedTransfer) return [] as string[];
 
@@ -1144,10 +1210,9 @@ export default function CoordinatorInventoryPage() {
     () => getVehicleDisplayLabel(selectedTransfer?.vehicleId),
     [selectedTransfer?.vehicleId, vehicleMap],
   );
-
-  const shipTransferVehicleLabel = useMemo(
-    () => getVehicleDisplayLabel(shipTransferForm.vehicleId),
-    [shipTransferForm.vehicleId, vehicleMap],
+  const selectedTransferVehicleAssignments = useMemo(
+    () => (selectedTransfer?.vehicles || []).filter((vehicle) => vehicle.status !== 5),
+    [selectedTransfer?.vehicles],
   );
 
   const selectedTransferPreviewFiles = useMemo(() => {
@@ -1184,6 +1249,31 @@ export default function CoordinatorInventoryPage() {
       managedInventory?.inventoryId || '',
       selectedImportHistorySupplyItem?.supplyItemId || '',
     );
+  const wasCancelledWhileShipping = useMemo(
+    () =>
+      selectedTransfer?.status === SupplyTransferStatus.Cancelled &&
+      Boolean(selectedTransfer?.shippedAt) &&
+      !selectedTransfer?.receivedAt,
+    [selectedTransfer],
+  );
+  const { data: availableTransferVehicles = [], isLoading: isLoadingAvailableTransferVehicles } =
+    useAvailableTransferVehicles(openShipTransfer);
+  const selectedTransferAssignedVehicleIds = useMemo(
+    () =>
+      new Set(
+        (selectedTransfer?.vehicles || [])
+          .filter((vehicle) => vehicle.status !== 5)
+          .map((vehicle) => vehicle.vehicleId),
+      ),
+    [selectedTransfer?.vehicles],
+  );
+  const assignableTransferVehicles = useMemo(
+    () =>
+      availableTransferVehicles.filter(
+        (vehicle) => !selectedTransferAssignedVehicleIds.has(vehicle.vehicleId),
+      ),
+    [availableTransferVehicles, selectedTransferAssignedVehicleIds],
+  );
 
   const isLoading =
     isLoadingStation || isLoadingInventories || isLoadingStocks || isLoadingSupplyItems;
@@ -1399,23 +1489,20 @@ export default function CoordinatorInventoryPage() {
     expirationDate?: string | null;
   }): Promise<boolean> => {
     if (!managedInventory?.inventoryId) {
-      toast.error('Không tìm thấy kho đang quản lý để nhập hàng.');
-      return false;
+      throw new Error('Không tìm thấy kho đang quản lý để nhập hàng.');
     }
 
     const matchedSupplyItem = supplyItems.find((supply) => supply.id === item.supplyItemId);
 
     if (!matchedSupplyItem) {
-      toast.error('Chưa tìm thấy vật phẩm tương ứng trong danh mục hàng hóa cứu trợ.');
-      return false;
+      throw new Error('Chưa tìm thấy vật phẩm tương ứng trong danh mục hàng hóa cứu trợ.');
     }
 
     const existingStock = stockMapBySupplyItemId.get(matchedSupplyItem.id);
 
     if (existingStock) {
       if (!item.note?.trim()) {
-        toast.error('Vui lòng nhập lý do nhập kho cho vật phẩm đã có sẵn trong kho.');
-        return false;
+        throw new Error('Vui lòng nhập lý do nhập kho cho vật phẩm đã có sẵn trong kho.');
       }
 
       // Existing stock → use inventory transaction import
@@ -1439,24 +1526,62 @@ export default function CoordinatorInventoryPage() {
             },
           ],
         });
-      } catch {
-        return false;
+      } catch (error) {
+        const parsed = parseApiError(error, 'Không thể nhập thêm vật tư vào kho.');
+        toast.error(parsed.message);
+        throw new Error(parsed.message);
       }
     } else {
-      // New stock row → use addStock with optional expiration date
+      // New supply item import: create the stock row first, then record an import transaction
+      // so unit cost and source reference are preserved in import history.
+      let createdStockId: string | undefined;
       try {
-        await addStock({
+        const createdStock = await addStock({
           id: managedInventory.inventoryId,
           data: {
             supplyItemId: matchedSupplyItem.id,
-            currentQuantity: item.quantity,
+            currentQuantity: 0,
             minimumStockLevel: 0,
             maximumStockLevel: item.capacity || item.quantity,
             expirationDate: item.expirationDate ?? null,
           },
         });
-      } catch {
-        return false;
+
+        createdStockId = createdStock?.data?.stockId;
+
+        await createTransaction({
+          inventoryId: managedInventory.inventoryId,
+          type: TransactionType.Import,
+          reason: TransactionReason.Other,
+          notes: item.note?.trim() || 'Nhập kho vật tư mới từ bên ngoài',
+          importBatchCode: `LO-${Date.now()}`,
+          sourceReference: item.sourceReference?.trim() || 'Nhập kho trực tiếp',
+          items: [
+            {
+              supplyItemId: matchedSupplyItem.id,
+              supplyItemName: matchedSupplyItem.name,
+              supplyItemUnit: matchedSupplyItem.unit,
+              quantity: item.quantity,
+              notes: item.note?.trim() || 'Tạo mới vật tư và nhập lô đầu tiên vào kho',
+              unitCost: item.unitCost,
+              expiryDate: item.expirationDate ?? null,
+            },
+          ],
+        });
+      } catch (error) {
+        if (createdStockId) {
+          try {
+            await deleteStock({
+              stockId: createdStockId,
+              inventoryId: managedInventory.inventoryId,
+            });
+          } catch {
+            // Ignore rollback cleanup errors here; original import error is more important.
+          }
+        }
+        const parsed = parseApiError(error, 'Không thể nhập vật tư mới vào kho.');
+        toast.error(parsed.message);
+        throw new Error(parsed.message);
       }
     }
 
@@ -1533,6 +1658,15 @@ export default function CoordinatorInventoryPage() {
 
   const handleRemoveTransferEvidenceFile = (id: string) => {
     setTransferEvidenceFiles((prev) => prev.filter((file) => file.id !== id));
+  };
+
+  const handleToggleShipVehicle = (vehicleId: string, checked: boolean) => {
+    setSelectedShipVehicleIds((prev) => {
+      if (checked) {
+        return prev.includes(vehicleId) ? prev : [...prev, vehicleId];
+      }
+      return prev.filter((id) => id !== vehicleId);
+    });
   };
 
   const handleAddTransferItem = () => {
@@ -1627,8 +1761,30 @@ export default function CoordinatorInventoryPage() {
       errs['items'] = 'Vui lòng chọn ít nhất một vật phẩm cần điều phối.';
     }
 
+    if (transferEvidenceFiles.length === 0) {
+      errs['evidenceFiles'] = 'Vui lòng tạo hoặc tải lên ít nhất một file PDF đính kèm.';
+    }
+
     if (Object.keys(errs).length > 0) {
       setTransferErrors(errs);
+      const firstErrorMessage = Object.values(errs)[0];
+      if (firstErrorMessage) {
+        toast.error(firstErrorMessage);
+      }
+
+      const scrollTargets: Record<string, HTMLDivElement | null> = {
+        sourceStationId: transferSourceFieldRef.current,
+        reason: transferReasonFieldRef.current,
+        items: transferItemsFieldRef.current,
+        evidenceFiles: transferEvidenceFieldRef.current,
+      };
+      const firstErrorKey = ['sourceStationId', 'reason', 'items', 'evidenceFiles'].find(
+        (key) => !!errs[key],
+      );
+      const targetNode = firstErrorKey
+        ? scrollTargets[firstErrorKey]
+        : transferDialogBodyRef.current;
+      targetNode?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 
@@ -1736,6 +1892,27 @@ export default function CoordinatorInventoryPage() {
       return false;
     }
 
+    for (const item of validItems) {
+      const matchedInventoryItem = inventoryItems.find(
+        (inventoryItem) => inventoryItem.supplyItemId === item.supplyItemId,
+      );
+      const currentStock = matchedInventoryItem?.current ?? 0;
+      const maximumStock = matchedInventoryItem?.capacity ?? 0;
+      const remainingAfterAllocation = currentStock - item.quantity;
+
+      if (remainingAfterAllocation < 0) {
+        throw new Error(
+          `Số lượng cấp phát cho "${item.supplyItemName}" vượt quá số lượng hiện có trong kho. Hiện chỉ còn ${formatNumberVN(currentStock)} ${item.supplyItemUnit}.`,
+        );
+      }
+
+      if (maximumStock > 0 && remainingAfterAllocation > maximumStock) {
+        throw new Error(
+          `Số lượng sau cấp phát của "${item.supplyItemName}" đang vượt quá mức tồn tối đa ${formatNumberVN(maximumStock)} ${item.supplyItemUnit}.`,
+        );
+      }
+    }
+
     try {
       await createSupplyAllocation({
         campaignId,
@@ -1761,8 +1938,13 @@ export default function CoordinatorInventoryPage() {
       toast.success('Đã cấp phát vật tư cho chiến dịch.');
       setOpenCampaignAllocation(false);
       return true;
-    } catch {
-      return false;
+    } catch (error) {
+      if (error instanceof Error && error.message) {
+        throw error;
+      }
+
+      const parsed = parseApiError(error, 'Không thể cấp phát vật tư cho chiến dịch.');
+      throw new Error(parsed.message);
     }
   };
 
@@ -1895,8 +2077,8 @@ export default function CoordinatorInventoryPage() {
   const handleShipTransfer = async () => {
     if (!selectedTransfer) return;
 
-    if (!shipTransferForm.vehicleId.trim()) {
-      toast.error('Vui lòng chọn phương tiện của trạm đang ở trạng thái sẵn sàng.');
+    if (!(selectedTransfer.vehicles || []).some((vehicle) => vehicle.status === 1)) {
+      toast.error('Vui lòng gán ít nhất một xe đang ở trạng thái Đã gán trước khi xuất hàng.');
       return;
     }
 
@@ -1918,19 +2100,35 @@ export default function CoordinatorInventoryPage() {
     await shipTransfer({
       id: selectedTransfer.id,
       data: {
-        vehicleId: shipTransferForm.vehicleId.trim(),
         notes: shipTransferForm.notes.trim() || undefined,
         evidenceUrls,
       },
     });
     await Promise.all([refetchSourceTransfers(), refetchDestinationTransfers()]);
-    setShipTransferForm({ vehicleId: '', notes: '', evidenceFiles: [] });
+    setShipTransferForm({ notes: '', evidenceFiles: [] });
     setOpenShipTransfer(false);
     setSelectedTransferId(null);
   };
 
   const handleReceiveTransfer = async () => {
     if (!selectedTransfer) return;
+
+    const vehicleNoteLines = selectedTransferVehicleAssignments
+      .map((vehicle) => {
+        const key = vehicle.supplyTransferVehicleId || vehicle.vehicleId;
+        const vehicleNote = receiveTransferForm.vehicleNotes[key];
+        const driverName = vehicleNote?.driverName?.trim();
+        const teamName = vehicleNote?.teamName?.trim();
+        if (!driverName && !teamName) return null;
+
+        const detail = [driverName, teamName].filter(Boolean).join(' - ');
+        return `${vehicle.vehicleTypeName || 'Phương tiện'} ${vehicle.licensePlate || vehicle.vehicleId}: ${detail}`;
+      })
+      .filter((value): value is string => !!value);
+
+    const mergedReceiveNotes = [receiveTransferForm.notes.trim(), ...vehicleNoteLines]
+      .filter(Boolean)
+      .join('\n');
 
     const uploadedEvidenceUrls = await Promise.all(
       receiveTransferForm.evidenceFiles.map(async (file) => {
@@ -1970,7 +2168,7 @@ export default function CoordinatorInventoryPage() {
               undefined,
           };
         }),
-        notes: receiveTransferForm.notes.trim() || undefined,
+        notes: mergedReceiveNotes || undefined,
         evidenceUrls,
       },
     });
@@ -1981,7 +2179,7 @@ export default function CoordinatorInventoryPage() {
       refetchSourceTransfers(),
       refetchDestinationTransfers(),
     ]);
-    setReceiveTransferForm({ notes: '', evidenceFiles: [], itemMetas: {} });
+    setReceiveTransferForm({ notes: '', evidenceFiles: [], vehicleNotes: {}, itemMetas: {} });
     setOpenReceiveTransfer(false);
     setSelectedTransferId(null);
   };
@@ -2081,11 +2279,40 @@ export default function CoordinatorInventoryPage() {
     setSelectedTransferId(transferId);
     const transfer = relatedTransfersDetailed.find((item) => item.id === transferId) ?? null;
     setShipTransferForm({
-      vehicleId: transfer?.vehicleId || '',
       notes: transfer?.notes || '',
       evidenceFiles: [],
     });
+    setSelectedShipVehicleIds([]);
     setOpenShipTransfer(true);
+  };
+
+  const handleAssignVehiclesToTransfer = async () => {
+    if (!selectedTransfer) return;
+    if (selectedShipVehicleIds.length === 0) {
+      toast.error('Vui lòng chọn ít nhất một xe để gán vào phiếu.');
+      return;
+    }
+
+    await assignTransferVehicles({
+      id: selectedTransfer.id,
+      data: {
+        vehicles: selectedShipVehicleIds.map((vehicleId) => ({ vehicleId })),
+      },
+    });
+
+    setSelectedShipVehicleIds([]);
+    await Promise.all([refetchSourceTransfers(), refetchDestinationTransfers()]);
+  };
+
+  const handleRemoveVehicleFromTransfer = async (supplyTransferVehicleId: string) => {
+    if (!selectedTransfer) return;
+
+    await removeTransferVehicle({
+      id: selectedTransfer.id,
+      supplyTransferVehicleId,
+    });
+
+    await Promise.all([refetchSourceTransfers(), refetchDestinationTransfers()]);
   };
 
   const openReceiveTransferDialog = (transferId: string) => {
@@ -2095,6 +2322,14 @@ export default function CoordinatorInventoryPage() {
     setReceiveTransferForm({
       notes: '',
       evidenceFiles: [],
+      vehicleNotes: Object.fromEntries(
+        (transfer?.vehicles || [])
+          .filter((vehicle) => vehicle.status !== 5)
+          .map((vehicle) => [
+            vehicle.supplyTransferVehicleId || vehicle.vehicleId,
+            { driverName: '', teamName: '' },
+          ]),
+      ),
       itemMetas: Object.fromEntries(
         (transfer?.items || []).map((item, index) => {
           const key = `${item.supplyItemId}-${index}`;
@@ -2939,22 +3174,7 @@ export default function CoordinatorInventoryPage() {
                       {transaction.createdByName || 'Chưa rõ'}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Lý do:{' '}
-                      {parseEnumValue(transaction.reason) === TransactionReason.CampaignAllocation
-                        ? 'Cấp phát cho chiến dịch'
-                        : parseEnumValue(transaction.reason) === TransactionReason.Procurement
-                          ? 'Mua hàng'
-                          : parseEnumValue(transaction.reason) ===
-                              TransactionReason.SupplyTransferIn
-                            ? 'Nhập từ kho khác'
-                            : parseEnumValue(transaction.reason) ===
-                                TransactionReason.SupplyTransferOut
-                              ? 'Xuất để chuyển hàng đi kho khác'
-                              : parseEnumValue(transaction.reason) === TransactionReason.Donation
-                                ? 'Nhận quà tặng'
-                                : parseEnumValue(transaction.reason) === TransactionReason.Other
-                                  ? 'Khác'
-                                  : transaction.reasonName || 'Chưa rõ'}
+                      Lý do: {getTransactionReasonLabel(transaction.reason, transaction.reasonName)}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       {transaction.notes || 'Không có ghi chú'}
@@ -3183,7 +3403,7 @@ export default function CoordinatorInventoryPage() {
                             <div className="min-w-0">
                               <p className="font-medium text-foreground">{item.supplyItemName}</p>
                               <p className="text-xs text-muted-foreground break-all">
-                                {item.supplyItemId}
+                                Mã vật phẩm: {item.supplyItemId?.slice(0, 6)}
                               </p>
                             </div>
                             <p className="text-sm font-medium text-foreground whitespace-nowrap">
@@ -3271,7 +3491,7 @@ export default function CoordinatorInventoryPage() {
         <DialogContent className="!max-w-none w-[95vw] h-[90vh] p-0 overflow-hidden flex flex-col">
           <DialogHeader className="px-6 py-4 border-b border-border shrink-0">
             <DialogTitle className="text-xl font-bold text-foreground">
-              Tạo phiếu yêu cầu điều phối lên Manager
+              Tạo phiếu yêu cầu điều phối
             </DialogTitle>
             <DialogDescription>
               Trạm đích mặc định là trạm <b>Điều phối viên</b> đang quản lý. Nguồn hàng lấy từ kho
@@ -3279,10 +3499,10 @@ export default function CoordinatorInventoryPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex-1 min-h-0 overflow-y-auto p-6">
+          <div ref={transferDialogBodyRef} className="flex-1 min-h-0 overflow-y-auto p-6">
             <div className="space-y-6">
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <div className="space-y-2">
+                <div ref={transferSourceFieldRef} className="space-y-2">
                   <label className="text-sm font-medium text-foreground">
                     Trạm nguồn / kho tổng
                   </label>
@@ -3329,11 +3549,14 @@ export default function CoordinatorInventoryPage() {
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-foreground">Trạm đích</label>
                   <Input value={station?.name || ''} readOnly />
+                  <p className="text-xs text-muted-foreground">
+                    Phiếu sẽ được gửi lên Manager cho trạm bạn đang quản lý.
+                  </p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:items-start">
-                <div className="space-y-2">
+                <div ref={transferReasonFieldRef} className="space-y-2">
                   <label className="text-sm font-medium text-foreground">
                     Lý do điều phối <span className="text-red-500">*</span>
                   </label>
@@ -3372,7 +3595,10 @@ export default function CoordinatorInventoryPage() {
                 </div>
               </div>
 
-              <div className="space-y-3 rounded-2xl border border-border bg-muted/10 p-4">
+              <div
+                ref={transferItemsFieldRef}
+                className="space-y-3 rounded-2xl border border-border bg-muted/10 p-4"
+              >
                 <p className="font-semibold text-foreground">Danh sách vật phẩm cần điều phối</p>
                 {transferErrors['items'] && (
                   <p className="text-xs text-red-500 flex items-center gap-1">
@@ -3414,26 +3640,27 @@ export default function CoordinatorInventoryPage() {
                         <SelectValue placeholder="Chọn thêm vật phẩm cần điều phối" />
                       </SelectTrigger>
                       <SelectContent>
-                        {supplyItems
-                          .filter((item) => selectedSourceSupplyIds.has(item.id))
-                          .map((item) => (
-                            <SelectItem key={item.id} value={item.id}>
-                              {item.name} • {getSupplyCategoryLabel(item.category)} •{' '}
-                              {formatNumberVN(
-                                selectedSourceStockMapBySupplyItemId.get(item.id)
-                                  ?.currentQuantity || 0,
-                              )}{' '}
-                              {item.unit}
-                            </SelectItem>
-                          ))}
+                        {availableTransferSupplyItems.map((item) => (
+                          <SelectItem key={item.id} value={item.id}>
+                            {item.name} • {getSupplyCategoryLabel(item.category)} •{' '}
+                            {formatNumberVN(
+                              selectedSourceStockMapBySupplyItemId.get(item.id)?.currentQuantity ||
+                                0,
+                            )}{' '}
+                            {item.unit}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Vật phẩm đã thêm vào phiếu sẽ không xuất hiện lại trong danh sách chọn.
+                    </p>
                   </div>
 
                   <Button
                     variant="outline"
                     className="gap-2 w-full lg:w-auto"
-                    disabled={!transferNewItemSupplyId || selectedSourceStocks.length === 0}
+                    disabled={!transferNewItemSupplyId || availableTransferSupplyItems.length === 0}
                     onClick={handleAddTransferItem}
                   >
                     <span className="material-symbols-outlined text-lg">add</span>
@@ -3551,7 +3778,10 @@ export default function CoordinatorInventoryPage() {
                 )}
               </div>
 
-              <div className="space-y-4 rounded-2xl border border-border bg-muted/10 p-4">
+              <div
+                ref={transferEvidenceFieldRef}
+                className="space-y-4 rounded-2xl border border-border bg-muted/10 p-4"
+              >
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                   <div>
                     <p className="font-semibold text-foreground">Hồ sơ PDF đính kèm</p>
@@ -3583,7 +3813,14 @@ export default function CoordinatorInventoryPage() {
                           const target = transferEvidenceFiles[index];
                           if (target) handleRemoveTransferEvidenceFile(target.id);
                         }}
-                        onFilesSelected={(files) => handleAddTransferEvidenceFiles(files, 'manual')}
+                        onFilesSelected={(files) => {
+                          handleAddTransferEvidenceFiles(files, 'manual');
+                          setTransferErrors((prev) => {
+                            const next = { ...prev };
+                            delete next['evidenceFiles'];
+                            return next;
+                          });
+                        }}
                       />
                     </div>
                   </div>
@@ -3635,6 +3872,12 @@ export default function CoordinatorInventoryPage() {
                       </div>
                     ))}
                   </div>
+                )}
+                {transferErrors['evidenceFiles'] && (
+                  <p className="text-xs text-red-500 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[14px]">error</span>
+                    {transferErrors['evidenceFiles']}
+                  </p>
                 )}
               </div>
             </div>
@@ -4252,32 +4495,125 @@ export default function CoordinatorInventoryPage() {
                   kho đích ở bước này.
                 </div>
 
-                <div className="space-y-2 rounded-2xl border border-border bg-muted/10 p-4">
-                  <label className="text-sm font-medium text-foreground">
-                    Phương tiện giao hàng
-                  </label>
-                  <Select
-                    value={shipTransferForm.vehicleId}
-                    onValueChange={(value) =>
-                      setShipTransferForm((prev) => ({ ...prev, vehicleId: value }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Chọn phương tiện đang sẵn sàng của trạm">
-                        {shipTransferForm.vehicleId ? shipTransferVehicleLabel : undefined}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableStationVehicles.map((vehicle) => (
-                        <SelectItem key={vehicle.vehicleId} value={vehicle.vehicleId}>
-                          {getVehicleDisplayLabel(vehicle.vehicleId)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {availableStationVehicles.length === 0 && (
+                <div className="space-y-3 rounded-2xl border border-border bg-muted/10 p-4">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Phương tiện đã gán</p>
                     <p className="text-xs text-muted-foreground">
-                      Hiện không có phương tiện nào của trạm ở trạng thái sẵn sàng.
+                      Flow mới dùng danh sách xe trong phiếu; không gửi vehicleId khi ship.
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-dashed border-border bg-background/70 p-3">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">
+                          Gán thêm xe rảnh của trạm
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Có thể chọn nhiều xe rồi gán vào phiếu trước khi chuyển sang vận chuyển.
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={
+                          selectedShipVehicleIds.length === 0 ||
+                          assignTransferVehiclesStatus === 'pending'
+                        }
+                        onClick={() => {
+                          void handleAssignVehiclesToTransfer();
+                        }}
+                      >
+                        {assignTransferVehiclesStatus === 'pending'
+                          ? 'Đang gán...'
+                          : 'Gán xe đã chọn'}
+                      </Button>
+                    </div>
+
+                    <div className="mt-3 max-h-[240px] space-y-2 overflow-y-auto pr-1">
+                      {isLoadingAvailableTransferVehicles ? (
+                        <p className="text-xs text-muted-foreground">
+                          Đang tải danh sách xe khả dụng...
+                        </p>
+                      ) : assignableTransferVehicles.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">
+                          Hiện không còn xe rảnh nào của trạm để gán thêm vào phiếu.
+                        </p>
+                      ) : (
+                        assignableTransferVehicles.map((vehicle) => {
+                          const checked = selectedShipVehicleIds.includes(vehicle.vehicleId);
+                          return (
+                            <label
+                              key={vehicle.vehicleId}
+                              className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-background px-3 py-3 transition-colors hover:bg-muted/50"
+                            >
+                              <Checkbox
+                                checked={checked}
+                                onCheckedChange={(value) =>
+                                  handleToggleShipVehicle(vehicle.vehicleId, value === true)
+                                }
+                                className="mt-0.5"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-semibold text-foreground">
+                                  {vehicle.vehicleTypeName || 'Phương tiện'}
+                                </p>
+                                <p className="truncate text-xs text-muted-foreground">
+                                  {vehicle.licensePlate || vehicle.vehicleId}
+                                </p>
+                                <p className="mt-1 text-[11px] text-muted-foreground">
+                                  {vehicle.currentUsingTeamName ||
+                                    vehicle.teamName ||
+                                    'Xe rảnh tại trạm'}
+                                </p>
+                              </div>
+                            </label>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                  {(selectedTransfer?.vehicles || []).length > 0 ? (
+                    <div className="space-y-2">
+                      {(selectedTransfer?.vehicles || []).map((vehicle) => (
+                        <div
+                          key={vehicle.supplyTransferVehicleId || vehicle.vehicleId}
+                          className="rounded-xl border border-border bg-background/80 p-3 text-sm"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <p className="font-semibold text-foreground">
+                              {vehicle.vehicleTypeName || 'Phương tiện'} •{' '}
+                              {vehicle.licensePlate || vehicle.vehicleId}
+                            </p>
+                            <span
+                              className={`rounded-full border px-2 py-1 text-[11px] font-semibold ${TRANSFER_VEHICLE_STATUS_META[vehicle.status]?.className || 'border-slate-300 bg-slate-100 text-slate-700'}`}
+                            >
+                              {TRANSFER_VEHICLE_STATUS_META[vehicle.status]?.label ||
+                                `Trạng thái ${vehicle.status}`}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Tài xế: {vehicle.driverName || vehicle.driverUserId || 'Chưa gán'}
+                          </p>
+                          {vehicle.note && (
+                            <p className="text-xs text-muted-foreground">Ghi chú: {vehicle.note}</p>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="mt-2 h-auto px-0 text-destructive"
+                            disabled={removeTransferVehicleStatus === 'pending'}
+                            onClick={() => {
+                              void handleRemoveVehicleFromTransfer(vehicle.supplyTransferVehicleId);
+                            }}
+                          >
+                            Bỏ xe khỏi phiếu
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-destructive">
+                      Phiếu chưa có xe. Hãy gán xe rảnh của trạm trước khi xuất hàng.
                     </p>
                   )}
                 </div>
@@ -4397,23 +4733,108 @@ export default function CoordinatorInventoryPage() {
                   lượng thực nhận của từng vật phẩm trong phiếu.
                 </div>
 
-                <div className="grid gap-3 rounded-2xl border border-border bg-muted/10 p-4 sm:grid-cols-2 xl:grid-cols-1">
-                  <div className="space-y-1 rounded-xl bg-background/80 p-3">
-                    <p className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                      Phương tiện
-                    </p>
-                    <p className="text-sm font-semibold text-foreground break-words">
+                <div className="rounded-2xl border border-border bg-muted/10 p-4">
+                  <p className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                    Phương tiện & tài xế giao hàng
+                  </p>
+                  {selectedTransferVehicleAssignments.length > 0 ? (
+                    <div className="mt-3 space-y-3">
+                      {selectedTransferVehicleAssignments.map((vehicle) => (
+                        <div
+                          key={vehicle.supplyTransferVehicleId || vehicle.vehicleId}
+                          className="rounded-xl bg-background/80 p-3"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-foreground break-words">
+                                {vehicle.vehicleTypeName || 'Phương tiện'} •{' '}
+                                {vehicle.licensePlate || vehicle.vehicleId}
+                              </p>
+                              <p className="mt-1 text-xs text-muted-foreground break-words">
+                                Tài xế: {vehicle.driverName || vehicle.driverUserId || 'Chưa gán'}
+                              </p>
+                            </div>
+                            <span
+                              className={`rounded-full border px-2 py-1 text-[11px] font-semibold ${TRANSFER_VEHICLE_STATUS_META[vehicle.status]?.className || 'border-slate-300 bg-slate-100 text-slate-700'}`}
+                            >
+                              {TRANSFER_VEHICLE_STATUS_META[vehicle.status]?.label ||
+                                `Trạng thái ${vehicle.status}`}
+                            </span>
+                          </div>
+                          {!vehicle.driverName && !vehicle.driverUserId && (
+                            <div className="mt-3 grid gap-3 md:grid-cols-2">
+                              <div className="space-y-2">
+                                <label className="text-xs font-medium text-foreground">
+                                  Tên tài xế
+                                </label>
+                                <Input
+                                  value={
+                                    receiveTransferForm.vehicleNotes[
+                                      vehicle.supplyTransferVehicleId || vehicle.vehicleId
+                                    ]?.driverName || ''
+                                  }
+                                  onChange={(event) =>
+                                    setReceiveTransferForm((prev) => ({
+                                      ...prev,
+                                      vehicleNotes: {
+                                        ...prev.vehicleNotes,
+                                        [vehicle.supplyTransferVehicleId || vehicle.vehicleId]: {
+                                          driverName: event.target.value,
+                                          teamName:
+                                            prev.vehicleNotes[
+                                              vehicle.supplyTransferVehicleId || vehicle.vehicleId
+                                            ]?.teamName || '',
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  placeholder="Ví dụ: Nguyễn Văn A"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-xs font-medium text-foreground">
+                                  Thuộc đội
+                                </label>
+                                <Input
+                                  value={
+                                    receiveTransferForm.vehicleNotes[
+                                      vehicle.supplyTransferVehicleId || vehicle.vehicleId
+                                    ]?.teamName || ''
+                                  }
+                                  onChange={(event) =>
+                                    setReceiveTransferForm((prev) => ({
+                                      ...prev,
+                                      vehicleNotes: {
+                                        ...prev.vehicleNotes,
+                                        [vehicle.supplyTransferVehicleId || vehicle.vehicleId]: {
+                                          driverName:
+                                            prev.vehicleNotes[
+                                              vehicle.supplyTransferVehicleId || vehicle.vehicleId
+                                            ]?.driverName || '',
+                                          teamName: event.target.value,
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  placeholder="Ví dụ: Đội Cứu trợ A hoặc Tài xế riêng của xe"
+                                />
+                              </div>
+                              <p className="text-[11px] text-muted-foreground md:col-span-2">
+                                Nếu tài xế không thuộc đội nào, hãy mô tả rõ như `Tài xế riêng của
+                                xe`. Hệ thống sẽ tự ghép theo định dạng `Nguyễn Văn A - Đội Cứu trợ
+                                A` hoặc `Nguyễn Văn A - Tài xế riêng của xe` trong ghi chú xác nhận
+                                nhận hàng.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-sm font-semibold text-foreground break-words">
                       {selectedTransferVehicleLabel}
                     </p>
-                  </div>
-                  <div className="space-y-1 rounded-xl bg-background/80 p-3">
-                    <p className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                      Người giao / tài xế
-                    </p>
-                    <p className="text-sm font-semibold text-foreground break-words">
-                      {selectedTransfer?.driverUserId || 'Chưa cập nhật'}
-                    </p>
-                  </div>
+                  )}
                 </div>
 
                 {!!selectedTransfer?.inventoryTransactionIds?.length && (
@@ -4439,7 +4860,7 @@ export default function CoordinatorInventoryPage() {
                     onChange={(event) =>
                       setReceiveTransferForm((prev) => ({ ...prev, notes: event.target.value }))
                     }
-                    placeholder="Nhập ghi chú khi nhận hàng nếu có"
+                    placeholder="Nhập ghi chú khi nhận hàng nếu có. Thông tin tài xế/team bổ sung sẽ được nối thêm tự động."
                   />
                 </div>
 
@@ -4507,14 +4928,17 @@ export default function CoordinatorInventoryPage() {
           <DialogHeader className="border-b border-border bg-gradient-to-r from-red-500/10 via-background to-background px-6 py-5">
             <DialogTitle>Hủy phiếu điều phối</DialogTitle>
             <DialogDescription>
-              {`${selectedTransferSummary.join(' • ')}. Cần nhập ghi chú hủy theo yêu cầu endpoint.`}
+              Có thể hủy phiếu ở trạng thái chờ duyệt, đã duyệt hoặc đang vận chuyển. Nếu phiếu đang
+              vận chuyển, hệ thống sẽ hoàn kho nguồn theo flow `SupplyTransferReturn` và trả xe về
+              trạng thái sẵn sàng.
             </DialogDescription>
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto space-y-5 px-6 py-5">
             <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-4 text-sm text-muted-foreground">
               Phiếu sẽ chuyển sang trạng thái{' '}
-              <span className="font-semibold text-red-700">Đã hủy</span>.
+              <span className="font-semibold text-red-700">Đã hủy</span>. Các xe đang active trên
+              phiếu sẽ được trả về trạng thái sẵn sàng để sử dụng lại.
             </div>
 
             <div className="space-y-2">
@@ -4741,10 +5165,12 @@ export default function CoordinatorInventoryPage() {
                                   </p>
                                 )}
                                 {parsedNotes.approver && (
-                                  <p>
-                                    <span className="font-medium">Người phê duyệt:</span>{' '}
-                                    {parsedNotes.approver}
-                                  </p>
+                                  <div>
+                                    <p className="font-medium">Người phê duyệt:</p>
+                                    <p className="mt-1 whitespace-pre-wrap break-words leading-6">
+                                      {formatApprovalApproverDisplay(parsedNotes.approver)}
+                                    </p>
+                                  </div>
                                 )}
                               </div>
                             </div>
@@ -4760,6 +5186,13 @@ export default function CoordinatorInventoryPage() {
                     <p className="mb-4 text-base font-semibold text-foreground">
                       Tiến trình xử lý phiếu
                     </p>
+                    {wasCancelledWhileShipping && (
+                      <div className="mb-4 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-900">
+                        Phiếu đã bị hủy sau khi hàng rời kho nguồn. Backend sẽ hoàn kho nguồn bằng
+                        giao dịch <span className="font-semibold">SupplyTransferReturn</span> và trả
+                        các xe active về trạng thái sẵn sàng.
+                      </div>
+                    )}
                     <div className="overflow-x-auto pb-1">
                       <div className="grid min-w-[320px] grid-cols-1 gap-3 sm:flex sm:min-w-[720px] sm:items-start sm:gap-2">
                         {selectedTransferTimelineStepper.map((step, index) => (
@@ -4812,19 +5245,43 @@ export default function CoordinatorInventoryPage() {
                     <div className="space-y-3 text-sm">
                       <div className="rounded-2xl border border-border bg-muted/10 p-4">
                         <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
-                          Phương tiện
+                          Phương tiện đang active
                         </p>
-                        <p className="mt-2 min-w-0 text-foreground break-all leading-6">
-                          {selectedTransferVehicleLabel}
-                        </p>
-                      </div>
-                      <div className="rounded-2xl border border-border bg-muted/10 p-4">
-                        <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
-                          Người giao / tài xế
-                        </p>
-                        <p className="mt-2 min-w-0 text-foreground break-all leading-6">
-                          {selectedTransfer.driverUserId || 'Chưa cập nhật'}
-                        </p>
+                        {selectedTransferVehicleAssignments.length > 0 ? (
+                          <div className="mt-2 space-y-3">
+                            {selectedTransferVehicleAssignments.map((vehicle) => (
+                              <div
+                                key={vehicle.supplyTransferVehicleId || vehicle.vehicleId}
+                                className="rounded-xl bg-background p-3"
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-semibold text-foreground break-words leading-6">
+                                      {vehicle.vehicleTypeName || 'Phương tiện'} •{' '}
+                                      {vehicle.licensePlate || vehicle.vehicleId}
+                                    </p>
+                                    <p className="mt-1 text-xs text-muted-foreground break-words leading-5">
+                                      Tài xế:{' '}
+                                      {vehicle.driverName ||
+                                        vehicle.driverUserId ||
+                                        'Chưa cập nhật'}
+                                    </p>
+                                  </div>
+                                  <span
+                                    className={`rounded-full border px-2 py-1 text-[11px] font-semibold ${TRANSFER_VEHICLE_STATUS_META[vehicle.status]?.className || 'border-slate-300 bg-slate-100 text-slate-700'}`}
+                                  >
+                                    {TRANSFER_VEHICLE_STATUS_META[vehicle.status]?.label ||
+                                      `Trạng thái ${vehicle.status}`}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="mt-2 min-w-0 text-foreground break-all leading-6">
+                            {selectedTransferVehicleLabel}
+                          </p>
+                        )}
                       </div>
                       <div className="rounded-2xl border border-border bg-muted/10 p-4">
                         <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
@@ -4847,6 +5304,18 @@ export default function CoordinatorInventoryPage() {
                           <p className="mt-2 text-foreground">Chưa có mã giao dịch kho.</p>
                         )}
                       </div>
+                      {wasCancelledWhileShipping && (
+                        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4">
+                          <p className="text-xs uppercase tracking-[0.14em] text-amber-700">
+                            Ghi chú hoàn kho
+                          </p>
+                          <p className="mt-2 min-w-0 text-foreground break-all leading-6">
+                            Phiếu này đã hủy khi đang vận chuyển. Hãy kiểm tra transaction reason
+                            <span className="font-semibold"> SupplyTransferReturn</span> trong lịch
+                            sử kho để đối soát số lượng hoàn về kho nguồn.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </section>

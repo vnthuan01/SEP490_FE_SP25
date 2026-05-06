@@ -248,8 +248,7 @@ export function CreateInventoryItemDialog({
             </div>
           ) : (
             <div className="rounded-xl border border-border bg-muted/20 p-4 text-sm text-muted-foreground space-y-1">
-              <p>Vật phẩm chưa có trong kho nên hệ thống sẽ tạo mới một lô/stock trực tiếp.</p>
-              <p>Trường hợp này không yêu cầu ghi chú vì API tạo stock không có trường ghi chú.</p>
+              <p>Vật phẩm chưa có trong kho nên hệ thống sẽ tạo mới một lô trực tiếp.</p>
             </div>
           )}
 
@@ -309,35 +308,39 @@ export function CreateInventoryItemDialog({
             />
           </div>
 
-          {existingStock && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Đơn giá nhập (tùy chọn)</Label>
-                <Input
-                  inputMode="numeric"
-                  placeholder="Ví dụ: 15.000"
-                  value={formatNumberInputVN(form.unitCost ?? '')}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    update(
-                      'unitCost',
-                      e.target.value ? parseFormattedNumber(e.target.value) : undefined,
-                    )
-                  }
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Nguồn tham chiếu</Label>
-                <Input
-                  placeholder="Ví dụ: Nhà cung cấp A / Biên bản số 12"
-                  value={form.sourceReference || ''}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    update('sourceReference', e.target.value)
-                  }
-                />
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Đơn giá nhập (tùy chọn)</Label>
+              <Input
+                inputMode="numeric"
+                placeholder="Ví dụ: 15.000"
+                value={formatNumberInputVN(form.unitCost ?? '')}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  update(
+                    'unitCost',
+                    e.target.value ? parseFormattedNumber(e.target.value) : undefined,
+                  )
+                }
+              />
+              <p className="text-xs text-muted-foreground">
+                Nhập khi vật tư được mua hoặc tiếp nhận từ nguồn bên ngoài.
+              </p>
             </div>
-          )}
+
+            <div className="space-y-2">
+              <Label>Nguồn tham chiếu</Label>
+              <Input
+                placeholder="Ví dụ: Nhà cung cấp A / Biên bản số 12"
+                value={form.sourceReference || ''}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  update('sourceReference', e.target.value)
+                }
+              />
+              <p className="text-xs text-muted-foreground">
+                Ví dụ: nhà cung cấp, nhà tài trợ, biên bản hoặc phiếu nhập.
+              </p>
+            </div>
+          </div>
 
           {existingStock && (
             <div className="space-y-2">
@@ -544,8 +547,12 @@ export function CreateInventoryItemDialog({
                 } else {
                   setSubmitError('Không thể nhập kho. Vui lòng kiểm tra thông tin và thử lại.');
                 }
-              } catch {
-                setSubmitError('Không thể nhập kho. Vui lòng kiểm tra thông tin và thử lại.');
+              } catch (error) {
+                setSubmitError(
+                  error instanceof Error && error.message
+                    ? error.message
+                    : 'Không thể nhập kho. Vui lòng kiểm tra thông tin và thử lại.',
+                );
               } finally {
                 setSubmitting(false);
               }
