@@ -660,6 +660,29 @@ export default function ReliefDistributionPage() {
     campaignTeamId: filtersValue.teamId,
     deliveryMode: filtersValue.deliveryMode,
   });
+  const activeDistributionPoints = useMemo(
+    () => distributionPoints.filter((point) => point.isActive),
+    [distributionPoints],
+  );
+
+  useEffect(() => {
+    const activePointIds = new Set(
+      activeDistributionPoints.map((point) => point.distributionPointId),
+    );
+
+    if (selectedDistributionPointId && !activePointIds.has(selectedDistributionPointId)) {
+      setSelectedDistributionPointId('');
+    }
+
+    if (filtersValue.distributionPointId && !activePointIds.has(filtersValue.distributionPointId)) {
+      setFiltersValue((prev) => ({ ...prev, distributionPointId: undefined }));
+    }
+
+    setDeliveryAssignmentForm((prev) => {
+      if (!prev?.distributionPointId || activePointIds.has(prev.distributionPointId)) return prev;
+      return { ...prev, distributionPointId: null };
+    });
+  }, [activeDistributionPoints, filtersValue.distributionPointId, selectedDistributionPointId]);
   const { packages } = useReliefPackages(effectiveSelectedCampaignId);
   const {
     inventoryBalance,
@@ -2121,7 +2144,7 @@ export default function ReliefDistributionPage() {
 
   const distributionPointSummaries = useMemo(
     () =>
-      distributionPoints.map((point) => ({
+      activeDistributionPoints.map((point) => ({
         id: point.distributionPointId,
         name: point.name,
         address: point.address || '',
@@ -2133,7 +2156,7 @@ export default function ReliefDistributionPage() {
         assignedHouseholdCount: point.assignedHouseholdCount ?? 0,
         deliveredCount: (point.totalDeliveryCount ?? 0) - (point.pendingDeliveryCount ?? 0),
       })),
-    [distributionPoints],
+    [activeDistributionPoints],
   );
 
   const isolatedHouseholdsForMap = useMemo(() => {
@@ -2461,7 +2484,7 @@ export default function ReliefDistributionPage() {
             />
             <StatCard
               label="Điểm phát đã tạo"
-              value={distributionPoints.length}
+              value={activeDistributionPoints.length}
               note="Dùng cho các hộ nhận tại điểm phát"
               icon="location_on"
               iconClass="bg-amber-500/10 text-amber-600 dark:text-amber-300"
@@ -2689,15 +2712,15 @@ export default function ReliefDistributionPage() {
                 </p>
               </div>
               <Badge variant="outline" appearance="light">
-                {formatNumberVN(distributionPoints.length)} điểm phát
+                {formatNumberVN(activeDistributionPoints.length)} điểm phát
               </Badge>
             </div>
 
-            {distributionPoints.length === 0 ? (
+            {activeDistributionPoints.length === 0 ? (
               <p className="text-sm text-muted-foreground">Chưa có điểm phát nào.</p>
             ) : (
               <div className="space-y-3">
-                {distributionPoints.map((point) => (
+                {activeDistributionPoints.map((point) => (
                   <div
                     key={point.distributionPointId}
                     className="flex flex-col gap-3 rounded-xl border border-border bg-muted/20 p-4 md:flex-row md:items-center md:justify-between"
@@ -3137,13 +3160,13 @@ export default function ReliefDistributionPage() {
             canAssign={canAssign}
             onAssign={handleAssignSelectedHouseholds}
             hasPickupHouseholds={hasPickupHouseholds}
-            hasDistributionPoint={distributionPoints.length > 0}
+            hasDistributionPoint={activeDistributionPoints.length > 0}
             filtersValue={filtersValue}
             onChangeFilters={handleFiltersChange}
             onResetFilters={resetFilters}
             filtersExpanded={filtersExpanded}
             onFiltersExpandedChange={setFiltersExpanded}
-            distributionPoints={distributionPoints.map((point) => ({
+            distributionPoints={activeDistributionPoints.map((point) => ({
               label: point.name,
               value: point.distributionPointId,
             }))}
@@ -3958,7 +3981,7 @@ export default function ReliefDistributionPage() {
                       }
                     >
                       <option value="">Không chọn</option>
-                      {distributionPoints.map((point) => (
+                      {activeDistributionPoints.map((point) => (
                         <option key={point.distributionPointId} value={point.distributionPointId}>
                           {point.name}
                         </option>
