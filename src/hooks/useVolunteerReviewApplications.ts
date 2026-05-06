@@ -5,13 +5,18 @@ export const VOLUNTEER_REVIEW_QUERY_KEYS = {
   all: ['volunteer-review-applications'] as const,
 };
 
+const REVIEW_APPLICATION_PAGE_SIZE = 1000;
+
 export function useVolunteerReviewApplications() {
   const queryClient = useQueryClient();
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: VOLUNTEER_REVIEW_QUERY_KEYS.all,
     queryFn: async () => {
-      const res = await volunteerProfileService.getReviewApplications();
+      const res = await volunteerProfileService.getReviewApplications({
+        pageIndex: 1,
+        pageSize: REVIEW_APPLICATION_PAGE_SIZE,
+      });
       return res.data;
     },
   });
