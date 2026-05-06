@@ -337,6 +337,7 @@ const attachmentTypeLabel = (type?: number | string | null) => {
 };
 
 const REQUEST_LIST_PAGE_SIZE = 5;
+const REQUEST_LIST_FETCH_SIZE = 1000;
 
 const GOONG_MAP_KEY = import.meta.env.VITE_GOONG_MAP_KEY || '';
 const GOONG_API_KEY = import.meta.env.VITE_GOONG_API_KEY || '';
@@ -352,7 +353,7 @@ export default function CoordinatorRequestManagementPage() {
     verifyStatus,
     rejectRequest,
     rejectStatus,
-  } = useRescueRequestManagement(1, 10);
+  } = useRescueRequestManagement(1, REQUEST_LIST_FETCH_SIZE);
   const { station } = useMyReliefStation();
 
   const [search, setSearch] = useState('');
